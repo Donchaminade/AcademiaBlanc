@@ -63,6 +63,7 @@ public class SchoolController {
   private final BulletinService bulletins;
   private final EleveImportService importEleves;
   private final SerieService series;
+  private final AnneeDependances dependancesAnnee;
 
   public SchoolController(
       AnneeScolaireRepository annees,
@@ -77,7 +78,8 @@ public class SchoolController {
       NoteRepository notes,
       BulletinService bulletins,
       EleveImportService importEleves,
-      SerieService series
+      SerieService series,
+      AnneeDependances dependancesAnnee
   ) {
     this.annees = annees;
     this.centres = centres;
@@ -92,6 +94,7 @@ public class SchoolController {
     this.bulletins = bulletins;
     this.importEleves = importEleves;
     this.series = series;
+    this.dependancesAnnee = dependancesAnnee;
   }
 
   public record AnneeRequest(@NotBlank @Size(max = 40) String libelle, LocalDate dateDebut, LocalDate dateFin, boolean courante) {}
@@ -141,8 +144,21 @@ public class SchoolController {
   @Transactional
   public void supprimerAnnee(@PathVariable Long id) {
     Tenant.requireStaff();
-    annees.delete(lire(annees, id));
+    AnneeScolaire annee = lire(annees, id);
+    dependancesAnnee.verifierSupprimable(annee);
+    annees.delete(annee);
     flush(annees);
+  }
+
+  /** Désigne l'année courante de l'établissement ; les autres années repassent en « archivée ». */
+  @PutMapping("/annees-scolaires/{id}/courante")
+  @Transactional
+  public AnneeScolaire definirAnneeCourante(@PathVariable Long id) {
+    Tenant.requireStaff();
+    AnneeScolaire annee = lire(annees, id);
+    retirerAnneeCourante(annee.getId());
+    annee.setCourante(true);
+    return annees.save(annee);
   }
 
   @GetMapping("/centres")
@@ -568,7 +584,18 @@ public class SchoolController {
     annee.setLibelle(request.libelle().trim());
     annee.setDateDebut(request.dateDebut());
     annee.setDateFin(request.dateFin());
+    if (request.courante()) retirerAnneeCourante(annee.getId());
     annee.setCourante(request.courante());
+  }
+
+  /** Une seule année courante par établissement : retire le drapeau aux autres années. */
+  private void retirerAnneeCourante(Long saufId) {
+    for (AnneeScolaire autre : annees.findByEtablissementIdOrderByLibelleDesc(Tenant.current().etablissementId())) {
+      if (autre.isCourante() && !autre.getId().equals(saufId)) {
+        autre.setCourante(false);
+        annees.save(autre);
+      }
+    }
   }
 
   private void remplir(SessionExamen session, SessionRequest request) {
