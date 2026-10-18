@@ -8,4 +8,5 @@ public interface SessionExamenRepository extends JpaRepository<SessionExamen, Lo
   List<SessionExamen> findByEtablissementIdOrderByNomAsc(Long etablissementId);
 
   long countByEtablissementId(Long etablissementId);
+  long countByAnneeScolaireId(Long anneeScolaireId);
 }

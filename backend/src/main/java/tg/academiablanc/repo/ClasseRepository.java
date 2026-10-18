@@ -9,6 +9,7 @@ public interface ClasseRepository extends JpaRepository<Classe, Long> {
   List<Classe> findByEtablissementIdOrderByNomAsc(Long etablissementId);
 
   long countByEtablissementId(Long etablissementId);
+  long countByAnneeScolaireId(Long anneeScolaireId);
 
   Optional<Classe> findFirstByEtablissementIdAndNomIgnoreCase(Long etablissementId, String nom);
 }
