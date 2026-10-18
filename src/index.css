@@ -251,12 +251,14 @@
     box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
-    width: 100% !important;
-    max-width: none !important;
+    /* Largeur utile A4 (210 mm − marges 8 mm). Évite le zoom et
+       empêche la feuille groupée, calée sur la fenêtre, de dépasser la page. */
+    width: 194mm !important;
+    max-width: 194mm !important;
     min-width: 0 !important;
     height: auto !important;
     min-height: 0 !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     transform: none !important;
     break-inside: avoid !important;
@@ -376,10 +378,19 @@
     position: static !important;
     inset: auto !important;
     overflow: visible !important;
+    width: auto !important;
+    max-width: none !important;
     height: auto !important;
     max-height: none !important;
     background: #ffffff !important;
     backdrop-filter: none !important;
+  }
+
+  body[data-print-mode='all-bulletins'] .batch-print-overlay > div {
+    width: auto !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   body[data-print-mode='emargement'] .students-ui,
