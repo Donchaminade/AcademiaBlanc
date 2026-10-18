@@ -16,7 +16,7 @@ import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
-import { apiDelete, apiSend, clearToken, getSession, getToken, isForbidden, isPlatformAccount, refreshSession, roleLabel } from './api/client';
+import { apiDelete, apiSend, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, refreshSession, roleLabel } from './api/client';
 import type { AuthSession } from './api/client';
 import { usePermissions } from './api/permissions';
 import { confirmAction, showError } from './utils/alerts';
@@ -78,6 +78,8 @@ export default function App() {
   });
 
   const [accountRole, setAccountRole] = useState(() => getSession()?.role ?? '');
+  // Session plateforme sans établissement : barre latérale réduite, aucune vue d'établissement accessible.
+  const [sessionPlateformeSeule, setSessionPlateformeSeule] = useState<boolean>(() => Boolean(getToken()) && isPlatformOnlyAccount());
   // Hors application : `/` (vitrine), `/connexion`, `/inscription`.
   const [route, navigate] = usePublicRoute();
   const { can, adminAccess } = usePermissions();
@@ -156,6 +158,7 @@ export default function App() {
     ]);
     const session = getSession();
     setUsingApi(true);
+    setSessionPlateformeSeule(false);
     setApiUser(session ? { name: session.nomUtilisateur || session.email, role: roleLabel(session.role) } : null);
     setSubjects(workspace.subjects);
     setCandidates(workspace.candidates);
@@ -185,12 +188,29 @@ export default function App() {
   /**
    * Compte de niveau plateforme sans établissement (propriétaire créé au démarrage, gestionnaire) :
    * aucun espace de travail à charger, mais la session API doit être marquée active pour que la barre
-   * latérale affiche le compte et la déconnexion au lieu des données de démonstration.
+   * latérale affiche le compte et la déconnexion au lieu des données de démonstration. L'espace de
+   * démonstration chargé avant la connexion (candidats, matières, session et centre fictifs) est vidé :
+   * aucun compteur ni libellé fictif ne doit apparaître pour un vrai compte.
    */
   const appliquerSessionPlateforme = (session: AuthSession | null) => {
     setUsingApi(true);
+    setSessionPlateformeSeule(true);
     setApiUser(session ? { name: session.nomUtilisateur || session.email, role: roleLabel(session.role) } : null);
+    setCandidates([]);
+    setSubjects([]);
+    setApiSessions([]);
+    setApiCenters([]);
+    setActiveSessionId(null);
+    setActiveClasseId(null);
+    setActiveExamType('');
+    setSelectedCandidateId('');
+    setSelectedSession('');
+    setSelectedCenter('');
     setSettings((prev) => ({ ...prev, institutionName: session?.nomEtablissement || 'Plateforme AcademiaBlanc' }));
+    setIsSignatureModalOpen(false);
+    setIsSmsModalOpen(false);
+    setIsSearchModalOpen(false);
+    setIsBatchPrintModalOpen(false);
     setCurrentView('plateforme');
   };
 
@@ -241,6 +261,7 @@ export default function App() {
     const comptePlateforme = isPlatformAccount(getSession());
     clearToken();
     setUsingApi(false);
+    setSessionPlateformeSeule(false);
     setApiUser(null);
     setAccountRole('');
     setCandidates([]);
@@ -284,6 +305,11 @@ export default function App() {
   useEffect(() => {
     if (currentView !== 'auth' && route !== 'vitrine') navigate('vitrine', { replace: true });
   }, [currentView, route, navigate]);
+
+  // Un compte plateforme sans établissement n'a aucune vue d'établissement : tout écart revient sur la vue Plateforme.
+  useEffect(() => {
+    if (sessionPlateformeSeule && currentView !== 'plateforme' && currentView !== 'auth') setCurrentView('plateforme');
+  }, [sessionPlateformeSeule, currentView]);
 
   // Switch active establishment
   const handleSelectSchool = (schoolId: string) => {
@@ -547,6 +573,8 @@ export default function App() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) {
         return;
       }
+      // Aucun élève ni bulletin pour une session plateforme : recherche et impression groupée sans objet.
+      if (sessionPlateformeSeule) return;
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -587,7 +615,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [candidates, selectedCandidateId, currentView, isBatchPrintModalOpen, selectedCandidate, settings.institutionName, selectedSession, usingApi, can]);
+  }, [candidates, selectedCandidateId, currentView, isBatchPrintModalOpen, selectedCandidate, settings.institutionName, selectedSession, usingApi, can, sessionPlateformeSeule]);
 
   // Impression des bulletins : libre hors API, soumise à BULLETINS:IMPRIMER une fois connecté.
   const peutImprimer = !usingApi || can('BULLETINS', 'IMPRIMER');
@@ -650,15 +678,16 @@ export default function App() {
         onToggleOffline={handleToggleOffline}
         settings={settings}
         candidatesCount={candidates.length}
-        onOpenBatchPrint={peutImprimer ? () => setIsBatchPrintModalOpen(true) : undefined}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
-        onOpenSearch={() => setIsSearchModalOpen(true)}
+        onOpenBatchPrint={peutImprimer && !sessionPlateformeSeule ? () => setIsBatchPrintModalOpen(true) : undefined}
+        onOpenAuth={sessionPlateformeSeule ? undefined : () => setIsAuthModalOpen(true)}
+        onOpenSearch={sessionPlateformeSeule ? undefined : () => setIsSearchModalOpen(true)}
         sessionOptions={usingApi ? apiSessions.map((item) => item.label) : undefined}
         centerOptions={usingApi ? apiCenters : undefined}
         platformOwner={isPlatformAccount(getSession()) || accountRole === 'SUPER_ADMIN' || accountRole === 'GESTIONNAIRE_PLATEFORME'}
+        platformOnly={sessionPlateformeSeule}
         usingApi={usingApi}
         apiUser={usingApi ? apiUser : null}
-        onOpenAdmin={usingApi && adminAccess ? () => openAdmin() : undefined}
+        onOpenAdmin={usingApi && adminAccess && !sessionPlateformeSeule ? () => openAdmin() : undefined}
         onLogout={usingApi ? handleLogout : undefined}
       />
 
