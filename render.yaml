@@ -14,7 +14,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ALLOWED_ORIGINS
-        value: https://academia.vercel.app,https://academia-*.vercel.app,http://localhost:3000,http://127.0.0.1:3000
+        value: https://academia-chaminadegithubs-projects.vercel.app,https://academia-ochre-chi.vercel.app,http://localhost:3000,http://127.0.0.1:3000
       - key: DATABASE_URL
         fromDatabase:
           name: academiablanc-db
