@@ -403,7 +403,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <tr key={s.id} className="hover:bg-[#f2f3ff]/50 transition-colors">
                     <td className="py-2 px-3 font-semibold text-[#131b2e]">{s.name}</td>
                     <td className="py-2 px-2 text-[#444651]">{s.teacher || <span className="italic">Non affecté</span>}</td>
-                    <td className="py-2 px-2 font-mono text-center font-bold text-[#00236f]">{s.coef}</td>
+                    <td className="py-2 px-2 font-mono text-center font-bold text-[#00236f]">
+                      {s.coef}
+                      {s.coefDefault && <span className="text-[#fc922b]" title="Aucun coefficient saisi : 1 par défaut">*</span>}
+                    </td>
                   </tr>
                 ))}
                 {subjects.length === 0 && (
@@ -427,6 +430,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 )}
               </tbody>
             </table>
+            {subjects.some((s) => s.coefDefault) && (
+              <p className="mt-2 text-[11px] text-[#444651]">
+                <span className="text-[#fc922b] font-bold">*</span> Aucun coefficient saisi pour cette matière : 1 est appliqué par défaut.
+                {usingApi && onOpenAdmin && (
+                  <>
+                    {' '}
+                    <button
+                      type="button"
+                      onClick={() => onOpenAdmin('coefficients')}
+                      className="font-semibold text-[#0051d5] hover:underline"
+                    >
+                      Saisir les coefficients
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
           </div>
         </div>
       </div>

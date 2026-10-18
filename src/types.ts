@@ -3,6 +3,8 @@ export interface Subject {
   name: string;
   teacher: string;
   coef: number;
+  /** Vrai quand aucun coefficient n'a été saisi sur l'API : la valeur 1 est appliquée par défaut. */
+  coefDefault?: boolean;
 }
 
 export type MentionType = 'TRÈS BIEN' | 'BIEN' | 'ASSEZ BIEN' | 'PASSABLE' | 'RATTRAPAGE' | 'AJOURNÉ';

@@ -124,9 +124,12 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section, scrol
   };
 
   useEffect(() => {
-    if (!section) return;
+    if (scrollKey === 0 && !section) return;
     // Attendre le rendu des sections (elles dépendent du token) avant de défiler.
-    const timer = window.setTimeout(() => scrollToSection(section), 80);
+    const timer = window.setTimeout(() => {
+      if (section) scrollToSection(section);
+      else window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 80);
     return () => window.clearTimeout(timer);
   }, [section, scrollKey]);
 

@@ -64,18 +64,23 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
       || affectations.find((item) => item.matiereId === matiereId);
     return profs.find((item) => item.id === link?.professeurId)?.nom || '';
   };
-  const coefOf = (matiereId: number, classeId?: number) => {
+  const coefOf = (matiereId: number, classeId?: number): { value: number; isDefault: boolean } => {
     const specific = coefficients.find((item) => item.matiereId === matiereId && item.classeId === classeId);
     const general = coefficients.find((item) => item.matiereId === matiereId && (item.classeId == null));
-    return Number(specific?.valeur ?? general?.valeur ?? 1);
+    const saved = specific?.valeur ?? general?.valeur;
+    return saved == null ? { value: 1, isDefault: true } : { value: Number(saved), isDefault: false };
   };
 
-  const subjects: Subject[] = matieres.map((matiere) => ({
-    id: String(matiere.id),
-    name: matiere.nom,
-    teacher: teacherName(matiere.id),
-    coef: coefOf(matiere.id),
-  }));
+  const subjects: Subject[] = matieres.map((matiere) => {
+    const coef = coefOf(matiere.id);
+    return {
+      id: String(matiere.id),
+      name: matiere.nom,
+      teacher: teacherName(matiere.id),
+      coef: coef.value,
+      coefDefault: coef.isDefault,
+    };
+  });
 
   const roster = session
     ? eleves.filter((eleve) => eleve.sessionId == null || eleve.sessionId === session.id)
