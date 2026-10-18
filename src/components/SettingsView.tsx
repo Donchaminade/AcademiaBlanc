@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS, TOGO_SETTINGS, CI_SETTINGS } from '../data/mockData';
 import { ArchivedSessionsSection } from './ArchivedSessionsSection';
 import { AdminParametres } from './AdminParametres';
 import { isSafeImageUrl } from '../utils/safeUrl';
+import { confirmAction } from '../utils/alerts';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -106,8 +107,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     triggerToast();
   };
 
-  const handleResetDefaults = () => {
-    if (confirm('Voulez-vous rétablir les logos et paramètres officiels par défaut ?')) {
+  const handleResetDefaults = async () => {
+    const ok = await confirmAction({
+      title: 'Rétablir les valeurs par défaut ?',
+      text: 'Les logos et paramètres officiels par défaut remplaceront la configuration actuelle.',
+      confirmText: 'Rétablir',
+      icon: 'warning',
+    });
+    if (ok) {
       setFormData(DEFAULT_SETTINGS);
       onUpdateSettings(DEFAULT_SETTINGS);
       triggerToast();
@@ -133,7 +140,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleResetDefaults}
+            onClick={() => void handleResetDefaults()}
             className="px-3.5 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#e2e7ff] transition-colors"
           >
             Rétablir valeurs par défaut
