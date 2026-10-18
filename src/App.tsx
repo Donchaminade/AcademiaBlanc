@@ -6,13 +6,14 @@ import { StudentsListView } from './components/StudentsListView';
 import { GradingView } from './components/GradingView';
 import { RecordsView } from './components/RecordsView';
 import { SettingsView } from './components/SettingsView';
+import { AdminParametres } from './components/AdminParametres';
 import { AuthView } from './components/AuthView';
 import { AllBulletinsPrintModal } from './components/AllBulletinsPrintModal';
 import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
-import { apiDelete, apiSend, getSession, getToken } from './api/client';
+import { apiDelete, apiSend, getSession, getToken, roleLabel } from './api/client';
 import { loadSchoolWorkspace, ExamOption } from './api/workspace';
 import {
   getRegisteredSchools,
@@ -21,7 +22,7 @@ import {
   getSchoolData,
   saveSchoolData,
 } from './data/schoolsData';
-import { Candidate, Subject, ViewMode, AppSettings, SchoolAccount } from './types';
+import { Candidate, Subject, ViewMode, AppSettings, SchoolAccount, AdminSection } from './types';
 import { printDocument } from './utils/printDocument';
 
 export default function App() {
@@ -45,20 +46,30 @@ export default function App() {
     return data.settings;
   });
 
-  const [subjects, setSubjects] = useState<Subject[]>(INITIAL_SUBJECTS);
+  // En mode API, aucune matière de démonstration : la liste vient de l'espace de travail chargé.
+  const [subjects, setSubjects] = useState<Subject[]>(() => (getToken() ? [] : INITIAL_SUBJECTS));
   const [apiSessions, setApiSessions] = useState<ExamOption[]>([]);
   const [apiCenters, setApiCenters] = useState<string[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [activeClasseId, setActiveClasseId] = useState<number | null>(null);
+  const [activeExamType, setActiveExamType] = useState<string>('');
   const [usingApi, setUsingApi] = useState<boolean>(() => Boolean(getToken()));
+  const [apiUser, setApiUser] = useState<{ name: string; role: string } | null>(() => {
+    const session = getSession();
+    if (!getToken() || !session) return null;
+    return { name: session.nomUtilisateur || session.email, role: roleLabel(session.role) };
+  });
+  const [adminTarget, setAdminTarget] = useState<{ section: AdminSection | null; nonce: number }>({ section: null, nonce: 0 });
   const [selectedCandidateId, setSelectedCandidateId] = useState<string>(() => {
+    if (getToken()) return '';
     const data = getSchoolData(getCurrentSchoolId());
     return data.candidates[0]?.id || '';
   });
 
   const [currentView, setCurrentView] = useState<ViewMode>(() => (getToken() ? 'bulletin' : 'auth'));
-  const [selectedSession, setSelectedSession] = useState<string>('BAC II Blanc 2025 - Série D');
+  const [selectedSession, setSelectedSession] = useState<string>(() => (getToken() ? '' : 'BAC II Blanc 2025 - Série D'));
   const [selectedCenter, setSelectedCenter] = useState<string>(() => {
+    if (getToken()) return '';
     return `${currentSchool?.name || 'Lycée Moderne de Tokoin'} (Centre 01)`;
   });
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(() => {
@@ -109,12 +120,14 @@ export default function App() {
     const workspace = await loadSchoolWorkspace(sessionId);
     const session = getSession();
     setUsingApi(true);
+    setApiUser(session ? { name: session.nomUtilisateur || session.email, role: roleLabel(session.role) } : null);
     setSubjects(workspace.subjects);
     setCandidates(workspace.candidates);
     setApiSessions(workspace.sessions);
     setApiCenters(workspace.centers.map((item) => item.label));
     setActiveSessionId(workspace.sessionId);
     setActiveClasseId(workspace.classeId);
+    setActiveExamType(workspace.examType);
     setSettings((prev) => ({
       ...prev,
       institutionName: session?.nomEtablissement || prev.institutionName,
@@ -122,11 +135,22 @@ export default function App() {
       sessionName: workspace.sessionName || prev.sessionName,
       examType: workspace.examType || prev.examType,
     }));
-    if (workspace.sessionName) setSelectedSession(workspace.sessionName);
-    if (workspace.centerLabel) setSelectedCenter(workspace.centerLabel);
+    // Les libellés viennent exclusivement de l'API : vide tant qu'aucune session / aucun centre n'existe.
+    setSelectedSession(workspace.sessionName);
+    setSelectedCenter(workspace.centerLabel);
     setSelectedCandidateId((current) => workspace.candidates.some((item) => item.id === current)
       ? current
       : workspace.candidates[0]?.id || '');
+  };
+
+  const reloadWorkspace = () => {
+    if (!getToken()) return;
+    applyWorkspace(activeSessionId ?? undefined).catch((err: Error) => showToast(err.message || 'Impossible de recharger la base.'));
+  };
+
+  const openAdmin = (section?: AdminSection) => {
+    setAdminTarget((prev) => ({ section: section ?? null, nonce: prev.nonce + 1 }));
+    setCurrentView('admin');
   };
 
   useEffect(() => {
@@ -280,7 +304,8 @@ export default function App() {
   const handleAddNewCandidate = (newCand: Candidate) => {
     if (getToken()) {
       if (!activeClasseId) {
-        showToast('Créez d’abord une classe dans Paramètres → Administration (API).');
+        showToast('Créez d’abord une classe dans Administration (barre latérale).');
+        openAdmin('classes');
         return;
       }
       void apiSend('/api/eleves', 'POST', {
@@ -471,6 +496,9 @@ export default function App() {
         onOpenSearch={() => setIsSearchModalOpen(true)}
         sessionOptions={usingApi ? apiSessions.map((item) => item.label) : undefined}
         centerOptions={usingApi ? apiCenters : undefined}
+        usingApi={usingApi}
+        apiUser={usingApi ? apiUser : null}
+        onOpenAdmin={usingApi ? () => openAdmin() : undefined}
       />
 
       {/* Main Content Area - Navigated strictly via Sidebar */}
@@ -478,10 +506,53 @@ export default function App() {
         {/* View Routing */}
         <main className="relative bg-[#faf8ff] flex-1">
           {currentView === 'bulletin' && !selectedCandidate && (
-            <div className="p-10 text-[14px] text-[#444651]">
-              {usingApi
-                ? 'Aucun élève dans la base de cet établissement. Créez une classe et un élève dans Paramètres → Administration (API), ou depuis la liste des élèves.'
-                : 'Connectez l’établissement pour afficher les élèves enregistrés.'}
+            <div className="p-10 text-[14px] text-[#444651] space-y-3">
+              <p>
+                {usingApi
+                  ? 'Aucun élève dans la base de cet établissement. Créez une classe et un élève dans Administration, ou depuis la liste des élèves.'
+                  : 'Connectez l’établissement pour afficher les élèves enregistrés.'}
+              </p>
+              {usingApi && (
+                <button
+                  type="button"
+                  onClick={() => openAdmin('eleves')}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[#0051d5] text-white text-[13px] font-semibold hover:bg-[#003cb3] transition-colors"
+                >
+                  <span className="material-symbols-outlined text-base">admin_panel_settings</span>
+                  <span>Ouvrir l’Administration (API)</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {currentView === 'admin' && (
+            <div className="p-8 max-w-5xl mx-auto space-y-6">
+              <div className="bg-white rounded p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5] bg-[#eaedff] px-2.5 py-1 rounded">
+                    Administration (API)
+                  </span>
+                  <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">
+                    Données de l’établissement
+                  </h2>
+                  <p className="text-[13px] text-[#444651] mt-0.5">
+                    Années scolaires, centres, sessions, matières et coefficients, enseignants, classes, affectations, élèves et notes.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('dashboard')}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[#eaedff] text-[#00236f] text-[13px] font-semibold hover:bg-[#dce1ff] transition-colors"
+                >
+                  <span className="material-symbols-outlined text-base">analytics</span>
+                  <span>Retour au tableau de bord</span>
+                </button>
+              </div>
+              <AdminParametres
+                section={adminTarget.section}
+                scrollKey={adminTarget.nonce}
+                onDataChanged={reloadWorkspace}
+              />
             </div>
           )}
 
@@ -535,6 +606,10 @@ export default function App() {
               onNavigate={setCurrentView}
               selectedSession={selectedSession}
               selectedCenter={selectedCenter}
+              usingApi={usingApi}
+              hasApiSession={apiSessions.length > 0}
+              examType={activeExamType}
+              onOpenAdmin={usingApi ? openAdmin : undefined}
             />
           )}
 
@@ -579,6 +654,7 @@ export default function App() {
               onOpenAuth={() => setIsAuthModalOpen(true)}
               candidates={candidates}
               allStats={allStats}
+              onAdminDataChanged={reloadWorkspace}
             />
           )}
         </main>

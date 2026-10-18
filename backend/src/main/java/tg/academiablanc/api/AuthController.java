@@ -62,7 +62,14 @@ public class AuthController {
       @NotBlank @Size(max = 80) String motDePasse
   ) {}
 
-  public record AuthResponse(String token, Long etablissementId, String role, String nomEtablissement, String email) {}
+  public record AuthResponse(
+      String token,
+      Long etablissementId,
+      String role,
+      String nomEtablissement,
+      String email,
+      String nomUtilisateur
+  ) {}
 
   @PostMapping("/signup")
   @Transactional
@@ -106,7 +113,8 @@ public class AuthController {
     annee.setCourante(true);
     annees.save(annee);
 
-    return new AuthResponse(jwtService.create(owner), school.getId(), owner.getRole().name(), school.getNom(), owner.getEmail());
+    return new AuthResponse(
+        jwtService.create(owner), school.getId(), owner.getRole().name(), school.getNom(), owner.getEmail(), owner.getNom());
   }
 
   @PostMapping("/login")
@@ -118,7 +126,8 @@ public class AuthController {
     }
     Etablissement school = etablissements.findById(user.getEtablissementId())
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Établissement introuvable."));
-    return new AuthResponse(jwtService.create(user), school.getId(), user.getRole().name(), school.getNom(), user.getEmail());
+    return new AuthResponse(
+        jwtService.create(user), school.getId(), user.getRole().name(), school.getNom(), user.getEmail(), user.getNom());
   }
 
   private static String codeFrom(String nom, String ville) {

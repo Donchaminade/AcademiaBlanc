@@ -4,6 +4,19 @@ export interface AuthSession {
   role: string;
   nomEtablissement: string;
   email: string;
+  nomUtilisateur?: string;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: 'Responsable de l’établissement',
+  ADMIN: 'Administrateur',
+  SECRETAIRE: 'Secrétariat',
+  ENSEIGNANT: 'Enseignant',
+};
+
+export function roleLabel(role?: string | null): string {
+  if (!role) return 'Compte établissement';
+  return ROLE_LABELS[role.toUpperCase()] || role;
 }
 
 const TOKEN_KEY = 'academiablanc_token';

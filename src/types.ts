@@ -54,7 +54,19 @@ export interface CandidateComputedStats {
   differenceToPromo: number;
 }
 
-export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'auth';
+export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth';
+
+export type AdminSection =
+  | 'annees'
+  | 'centres'
+  | 'sessions'
+  | 'matieres'
+  | 'coefficients'
+  | 'enseignants'
+  | 'classes'
+  | 'affectations'
+  | 'eleves'
+  | 'notes';
 
 export interface AppSettings {
   logoUrl: string;

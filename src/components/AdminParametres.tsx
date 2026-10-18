@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiSend, getToken } from '../api/client';
+import { AdminSection } from '../types';
 
 interface Annee { id: number; libelle: string; courante: boolean; dateDebut?: string; dateFin?: string; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
@@ -15,7 +16,31 @@ interface Note { id: number; eleveId: number; matiereId: number; sessionId: numb
 const field = 'border border-[#eaedff] rounded px-2 py-1 text-[13px]';
 const primary = 'px-3 py-1 rounded bg-[#00236f] text-white text-[12px] font-semibold';
 
-export const AdminParametres: React.FC = () => {
+/** Ordre conseillé de saisie : chaque étape dépend des précédentes. */
+export const ADMIN_STEPS: { section: AdminSection; label: string }[] = [
+  { section: 'annees', label: 'Année scolaire' },
+  { section: 'centres', label: 'Centre' },
+  { section: 'sessions', label: 'Session' },
+  { section: 'matieres', label: 'Matières & coefficients' },
+  { section: 'enseignants', label: 'Enseignants' },
+  { section: 'classes', label: 'Classes' },
+  { section: 'affectations', label: 'Affectations' },
+  { section: 'eleves', label: 'Élèves' },
+  { section: 'notes', label: 'Notes' },
+];
+
+export const adminSectionAnchor = (section: AdminSection) => `admin-section-${section}`;
+
+interface AdminParametresProps {
+  /** Section à faire défiler à l'ouverture (ou quand elle change). */
+  section?: AdminSection | null;
+  /** Change à chaque demande de défilement, même vers la même section. */
+  scrollKey?: number;
+  /** Appelé après chaque création / modification / suppression réussie. */
+  onDataChanged?: () => void;
+}
+
+export const AdminParametres: React.FC<AdminParametresProps> = ({ section, scrollKey = 0, onDataChanged }) => {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [annees, setAnnees] = useState<Annee[]>([]);
@@ -93,6 +118,18 @@ export const AdminParametres: React.FC = () => {
     load().catch((err: Error) => setError(err.message));
   }, []);
 
+  const scrollToSection = (target: AdminSection) => {
+    const node = document.getElementById(adminSectionAnchor(target));
+    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  useEffect(() => {
+    if (!section) return;
+    // Attendre le rendu des sections (elles dépendent du token) avant de défiler.
+    const timer = window.setTimeout(() => scrollToSection(section), 80);
+    return () => window.clearTimeout(timer);
+  }, [section, scrollKey]);
+
   const run = async (action: () => Promise<void>, ok = 'Enregistré.') => {
     setError('');
     setInfo('');
@@ -100,6 +137,7 @@ export const AdminParametres: React.FC = () => {
       await action();
       await load();
       setInfo(ok);
+      onDataChanged?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Échec de l’enregistrement.');
     }
@@ -128,12 +166,54 @@ export const AdminParametres: React.FC = () => {
     );
   }
 
+  const counts: Record<AdminSection, number> = {
+    annees: annees.length,
+    centres: centres.length,
+    sessions: sessions.length,
+    matieres: matieres.length,
+    coefficients: coefficients.length,
+    enseignants: profs.length,
+    classes: classes.length,
+    affectations: affectations.length,
+    eleves: eleves.length,
+    notes: notes.length,
+  };
+
   return (
     <div className="space-y-6">
+      <nav className="bg-white border border-[#eaedff] rounded p-4 space-y-2" aria-label="Ordre de saisie">
+        <p className="text-[12px] text-[#444651]">
+          Ordre conseillé : chaque étape utilise les fiches créées à l’étape précédente. Cliquez pour aller directement à la section.
+        </p>
+        <ol className="flex flex-wrap gap-1.5 text-[12px]">
+          {ADMIN_STEPS.map((step, index) => {
+            const done = counts[step.section] > 0;
+            return (
+              <li key={step.section} className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => scrollToSection(step.section)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+                    done
+                      ? 'bg-[#eaedff] border-[#dce1ff] text-[#00236f]'
+                      : 'bg-white border-[#eaedff] text-[#444651] hover:bg-[#f2f3ff]'
+                  }`}
+                >
+                  <span className="font-mono text-[10px]">{index + 1}</span>
+                  <span>{step.label}</span>
+                  <span className="font-mono text-[10px] text-[#0051d5]">{counts[step.section]}</span>
+                </button>
+                {index < ADMIN_STEPS.length - 1 && <span className="text-[#90a8ff]">→</span>}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+
       {error && <p className="text-[13px] text-[#ba1a1a]">{error}</p>}
       {info && <p className="text-[13px] text-[#0051d5]">{info}</p>}
 
-      <section className="bg-white border border-[#eaedff] rounded p-5 space-y-3">
+      <section id={adminSectionAnchor('annees')} className="bg-white border border-[#eaedff] rounded p-5 space-y-3 scroll-mt-6">
         <h3 className="font-bold text-[#00236f]">Années scolaires</h3>
         <ul className="text-[13px] space-y-1">
           {annees.map((item) => (
@@ -160,7 +240,7 @@ export const AdminParametres: React.FC = () => {
         </form>
       </section>
 
-      <section className="bg-white border border-[#eaedff] rounded p-5 space-y-3">
+      <section id={adminSectionAnchor('centres')} className="bg-white border border-[#eaedff] rounded p-5 space-y-3 scroll-mt-6">
         <h3 className="font-bold text-[#00236f]">Centres d'examen</h3>
         <ul className="text-[13px] space-y-1">
           {centres.map((item) => (
@@ -188,7 +268,7 @@ export const AdminParametres: React.FC = () => {
         </form>
       </section>
 
-      <section className="bg-white border border-[#eaedff] rounded p-5 space-y-3">
+      <section id={adminSectionAnchor('sessions')} className="bg-white border border-[#eaedff] rounded p-5 space-y-3 scroll-mt-6">
         <h3 className="font-bold text-[#00236f]">Sessions d'examen</h3>
         <ul className="text-[13px] space-y-1">
           {sessions.map((item) => (
@@ -229,7 +309,7 @@ export const AdminParametres: React.FC = () => {
         </form>
       </section>
 
-      <section className="bg-white border border-[#eaedff] rounded p-5 space-y-3">
+      <section id={adminSectionAnchor('matieres')} className="bg-white border border-[#eaedff] rounded p-5 space-y-3 scroll-mt-6">
         <h3 className="font-bold text-[#00236f]">Matières et coefficients</h3>
         <ul className="text-[13px] space-y-1">
           {matieres.map((item) => (
@@ -254,6 +334,7 @@ export const AdminParametres: React.FC = () => {
           <button type="submit" className={primary}>{matiereEdit ? 'Mettre à jour' : 'Créer'}</button>
           {matiereEdit && <button type="button" className="text-[12px]" onClick={() => setMatiereEdit(null)}>Nouvelle fiche</button>}
         </form>
+        <h4 id={adminSectionAnchor('coefficients')} className="text-[13px] font-semibold text-[#00236f] pt-2 scroll-mt-6">Coefficients</h4>
         <ul className="text-[13px] space-y-1">
           {coefficients.map((item) => (
             <li key={item.id} className="flex justify-between gap-3">
@@ -291,8 +372,9 @@ export const AdminParametres: React.FC = () => {
         </form>
       </section>
 
-      <section className="bg-white border border-[#eaedff] rounded p-5 space-y-3">
+      <section id={adminSectionAnchor('enseignants')} className="bg-white border border-[#eaedff] rounded p-5 space-y-3 scroll-mt-6">
         <h3 className="font-bold text-[#00236f]">Enseignants, classes, titulaire et affectations</h3>
+        <h4 className="text-[13px] font-semibold text-[#00236f]">Enseignants</h4>
         <ul className="text-[13px] space-y-1">
           {profs.map((item) => (
             <li key={item.id} className="flex justify-between gap-3">
@@ -316,6 +398,7 @@ export const AdminParametres: React.FC = () => {
           <button type="submit" className={primary}>{profEdit ? 'Mettre à jour' : 'Ajouter l’enseignant'}</button>
           {profEdit && <button type="button" className="text-[12px]" onClick={() => setProfEdit(null)}>Nouvelle fiche</button>}
         </form>
+        <h4 id={adminSectionAnchor('classes')} className="text-[13px] font-semibold text-[#00236f] pt-2 scroll-mt-6">Classes</h4>
         <ul className="text-[13px] space-y-1">
           {classes.map((item) => (
             <li key={item.id} className="flex justify-between gap-3">
@@ -348,6 +431,7 @@ export const AdminParametres: React.FC = () => {
           <button type="submit" className={primary}>{classeEdit ? 'Mettre à jour la classe' : 'Créer la classe'}</button>
           {classeEdit && <button type="button" className="text-[12px]" onClick={() => setClasseEdit(null)}>Nouvelle fiche</button>}
         </form>
+        <h4 id={adminSectionAnchor('affectations')} className="text-[13px] font-semibold text-[#00236f] pt-2 scroll-mt-6">Affectations enseignant · matière · classe</h4>
         <ul className="text-[13px] space-y-1">
           {affectations.map((item) => (
             <li key={item.id} className="flex justify-between gap-3">
@@ -386,7 +470,7 @@ export const AdminParametres: React.FC = () => {
         </form>
       </section>
 
-      <section className="bg-white border border-[#eaedff] rounded p-5 space-y-3">
+      <section id={adminSectionAnchor('eleves')} className="bg-white border border-[#eaedff] rounded p-5 space-y-3 scroll-mt-6">
         <h3 className="font-bold text-[#00236f]">Élèves</h3>
         <ul className="text-[13px] space-y-1">
           {eleves.map((item) => (
@@ -436,11 +520,18 @@ export const AdminParametres: React.FC = () => {
         </form>
       </section>
 
-      <section className="bg-white border border-[#eaedff] rounded p-5 space-y-3">
+      <section id={adminSectionAnchor('notes')} className="bg-white border border-[#eaedff] rounded p-5 space-y-3 scroll-mt-6">
         <h3 className="font-bold text-[#00236f]">Notes</h3>
         <label className="text-[13px] flex gap-2 items-center">
           Session affichée
-          <select value={sessionNotes} onChange={(e) => { sessionNotesRef.current = e.target.value; setSessionNotes(e.target.value); void run(async () => { setNotes(await apiGet<Note[]>(`/api/notes?sessionId=${e.target.value}`)); }, 'Notes affichées.'); }} className={field}>
+          <select value={sessionNotes} onChange={(e) => {
+            sessionNotesRef.current = e.target.value;
+            setSessionNotes(e.target.value);
+            setError('');
+            apiGet<Note[]>(`/api/notes?sessionId=${e.target.value}`)
+              .then((items) => { setNotes(items); setInfo('Notes affichées.'); })
+              .catch((err: Error) => setError(err.message));
+          }} className={field}>
             {sessions.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}
           </select>
         </label>

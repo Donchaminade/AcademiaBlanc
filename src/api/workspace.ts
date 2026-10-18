@@ -36,6 +36,10 @@ export interface SchoolWorkspace {
   sessionName: string;
   examType: string;
   centerLabel: string;
+  /** Somme des coefficients réellement enregistrés sur l'API (0 si aucune matière). */
+  totalCoef: number;
+  /** Nombre de coefficients explicitement saisis (les matières sans coefficient comptent 1 par défaut). */
+  coefficientsCount: number;
 }
 
 export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<SchoolWorkspace> {
@@ -113,5 +117,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
     sessionName: session?.nom || '',
     examType: session?.typeExamen || '',
     centerLabel: centre ? `${centre.nom}${centre.code ? ` (${centre.code})` : ''}` : '',
+    totalCoef: subjects.reduce((sum, subject) => sum + subject.coef, 0),
+    coefficientsCount: coefficients.length,
   };
 }
