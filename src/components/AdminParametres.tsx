@@ -119,14 +119,14 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
       <table className="w-full text-[13px]">
         <thead>
           <tr className="bg-[#f2f3ff] text-left text-[11px] uppercase tracking-wide text-[#444651]">
-            {columns.map((col) => <th key={col.header} className={`px-3 py-2 font-bold ${col.className ?? ''}`}>{col.header}</th>)}
+            {columns.map((col) => <th key={col.header} className={`px-3 py-2 font-bold whitespace-nowrap ${col.className ?? ''}`}>{col.header}</th>)}
             <th className="px-3 py-2 font-bold text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.id} className={`border-t border-[#eaedff] transition-colors ${editingId === row.id ? 'bg-[#eaedff]/60' : 'hover:bg-[#faf8ff]'}`}>
-              {columns.map((col) => <td key={col.header} className={`px-3 py-2 text-[#131b2e] ${col.className ?? ''}`}>{col.render(row)}</td>)}
+              {columns.map((col) => <td key={col.header} className={`px-3 py-2 text-[#131b2e] whitespace-nowrap ${col.className ?? ''}`}>{col.render(row)}</td>)}
               <td className="px-3 py-1.5">
                 <div className="flex items-center justify-end gap-1">
                   <button
@@ -215,6 +215,19 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
   const [sessionNotes, setSessionNotes] = useState('');
   const sessionNotesRef = useRef('');
 
+  const reset = {
+    annee: () => { setAnneeEdit(null); setAnnee('2025-2026'); },
+    centre: () => { setCentreEdit(null); setCentre(EMPTY.centre); },
+    session: () => { setSessionEdit(null); setSession(EMPTY.session); },
+    matiere: () => { setMatiereEdit(null); setMatiere(EMPTY.matiere); },
+    coefficient: () => { setCoefficientEdit(null); setCoefficient(EMPTY.coefficient); },
+    prof: () => { setProfEdit(null); setProf(EMPTY.prof); },
+    classe: () => { setClasseEdit(null); setClasse(EMPTY.classe); },
+    affectation: () => { setAffectationEdit(null); setAffectation(EMPTY.affectation); },
+    eleve: () => { setEleveEdit(null); setEleve(EMPTY.eleve); },
+    note: () => { setNoteEdit(null); setNote(EMPTY.note); },
+  };
+
   const nom = (liste: { id: number; nom?: string; libelle?: string; nomComplet?: string }[], id?: number) =>
     liste.find((item) => item.id === id)?.nom
     || liste.find((item) => item.id === id)?.libelle
@@ -265,10 +278,11 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
     reload();
   }, []);
 
-  const run = async (action: () => Promise<void>, ok = 'Enregistré.') => {
+  const run = async (action: () => Promise<void>, ok = 'Enregistré.', afterSuccess?: () => void) => {
     try {
       await action();
       await load();
+      afterSuccess?.();
       toastSuccess(ok);
     } catch (err) {
       await showError('Échec de l’enregistrement', err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
@@ -388,7 +402,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
                 { header: 'Statut', render: (r) => r.courante ? <Badge tone="green">Courante</Badge> : <Badge>Archivée</Badge> },
               ]}
               onEdit={(r) => void open<Annee>(`/api/annees-scolaires/${r.id}`, (detail) => { setAnneeEdit(detail); setAnnee(detail.libelle); })}
-              onDelete={(r) => void remove(`/api/annees-scolaires/${r.id}`, r.libelle, () => setAnneeEdit(null))}
+              onDelete={(r) => void remove(`/api/annees-scolaires/${r.id}`, r.libelle, reset.annee)}
             />
             {anneeEdit && <EditBanner id={anneeEdit.id} summary={<>{anneeEdit.libelle} · courante : {anneeEdit.courante ? 'oui' : 'non'}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
@@ -396,12 +410,12 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
               const body = { libelle: annee.trim(), courante: anneeEdit?.courante ?? false };
               void run(() => anneeEdit
                 ? apiSend(`/api/annees-scolaires/${anneeEdit.id}`, 'PUT', body).then(() => undefined)
-                : apiSend('/api/annees-scolaires', 'POST', body).then(() => undefined), anneeEdit ? 'Année scolaire mise à jour.' : 'Année scolaire créée.');
+                : apiSend('/api/annees-scolaires', 'POST', body).then(() => undefined), anneeEdit ? 'Année scolaire mise à jour.' : 'Année scolaire créée.', reset.annee);
             }}>
               <Field label="Libellé de l’année">
                 <input required placeholder="2025-2026" value={annee} onChange={(e) => setAnnee(e.target.value)} className={field} />
               </Field>
-              <FormActions editing={!!anneeEdit} createLabel="Créer l’année" onCancel={() => { setAnneeEdit(null); setAnnee('2025-2026'); }} />
+              <FormActions editing={!!anneeEdit} createLabel="Créer l’année" onCancel={reset.annee} />
             </form>
           </SectionCard>
 
@@ -417,14 +431,14 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
                 { header: 'Ville', render: (r) => r.ville || <span className="text-[#757682]">—</span> },
               ]}
               onEdit={(r) => void open<Centre>(`/api/centres/${r.id}`, (detail) => { setCentreEdit(detail); setCentre({ nom: detail.nom, code: detail.code, ville: detail.ville || '' }); })}
-              onDelete={(r) => void remove(`/api/centres/${r.id}`, r.nom, () => setCentreEdit(null))}
+              onDelete={(r) => void remove(`/api/centres/${r.id}`, r.nom, reset.centre)}
             />
             {centreEdit && <EditBanner id={centreEdit.id} summary={<>{centreEdit.code} · {centreEdit.nom} · {centreEdit.ville || 'ville non renseignée'}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               void run(() => centreEdit
                 ? apiSend(`/api/centres/${centreEdit.id}`, 'PUT', centre).then(() => undefined)
-                : apiSend('/api/centres', 'POST', centre).then(() => undefined), centreEdit ? 'Centre mis à jour.' : 'Centre créé.');
+                : apiSend('/api/centres', 'POST', centre).then(() => undefined), centreEdit ? 'Centre mis à jour.' : 'Centre créé.', reset.centre);
             }}>
               <Field label="Nom du centre" className="lg:col-span-2">
                 <input required placeholder="CS Harmonia" value={centre.nom} onChange={(e) => setCentre({ ...centre, nom: e.target.value })} className={field} />
@@ -435,7 +449,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
               <Field label="Ville">
                 <input placeholder="Lomé" value={centre.ville} onChange={(e) => setCentre({ ...centre, ville: e.target.value })} className={field} />
               </Field>
-              <FormActions editing={!!centreEdit} createLabel="Créer le centre" onCancel={() => { setCentreEdit(null); setCentre(EMPTY.centre); }} />
+              <FormActions editing={!!centreEdit} createLabel="Créer le centre" onCancel={reset.centre} />
             </form>
           </SectionCard>
 
@@ -456,7 +470,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
                 setSessionEdit(detail);
                 setSession({ nom: detail.nom, typeExamen: detail.typeExamen, statut: detail.statut, serie: detail.serie || '', anneeScolaireId: String(detail.anneeScolaireId), centreId: String(detail.centreId) });
               })}
-              onDelete={(r) => void remove(`/api/sessions/${r.id}`, r.nom, () => setSessionEdit(null))}
+              onDelete={(r) => void remove(`/api/sessions/${r.id}`, r.nom, reset.session)}
             />
             {sessionEdit && <EditBanner id={sessionEdit.id} summary={<>{sessionEdit.typeExamen} · année {nom(annees, sessionEdit.anneeScolaireId)} · centre {nom(centres, sessionEdit.centreId)}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
@@ -467,7 +481,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
               const body = { ...session, anneeScolaireId: anneeId, centreId };
               void run(() => sessionEdit
                 ? apiSend(`/api/sessions/${sessionEdit.id}`, 'PUT', body).then(() => undefined)
-                : apiSend('/api/sessions', 'POST', body).then(() => undefined), sessionEdit ? 'Session mise à jour.' : 'Session créée.');
+                : apiSend('/api/sessions', 'POST', body).then(() => undefined), sessionEdit ? 'Session mise à jour.' : 'Session créée.', reset.session);
             }}>
               <Field label="Nom de la session" className="lg:col-span-2">
                 <input required placeholder="BEPC BLANC" value={session.nom} onChange={(e) => setSession({ ...session, nom: e.target.value })} className={field} />
@@ -484,7 +498,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
                   {centres.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}
                 </select>
               </Field>
-              <FormActions editing={!!sessionEdit} createLabel="Créer la session" onCancel={() => { setSessionEdit(null); setSession(EMPTY.session); }} />
+              <FormActions editing={!!sessionEdit} createLabel="Créer la session" onCancel={reset.session} />
             </form>
           </SectionCard>
         </div>
@@ -508,14 +522,14 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
                 } },
               ]}
               onEdit={(r) => void open<Matiere>(`/api/matieres/${r.id}`, (detail) => { setMatiereEdit(detail); setMatiere({ nom: detail.nom, code: detail.code }); })}
-              onDelete={(r) => void remove(`/api/matieres/${r.id}`, r.nom, () => setMatiereEdit(null))}
+              onDelete={(r) => void remove(`/api/matieres/${r.id}`, r.nom, reset.matiere)}
             />
             {matiereEdit && <EditBanner id={matiereEdit.id} summary={<>code {matiereEdit.code} · {matiereEdit.nom}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               void run(() => matiereEdit
                 ? apiSend(`/api/matieres/${matiereEdit.id}`, 'PUT', matiere).then(() => undefined)
-                : apiSend('/api/matieres', 'POST', matiere).then(() => undefined), matiereEdit ? 'Matière mise à jour.' : 'Matière créée.');
+                : apiSend('/api/matieres', 'POST', matiere).then(() => undefined), matiereEdit ? 'Matière mise à jour.' : 'Matière créée.', reset.matiere);
             }}>
               <Field label="Code">
                 <input required placeholder="MATH" value={matiere.code} onChange={(e) => setMatiere({ ...matiere, code: e.target.value })} className={field} />
@@ -523,7 +537,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
               <Field label="Nom de la matière" className="lg:col-span-3">
                 <input required placeholder="Mathématiques" value={matiere.nom} onChange={(e) => setMatiere({ ...matiere, nom: e.target.value })} className={field} />
               </Field>
-              <FormActions editing={!!matiereEdit} createLabel="Créer la matière" onCancel={() => { setMatiereEdit(null); setMatiere(EMPTY.matiere); }} />
+              <FormActions editing={!!matiereEdit} createLabel="Créer la matière" onCancel={reset.matiere} />
             </form>
           </SectionCard>
 
@@ -543,7 +557,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
                 setCoefficientEdit(detail);
                 setCoefficient({ matiereId: String(detail.matiereId), classeId: detail.classeId ? String(detail.classeId) : '', serie: detail.serie || '', valeur: String(detail.valeur) });
               })}
-              onDelete={(r) => void remove(`/api/coefficients/${r.id}`, `coefficient ${r.valeur} — ${nom(matieres, r.matiereId)}`, () => setCoefficientEdit(null))}
+              onDelete={(r) => void remove(`/api/coefficients/${r.id}`, `coefficient ${r.valeur} — ${nom(matieres, r.matiereId)}`, reset.coefficient)}
             />
             {coefficientEdit && <EditBanner id={coefficientEdit.id} summary={<>valeur {coefficientEdit.valeur} · série {coefficientEdit.serie || '—'}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
@@ -553,7 +567,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
               const body = { matiereId: Number(coefficient.matiereId), classeId: coefficient.classeId ? Number(coefficient.classeId) : null, serie: coefficient.serie, valeur };
               void run(() => coefficientEdit
                 ? apiSend(`/api/coefficients/${coefficientEdit.id}`, 'PUT', body).then(() => undefined)
-                : apiSend('/api/coefficients', 'POST', body).then(() => undefined), coefficientEdit ? 'Coefficient mis à jour.' : 'Coefficient ajouté.');
+                : apiSend('/api/coefficients', 'POST', body).then(() => undefined), coefficientEdit ? 'Coefficient mis à jour.' : 'Coefficient ajouté.', reset.coefficient);
             }}>
               <Field label="Matière" className="lg:col-span-2">
                 <select required value={coefficient.matiereId} onChange={(e) => setCoefficient({ ...coefficient, matiereId: e.target.value })} className={field}>
@@ -570,7 +584,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
               <Field label="Valeur (0,5 à 20)">
                 <input required inputMode="decimal" placeholder="2" value={coefficient.valeur} onChange={(e) => setCoefficient({ ...coefficient, valeur: e.target.value })} className={field} />
               </Field>
-              <FormActions editing={!!coefficientEdit} createLabel="Ajouter le coefficient" updateLabel="Mettre à jour le coefficient" onCancel={() => { setCoefficientEdit(null); setCoefficient(EMPTY.coefficient); }} />
+              <FormActions editing={!!coefficientEdit} createLabel="Ajouter le coefficient" updateLabel="Mettre à jour le coefficient" onCancel={reset.coefficient} />
             </form>
           </SectionCard>
         </div>
@@ -594,14 +608,14 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
                 } },
               ]}
               onEdit={(r) => void open<Professeur>(`/api/professeurs/${r.id}`, (detail) => { setProfEdit(detail); setProf({ nom: detail.nom, email: detail.email || '' }); })}
-              onDelete={(r) => void remove(`/api/professeurs/${r.id}`, r.nom, () => setProfEdit(null))}
+              onDelete={(r) => void remove(`/api/professeurs/${r.id}`, r.nom, reset.prof)}
             />
             {profEdit && <EditBanner id={profEdit.id} summary={<>{profEdit.nom} · {profEdit.email || 'email non renseigné'}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               void run(() => profEdit
                 ? apiSend(`/api/professeurs/${profEdit.id}`, 'PUT', prof).then(() => undefined)
-                : apiSend('/api/professeurs', 'POST', prof).then(() => undefined), profEdit ? 'Enseignant mis à jour.' : 'Enseignant ajouté.');
+                : apiSend('/api/professeurs', 'POST', prof).then(() => undefined), profEdit ? 'Enseignant mis à jour.' : 'Enseignant ajouté.', reset.prof);
             }}>
               <Field label="Nom complet" className="lg:col-span-2">
                 <input required placeholder="Nom Prénom" value={prof.nom} onChange={(e) => setProf({ ...prof, nom: e.target.value })} className={field} />
@@ -609,7 +623,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
               <Field label="Email" className="lg:col-span-2">
                 <input type="email" placeholder="prof@ecole.tg" value={prof.email} onChange={(e) => setProf({ ...prof, email: e.target.value })} className={field} />
               </Field>
-              <FormActions editing={!!profEdit} createLabel="Ajouter l’enseignant" onCancel={() => { setProfEdit(null); setProf(EMPTY.prof); }} />
+              <FormActions editing={!!profEdit} createLabel="Ajouter l’enseignant" onCancel={reset.prof} />
             </form>
           </SectionCard>
 
@@ -629,7 +643,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
                 setClasseEdit(detail);
                 setClasse({ nom: detail.nom, niveau: detail.niveau, serie: detail.serie || '', titulaireId: detail.titulaireId ? String(detail.titulaireId) : '', anneeScolaireId: String(detail.anneeScolaireId) });
               })}
-              onDelete={(r) => void remove(`/api/classes/${r.id}`, r.nom, () => setClasseEdit(null))}
+              onDelete={(r) => void remove(`/api/classes/${r.id}`, r.nom, reset.classe)}
             />
             {classeEdit && <EditBanner id={classeEdit.id} summary={<>{classeEdit.niveau} · {classeEdit.serie || 'série non renseignée'} · année {nom(annees, classeEdit.anneeScolaireId)}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
@@ -639,7 +653,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
               const body = { anneeScolaireId: anneeId, nom: classe.nom, niveau: classe.niveau, serie: classe.serie, titulaireId: classe.titulaireId ? Number(classe.titulaireId) : null };
               void run(() => classeEdit
                 ? apiSend(`/api/classes/${classeEdit.id}`, 'PUT', body).then(() => undefined)
-                : apiSend('/api/classes', 'POST', body).then(() => undefined), classeEdit ? 'Classe mise à jour.' : 'Classe créée.');
+                : apiSend('/api/classes', 'POST', body).then(() => undefined), classeEdit ? 'Classe mise à jour.' : 'Classe créée.', reset.classe);
             }}>
               <Field label="Nom de la classe" className="lg:col-span-2">
                 <input required placeholder="Tle D1" value={classe.nom} onChange={(e) => setClasse({ ...classe, nom: e.target.value })} className={field} />
@@ -650,7 +664,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
                   {profs.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}
                 </select>
               </Field>
-              <FormActions editing={!!classeEdit} createLabel="Créer la classe" updateLabel="Mettre à jour la classe" onCancel={() => { setClasseEdit(null); setClasse(EMPTY.classe); }} />
+              <FormActions editing={!!classeEdit} createLabel="Créer la classe" updateLabel="Mettre à jour la classe" onCancel={reset.classe} />
             </form>
           </SectionCard>
 
@@ -669,7 +683,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
                 setAffectationEdit(detail);
                 setAffectation({ professeurId: String(detail.professeurId), matiereId: String(detail.matiereId), classeId: String(detail.classeId) });
               })}
-              onDelete={(r) => void remove(`/api/affectations/${r.id}`, `${nom(profs, r.professeurId)} · ${nom(matieres, r.matiereId)} · ${nom(classes, r.classeId)}`, () => setAffectationEdit(null))}
+              onDelete={(r) => void remove(`/api/affectations/${r.id}`, `${nom(profs, r.professeurId)} · ${nom(matieres, r.matiereId)} · ${nom(classes, r.classeId)}`, reset.affectation)}
             />
             {affectationEdit && <EditBanner id={affectationEdit.id} summary={<>{nom(profs, affectationEdit.professeurId)} · {nom(matieres, affectationEdit.matiereId)} · {nom(classes, affectationEdit.classeId)}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" onSubmit={(e) => {
@@ -677,7 +691,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
               const body = { professeurId: Number(affectation.professeurId), matiereId: Number(affectation.matiereId), classeId: Number(affectation.classeId) };
               void run(() => affectationEdit
                 ? apiSend(`/api/affectations/${affectationEdit.id}`, 'PUT', body).then(() => undefined)
-                : apiSend('/api/affectations', 'POST', body).then(() => undefined), affectationEdit ? 'Affectation mise à jour.' : 'Affectation enregistrée.');
+                : apiSend('/api/affectations', 'POST', body).then(() => undefined), affectationEdit ? 'Affectation mise à jour.' : 'Affectation enregistrée.', reset.affectation);
             }}>
               <Field label="Enseignant">
                 <select required value={affectation.professeurId} onChange={(e) => setAffectation({ ...affectation, professeurId: e.target.value })} className={field}>
@@ -697,7 +711,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
                   {classes.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}
                 </select>
               </Field>
-              <FormActions editing={!!affectationEdit} createLabel="Affecter" updateLabel="Mettre à jour l’affectation" onCancel={() => { setAffectationEdit(null); setAffectation(EMPTY.affectation); }} />
+              <FormActions editing={!!affectationEdit} createLabel="Affecter" updateLabel="Mettre à jour l’affectation" onCancel={reset.affectation} />
             </form>
           </SectionCard>
         </div>
@@ -723,7 +737,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
               setEleveEdit(detail);
               setEleve({ nomComplet: detail.nomComplet, matricule: detail.matricule, genre: detail.genre, classeId: String(detail.classeId), sessionId: detail.sessionId ? String(detail.sessionId) : '', numeroTable: detail.numeroTable ? String(detail.numeroTable) : '' });
             })}
-            onDelete={(r) => void remove(`/api/eleves/${r.id}`, r.nomComplet, () => setEleveEdit(null))}
+            onDelete={(r) => void remove(`/api/eleves/${r.id}`, r.nomComplet, reset.eleve)}
           />
           {eleveEdit && <EditBanner id={eleveEdit.id} summary={<>{eleveEdit.nomComplet} · {eleveEdit.genre} · table {eleveEdit.numeroTable ?? '—'} · {eleveEdit.lieuNaissance || 'lieu non renseigné'}</>} />}
           <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3" onSubmit={(e) => {
@@ -739,7 +753,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
             };
             void run(() => eleveEdit
               ? apiSend(`/api/eleves/${eleveEdit.id}`, 'PUT', body).then(() => undefined)
-              : apiSend('/api/eleves', 'POST', body).then(() => undefined), eleveEdit ? 'Élève mis à jour.' : 'Élève inscrit.');
+              : apiSend('/api/eleves', 'POST', body).then(() => undefined), eleveEdit ? 'Élève mis à jour.' : 'Élève inscrit.', reset.eleve);
           }}>
             <Field label="Nom complet" className="lg:col-span-2">
               <input required placeholder="Nom Prénom" value={eleve.nomComplet} onChange={(e) => setEleve({ ...eleve, nomComplet: e.target.value })} className={field} />
@@ -765,7 +779,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
                 {sessions.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}
               </select>
             </Field>
-            <FormActions editing={!!eleveEdit} createLabel="Inscrire l’élève" updateLabel="Mettre à jour l’élève" onCancel={() => { setEleveEdit(null); setEleve(EMPTY.eleve); }} />
+            <FormActions editing={!!eleveEdit} createLabel="Inscrire l’élève" updateLabel="Mettre à jour l’élève" onCancel={reset.eleve} />
           </form>
         </SectionCard>
       )}
@@ -809,7 +823,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
               setNoteEdit(detail);
               setNote({ eleveId: String(detail.eleveId), matiereId: String(detail.matiereId), sessionId: String(detail.sessionId), valeur: detail.valeur == null ? '' : String(detail.valeur), absent: detail.absent });
             })}
-            onDelete={(r) => void remove(`/api/notes/${r.id}`, `note de ${nom(eleves, r.eleveId)} en ${nom(matieres, r.matiereId)}`, () => setNoteEdit(null))}
+            onDelete={(r) => void remove(`/api/notes/${r.id}`, `note de ${nom(eleves, r.eleveId)} en ${nom(matieres, r.matiereId)}`, reset.note)}
           />
           {noteEdit && <EditBanner id={noteEdit.id} summary={<>{nom(eleves, noteEdit.eleveId)} · {nom(matieres, noteEdit.matiereId)} · {noteEdit.absent ? 'absent' : `${noteEdit.valeur}/20`}</>} />}
           <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" onSubmit={(e) => {
@@ -819,7 +833,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
             const body = { eleveId: Number(note.eleveId), matiereId: Number(note.matiereId), sessionId: Number(note.sessionId), valeur, absent: note.absent };
             void run(() => noteEdit
               ? apiSend(`/api/notes/${noteEdit.id}`, 'PUT', body).then(() => undefined)
-              : apiSend('/api/notes', 'POST', body).then(() => undefined), noteEdit ? 'Note mise à jour.' : 'Note enregistrée.');
+              : apiSend('/api/notes', 'POST', body).then(() => undefined), noteEdit ? 'Note mise à jour.' : 'Note enregistrée.', reset.note);
           }}>
             <Field label="Élève">
               <select required value={note.eleveId} onChange={(e) => setNote({ ...note, eleveId: e.target.value })} className={field}>
@@ -846,7 +860,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
               <input type="checkbox" className="w-4 h-4 accent-[#00236f]" checked={note.absent} onChange={(e) => setNote({ ...note, absent: e.target.checked })} />
               <span className="font-semibold">Élève absent</span>
             </label>
-            <FormActions editing={!!noteEdit} createLabel="Enregistrer la note" updateLabel="Mettre à jour la note" onCancel={() => { setNoteEdit(null); setNote(EMPTY.note); }} />
+            <FormActions editing={!!noteEdit} createLabel="Enregistrer la note" updateLabel="Mettre à jour la note" onCancel={reset.note} />
           </form>
         </SectionCard>
       )}
