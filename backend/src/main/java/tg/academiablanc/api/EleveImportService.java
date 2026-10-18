@@ -147,18 +147,21 @@ public class EleveImportService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ligne " + numero + " : indiquez la classe (classeId ou classeNom).");
     }
     String nom = espaces(classeNom);
-    return cache.computeIfAbsent("nom:" + cle(nom), k ->
-        classes.findFirstByEtablissementIdAndNomIgnoreCase(etab, nom).orElseGet(() -> {
-          Classe classe = new Classe();
-          classe.setEtablissementId(etab);
-          classe.setAnneeScolaireId(anneeCourante(etab));
-          classe.setNom(nom);
-          classe.setNiveau(niveauPour(nom));
-          classe.setSerie(null);
-          Classe creee = classes.save(classe);
-          classesCreees.add(creee.getNom());
-          return creee;
-        }));
+    return cache.computeIfAbsent("nom:" + cle(nom), k -> {
+      Long anneeId = anneeCourante(etab);
+      return classes.findFirstByEtablissementIdAndAnneeScolaireIdAndNomIgnoreCase(etab, anneeId, nom)
+          .orElseGet(() -> {
+            Classe classe = new Classe();
+            classe.setEtablissementId(etab);
+            classe.setAnneeScolaireId(anneeId);
+            classe.setNom(nom);
+            classe.setNiveau(niveauPour(nom));
+            classe.setSerie(null);
+            Classe creee = classes.save(classe);
+            classesCreees.add(creee.getNom());
+            return creee;
+          });
+    });
   }
 
   private Long anneeCourante(Long etab) {
