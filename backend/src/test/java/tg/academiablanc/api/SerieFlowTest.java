@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -29,6 +30,8 @@ class SerieFlowTest {
   private MockMvc mvc;
   @Autowired
   private ObjectMapper json;
+  @Autowired
+  private JdbcTemplate jdbc;
 
   @Test
   void laListeChargeLesSeriesParDefautParFamille() throws Exception {
@@ -103,6 +106,78 @@ class SerieFlowTest {
     envoyer(token, post("/api/classes"), classe(anneeId, "Tle G2", "Tle", "g2"))
         .andExpect(jsonPath("$.serie").value("G2"));
   }
+
+  @Test
+  void unLibelleHistoriqueResteRattacheALaSerie() throws Exception {
+    String token = inscrire("series-legacy@ecole.tg", "Lycee Libelles");
+    long anneeId = json.readTree(lire(token, "/api/annees-scolaires")).get(0).get("id").asLong();
+    long serieId = 0;
+    for (JsonNode item : json.readTree(lire(token, "/api/series"))) {
+      if ("D".equals(item.get("code").asText())) serieId = item.get("id").asLong();
+    }
+    assertThat(serieId).isPositive();
+
+    long classeId = id(envoyer(token, post("/api/classes"), classe(anneeId, "Tle D", "Tle", "Série D"))
+        .andExpect(jsonPath("$.serie").value("D")));
+
+    // La migration réécrit le libellé historique en code, y compris les variantes de casse.
+    jdbc.update("UPDATE classe SET serie = ? WHERE id = ?", "  série d ", classeId);
+    jdbc.update(MIGRATION_LIBELLES_SERIE + " AND id = " + classeId);
+    assertThat(jdbc.queryForObject("SELECT serie FROM classe WHERE id = ?", String.class, classeId)).isEqualTo("D");
+
+    // Une ligne non encore migrée (« Série D ») bloque toujours la suppression et le renommage.
+    jdbc.update("UPDATE classe SET serie = ? WHERE id = ?", "Série D", classeId);
+    envoyer(token, delete("/api/series/" + serieId)).andExpect(status().isConflict());
+    envoyerBrut(token, put("/api/series/" + serieId),
+        "{\"code\":\"E\",\"libelle\":\"Scientifique\",\"famille\":\"GENERALE\"}")
+        .andExpect(status().isConflict());
+
+    envoyer(token, put("/api/classes/" + classeId), classe(anneeId, "Tle D1", "Terminale", "Série D"))
+        .andExpect(jsonPath("$.nom").value("Tle D1"))
+        .andExpect(jsonPath("$.serie").value("D"));
+  }
+
+  @Test
+  void uneSerieInactiveResteEnregistrableSurLaClasseQuiLaPorte() throws Exception {
+    String token = inscrire("series-inactive@ecole.tg", "Lycee Series Inactives");
+    lire(token, "/api/series");
+    long anneeId = json.readTree(lire(token, "/api/annees-scolaires")).get(0).get("id").asLong();
+
+    long serieId = id(envoyer(token, post("/api/series"),
+        "{\"code\":\"F5\",\"libelle\":\"Fabrication mécanique\",\"famille\":\"TECHNIQUE\"}"));
+    long classeId = id(envoyer(token, post("/api/classes"), classe(anneeId, "Tle F5", "Tle", "F5")));
+    long autreId = id(envoyer(token, post("/api/classes"), classe(anneeId, "Tle A4", "Tle", "A4")));
+
+    envoyer(token, put("/api/series/" + serieId),
+        "{\"code\":\"F5\",\"libelle\":\"Fabrication mécanique\",\"famille\":\"TECHNIQUE\",\"actif\":false}")
+        .andExpect(jsonPath("$.actif").value(false));
+
+    envoyer(token, put("/api/classes/" + classeId), classe(anneeId, "Tle F5 bis", "Tle", "F5"))
+        .andExpect(jsonPath("$.nom").value("Tle F5 bis"))
+        .andExpect(jsonPath("$.serie").value("F5"));
+    envoyer(token, put("/api/classes/" + classeId), classe(anneeId, "Tle A4 ex F5", "Tle", "A4"))
+        .andExpect(jsonPath("$.serie").value("A4"));
+
+    envoyerBrut(token, post("/api/classes"), classe(anneeId, "Tle F5 neuve", "Tle", "F5"))
+        .andExpect(status().isBadRequest());
+    envoyerBrut(token, put("/api/classes/" + autreId), classe(anneeId, "Tle A4", "Tle", "F5"))
+        .andExpect(status().isBadRequest());
+  }
+
+  /** Même réécriture que V5 : « Série D » (6 caractères de préfixe) devient « D ». */
+  private static final String MIGRATION_LIBELLES_SERIE = """
+      UPDATE classe
+      SET serie = UPPER(REPLACE(SUBSTRING(TRIM(serie) FROM 7), ' ', ''))
+      WHERE LENGTH(TRIM(SUBSTRING(TRIM(serie) FROM 7))) > 0
+        AND (
+          TRIM(serie) LIKE 'Série %'
+          OR TRIM(serie) LIKE 'série %'
+          OR TRIM(serie) LIKE 'SÉRIE %'
+          OR TRIM(serie) LIKE 'Serie %'
+          OR TRIM(serie) LIKE 'serie %'
+          OR TRIM(serie) LIKE 'SERIE %'
+        )
+      """;
 
   private static String classe(long anneeId, String nom, String niveau, String serie) {
     return "{\"anneeScolaireId\":" + anneeId + ",\"nom\":\"" + nom + "\",\"niveau\":\"" + niveau + "\""

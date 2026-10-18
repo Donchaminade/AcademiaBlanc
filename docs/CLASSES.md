@@ -51,8 +51,10 @@ Table `serie` (migration `V5__serie_referentiel.sql`) :
 | `ordre`            | ordre d'affichage dans sa famille |
 
 `classe.serie` reste une colonne texte : elle porte le **code** de la série (`D`, `G2`), normalisé
-en majuscules à l'enregistrement. L'API vérifie que ce code existe (et est actif) pour
-l'établissement avant de créer ou modifier une classe du lycée.
+en majuscules à l'enregistrement. Un libellé historique (`Série D`) est ramené au code (`D`)
+par la migration et par l'API. L'API vérifie que ce code existe pour l'établissement. Une série
+inactive peut rester sur les classes qui la portent déjà, mais elle ne peut pas être attribuée
+à une classe qui ne l'avait pas.
 
 ### API
 
@@ -74,7 +76,8 @@ Côté classes (`POST`/`PUT /api/classes`) :
 - collège + série → **400** ;
 - lycée sans série → **400** ;
 - lycée avec une série inconnue de l'établissement → **400** (« Ajoutez-la dans le référentiel des séries ») ;
-- le code est renvoyé normalisé (`"f5"` → `"F5"`).
+- lycée avec une série inactive, sauf si la classe la porte déjà → **400** ;
+- le code est renvoyé normalisé (`"f5"` → `"F5"`, `"Série D"` → `"D"`).
 
 ### Ajouter une série (écran Administration → Enseignants & Classes)
 

@@ -2,6 +2,7 @@ package tg.academiablanc.api;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,12 @@ public class SerieService {
       new SerieDefaut("F3", "Électrotechnique", FamilleSerie.TECHNIQUE),
       new SerieDefaut("F4", "Génie civil", FamilleSerie.TECHNIQUE)
   );
+
+  /**
+   * Préfixe libre saisi avant le référentiel (« Série D », « serie A4 »).
+   * La casse Unicode est prise en compte pour que « SÉRIE » et « Série » soient équivalents.
+   */
+  private static final Pattern PREFIXE_LIBELLE = Pattern.compile("^(?iu)s[eé]rie\\s+");
 
   private final SerieRepository series;
   private final ClasseRepository classes;
@@ -118,21 +125,47 @@ public class SerieService {
     series.delete(serie);
   }
 
-  /** Retourne la série active de l'établissement portant ce code, ou 400 si elle n'existe pas. */
+  /**
+   * Retourne la série active de l'établissement portant ce code, ou 400 si elle n'existe pas
+   * ou si elle est inactive.
+   */
   @Transactional
   public Serie exiger(Long etablissementId, String code) {
+    return exiger(etablissementId, code, false);
+  }
+
+  /**
+   * Comme {@link #exiger(Long, String)}, mais une série inactive reste valable lorsque
+   * {@code conserverSiInactive} est vrai : la classe la porte déjà, on ne fait que l'enregistrer
+   * à nouveau (nom, titulaire…). L'attribuer à une autre classe reste refusé.
+   */
+  @Transactional
+  public Serie exiger(Long etablissementId, String code, boolean conserverSiInactive) {
     if (code == null || code.isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La série est obligatoire pour une classe du lycée.");
     }
     lister(etablissementId);
-    return series.findByEtablissementIdAndCodeIgnoreCase(etablissementId, normaliserCode(code))
-        .filter(Serie::isActif)
+    String codeNormalise = normaliserCode(code);
+    Serie serie = series.findByEtablissementIdAndCodeIgnoreCase(etablissementId, codeNormalise)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
             "Série « " + code.trim() + " » inconnue pour cet établissement. Ajoutez-la dans le référentiel des séries."));
+    if (!serie.isActif() && !conserverSiInactive) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+          "La série « " + serie.getCode() + " » est inactive et n'est plus proposée pour une nouvelle classe.");
+    }
+    return serie;
   }
 
+  /**
+   * Une classe historique peut encore porter le libellé « Série D » tant que la migration
+   * n'a pas réécrit la ligne : ce libellé compte comme une utilisation du code « D ».
+   */
   private boolean utiliseeParUneClasse(Serie serie) {
-    return classes.existsByEtablissementIdAndSerieIgnoreCase(serie.getEtablissementId(), serie.getCode());
+    Long etab = serie.getEtablissementId();
+    String code = serie.getCode();
+    return classes.existsByEtablissementIdAndSerieIgnoreCase(etab, code)
+        || classes.existsByEtablissementIdAndSerieIgnoreCase(etab, "Série " + code)
+        || classes.existsByEtablissementIdAndSerieIgnoreCase(etab, "Serie " + code);
   }
 
   private int prochainOrdre(Long etablissementId) {
@@ -140,11 +173,17 @@ public class SerieService {
         .mapToInt(Serie::getOrdre).max().orElse(0) + 1;
   }
 
-  /** Code court en majuscules, sans espaces superflus (« f5 » → « F5 »). */
+  /**
+   * Code court en majuscules, sans espaces superflus (« f5 » → « F5 », « Série D » → « D »).
+   */
   public static String normaliserCode(String code) {
     if (code == null || code.isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le code de la série est obligatoire.");
     }
-    return code.trim().replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
+    String texte = PREFIXE_LIBELLE.matcher(code.trim()).replaceFirst("");
+    if (texte.isBlank()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le code de la série est obligatoire.");
+    }
+    return texte.replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
   }
 }

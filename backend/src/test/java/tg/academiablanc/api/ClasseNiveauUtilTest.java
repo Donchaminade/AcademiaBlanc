@@ -25,6 +25,10 @@ class ClasseNiveauUtilTest {
     assertThat(tle.serie()).isEqualTo("G2");
     assertThat(tle.famille()).isEqualTo(FamilleSerie.TECHNIQUE);
     assertThat(ClasseNiveauUtil.nomClasse("Terminale", "g2")).isEqualTo("Tle G2");
+    assertThat(SerieService.normaliserCode("Série D")).isEqualTo("D");
+    assertThat(SerieService.normaliserCode("  série  a4 ")).isEqualTo("A4");
+    assertThat(SerieService.normaliserCode("SERIE G2")).isEqualTo("G2");
+    assertThat(ClasseNiveauUtil.nomClasse("Terminale", "Série D")).isEqualTo("Tle D");
 
     var troisieme = ClasseNiveauUtil.resolve("3e", null, null);
     assertThat(troisieme.college()).isTrue();

@@ -42,6 +42,12 @@ export interface SchoolWorkspace {
   coefficientsCount: number;
 }
 
+/** « D » → « Série D » ; « Série D » reste « Série D » (données d'avant le référentiel). */
+function serieBulletin(valeur: string): string {
+  const texte = valeur.trim();
+  return /^s[eé]rie\b/i.test(texte) ? texte : `Série ${texte}`;
+}
+
 export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<SchoolWorkspace> {
   const [annees, centres, sessions, matieres, profs, classes, affectations, coefficients, eleves] = await Promise.all([
     apiGet<Annee[]>('/api/annees-scolaires'),
@@ -102,7 +108,8 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
       originSchool: eleve.etablissementOrigine || '',
       gender: eleve.genre === 'M' ? 'M' : 'F',
       // La classe porte le code du référentiel (« D », « G2 ») ; le bulletin attend « Série D ».
-      serie: classe?.serie ? `Série ${classe.serie}` : session?.serie || '',
+      // Un libellé historique déjà préfixé (« Série D ») est repris tel quel.
+      serie: classe?.serie ? serieBulletin(classe.serie) : session?.serie || '',
       examCenter: centre?.code || '',
       examCenterName: centre ? `${centre.nom}${centre.ville ? ` (${centre.ville})` : ''}` : '',
       parentPhone: '',

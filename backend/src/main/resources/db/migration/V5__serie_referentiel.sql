@@ -15,3 +15,19 @@ CREATE TABLE serie (
 -- Les codes sont normalisés en majuscules par l'API avant insertion.
 CREATE UNIQUE INDEX uk_serie_code_etab ON serie (etablissement_id, code);
 CREATE INDEX idx_serie_etablissement ON serie (etablissement_id);
+
+-- Avant ce référentiel, classe.serie stockait un libellé libre (« Série D »), pas le code (« D »).
+-- Sans cette réécriture, la mise à jour cherche un code « SÉRIED », la suppression de « D »
+-- ne voit pas ces classes, et le bulletin affiche « Série Série D ».
+-- « Série » / « Serie » font 6 caractères : le code commence à la position 7.
+UPDATE classe
+SET serie = UPPER(REPLACE(SUBSTRING(TRIM(serie) FROM 7), ' ', ''))
+WHERE LENGTH(TRIM(SUBSTRING(TRIM(serie) FROM 7))) > 0
+  AND (
+    TRIM(serie) LIKE 'Série %'
+    OR TRIM(serie) LIKE 'série %'
+    OR TRIM(serie) LIKE 'SÉRIE %'
+    OR TRIM(serie) LIKE 'Serie %'
+    OR TRIM(serie) LIKE 'serie %'
+    OR TRIM(serie) LIKE 'SERIE %'
+  );

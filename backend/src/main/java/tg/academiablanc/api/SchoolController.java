@@ -611,16 +611,19 @@ public class SchoolController {
     classe.setAnneeScolaireId(request.anneeScolaireId());
     classe.setNom(request.nom().trim());
     classe.setNiveau(request.niveau().trim());
-    classe.setSerie(controlerSerie(request.niveau(), request.serie()));
+    classe.setSerie(controlerSerie(request.niveau(), request.serie(), classe.getSerie()));
     classe.setTitulaireId(request.titulaireId());
   }
 
   /**
    * Collège (6e–3e) : aucune série. Lycée (2nde–Tle) : série obligatoire et présente dans le
-   * référentiel de l'établissement. Niveau non reconnu : série facultative mais, si fournie,
-   * elle doit exister. Retourne le code normalisé (« f5 » → « F5 ») ou {@code null}.
+   * référentiel de l'établissement. Une série inactive n'est acceptée que si la classe la porte
+   * déjà ({@code serieActuelle}) : la désactiver retire la série des nouvelles classes, sans
+   * bloquer l'enregistrement d'une classe qui l'a encore. Niveau non reconnu : série facultative
+   * mais, si fournie, elle doit exister. Retourne le code normalisé (« f5 » → « F5 »,
+   * « Série D » → « D ») ou {@code null}.
    */
-  private String controlerSerie(String niveau, String serie) {
+  private String controlerSerie(String niveau, String serie, String serieActuelle) {
     boolean vide = serie == null || serie.isBlank();
     var cycle = ClasseNiveauUtil.cycleDe(niveau).orElse(null);
     if (cycle == ClasseNiveauUtil.Cycle.COLLEGE) {
@@ -630,7 +633,9 @@ public class SchoolController {
       return null;
     }
     if (cycle == null && vide) return null;
-    return series.exiger(Tenant.current().etablissementId(), serie).getCode();
+    boolean conserverInactive = serieActuelle != null && !serieActuelle.isBlank()
+        && SerieService.normaliserCode(serieActuelle).equals(SerieService.normaliserCode(serie));
+    return series.exiger(Tenant.current().etablissementId(), serie, conserverInactive).getCode();
   }
 
   private void remplir(Eleve eleve, EleveRequest request) {
