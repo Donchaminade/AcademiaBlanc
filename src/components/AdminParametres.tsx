@@ -57,6 +57,8 @@ const field = 'w-full bg-[#f2f3ff] text-[13px] py-2 px-3 rounded border border-[
 const primary = 'inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 rounded bg-[#00236f] text-white text-[12px] font-bold hover:bg-[#1e3a8a] transition-colors shadow-xs';
 const ghost = 'inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#e2e7ff] transition-colors';
 
+const ANNEE_COURANTE_INDELEBILE = 'L’année courante ne peut pas être supprimée. Définissez d’abord une autre année comme courante.';
+
 const EMPTY = {
   centre: { nom: '', code: '', ville: 'Lomé' },
   session: { nom: '', typeExamen: 'BACCALAURÉAT II', statut: 'OUVERTE', serie: 'Série D', anneeScolaireId: '', centreId: '' },
@@ -126,7 +128,7 @@ const EditBanner: React.FC<{ id: number; summary: React.ReactNode }> = ({ id, su
 
 interface Column<T> { header: string; render: (row: T) => React.ReactNode; className?: string }
 
-function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyText, editingId, onEdit, onDelete }: {
+function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyText, editingId, onEdit, onDelete, extraActions, deleteDisabledReason }: {
   columns: Column<T>[];
   rows: T[];
   emptyIcon: string;
@@ -134,6 +136,10 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
   editingId?: number | null;
   onEdit: (row: T) => void;
   onDelete: (row: T) => void;
+  /** Actions supplémentaires affichées avant « Modifier ». */
+  extraActions?: (row: T) => React.ReactNode;
+  /** Si défini pour une ligne, « Supprimer » est désactivé et la raison sert d’infobulle. */
+  deleteDisabledReason?: (row: T) => string | undefined;
 }) {
   if (rows.length === 0) {
     return (
@@ -154,11 +160,14 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
+          {rows.map((row) => {
+            const deleteBlocked = deleteDisabledReason?.(row);
+            return (
             <tr key={row.id} className={`border-t border-[#eaedff] transition-colors ${editingId === row.id ? 'bg-[#eaedff]/60' : 'hover:bg-[#faf8ff]'}`}>
               {columns.map((col) => <td key={col.header} className={`px-3 py-2 text-[#131b2e] ${col.className ?? ''}`}>{col.render(row)}</td>)}
               <td className="px-3 py-1.5 whitespace-nowrap">
                 <div className="flex items-center justify-end gap-1">
+                  {extraActions?.(row)}
                   <button
                     type="button"
                     onClick={() => onEdit(row)}
@@ -172,9 +181,10 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
                   <button
                     type="button"
                     onClick={() => onDelete(row)}
-                    title="Supprimer"
-                    aria-label="Supprimer"
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-[#ba1a1a] hover:bg-[#ffdad6] text-[12px] font-semibold transition-colors"
+                    disabled={!!deleteBlocked}
+                    title={deleteBlocked ?? 'Supprimer'}
+                    aria-label={deleteBlocked ? `Supprimer (indisponible : ${deleteBlocked})` : 'Supprimer'}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-[#ba1a1a] hover:bg-[#ffdad6] text-[12px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                   >
                     <span className="material-symbols-outlined text-base">delete</span>
                     <span className="hidden md:inline">Supprimer</span>
@@ -182,7 +192,8 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
                 </div>
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -353,6 +364,22 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
     }
   };
 
+  const definirAnneeCourante = async (cible: Annee) => {
+    try {
+      await apiSend(`/api/annees-scolaires/${cible.id}/courante`, 'PUT', {});
+    } catch (err) {
+      await showError('Changement d’année courante impossible', err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
+      return;
+    }
+    onDataChanged?.();
+    toastSuccess(`« ${cible.libelle} » est désormais l’année courante.`);
+    try {
+      await load();
+    } catch (err) {
+      await showError('Actualisation impossible', err instanceof Error ? err.message : 'L’année a été changée mais la liste n’a pas pu être rechargée.');
+    }
+  };
+
   const remove = async (path: string, label: string, clear: () => void) => {
     const ok = await confirmDelete(label, 'La fiche est retirée si aucun élément lié ne la retient.');
     if (!ok) return;
@@ -460,6 +487,19 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               ]}
               onEdit={(r) => void open<Annee>(`/api/annees-scolaires/${r.id}`, (detail) => { setAnneeEdit(detail); setAnnee(detail.libelle); })}
               onDelete={(r) => void remove(`/api/annees-scolaires/${r.id}`, r.libelle, reset.annee)}
+              deleteDisabledReason={(r) => r.courante ? ANNEE_COURANTE_INDELEBILE : undefined}
+              extraActions={(r) => !r.courante && (
+                <button
+                  type="button"
+                  onClick={() => void definirAnneeCourante(r)}
+                  title={`Définir ${r.libelle} comme année courante`}
+                  aria-label={`Définir ${r.libelle} comme année courante`}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-[#166534] hover:bg-[#dcfce7] text-[12px] font-semibold transition-colors"
+                >
+                  <span className="material-symbols-outlined text-base">task_alt</span>
+                  <span className="hidden md:inline">Définir comme courante</span>
+                </button>
+              )}
             />
             {anneeEdit && <EditBanner id={anneeEdit.id} summary={<>{anneeEdit.libelle} · courante : {anneeEdit.courante ? 'oui' : 'non'}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
