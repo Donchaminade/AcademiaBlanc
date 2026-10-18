@@ -116,6 +116,27 @@ export default function App() {
     if (!getToken()) saveSchoolData(currentSchoolId, settings, newCandidates);
   };
 
+  // Passe immédiatement sur les données de l'établissement : aucune matière, session ou centre de démonstration
+  // n'est affiché pendant le chargement, ni si la requête échoue.
+  const activateApiAccount = () => {
+    const session = getSession();
+    setUsingApi(true);
+    setSubjects([]);
+    setCandidates([]);
+    setSelectedSession('');
+    setSelectedCenter('');
+    setSelectedCandidateId('');
+    setApiSessions([]);
+    setApiCenters([]);
+    setActiveExamType('');
+    setApiUser(session ? { name: session.nomUtilisateur || session.email, role: roleLabel(session.role) } : null);
+    setSettings((prev) => ({
+      ...prev,
+      sessionName: '',
+      examType: '',
+    }));
+  };
+
   const applyWorkspace = async (sessionId?: number) => {
     const workspace = await loadSchoolWorkspace(sessionId);
     const session = getSession();
@@ -132,8 +153,9 @@ export default function App() {
       ...prev,
       institutionName: session?.nomEtablissement || prev.institutionName,
       academicYear: workspace.academicYear || prev.academicYear,
-      sessionName: workspace.sessionName || prev.sessionName,
-      examType: workspace.examType || prev.examType,
+      // Chaîne vide = aucune session côté API : ne pas conserver le libellé de démonstration.
+      sessionName: workspace.sessionName,
+      examType: workspace.examType,
     }));
     // Les libellés viennent exclusivement de l'API : vide tant qu'aucune session / aucun centre n'existe.
     setSelectedSession(workspace.sessionName);
@@ -169,6 +191,7 @@ export default function App() {
     if (getToken()) {
       setIsAuthModalOpen(false);
       if (currentView === 'auth') setCurrentView('bulletin');
+      activateApiAccount();
       applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
       return;
     }
@@ -199,9 +222,13 @@ export default function App() {
     setCurrentSchoolId(newSchool.id);
 
     setCandidates(newSchool.candidates);
-    setSettings(newSchool.settings);
+    setSettings({
+      ...newSchool.settings,
+      sessionName: '',
+      examType: '',
+    });
     setSelectedCandidateId(newSchool.candidates[0]?.id || '');
-    setSelectedCenter(`${newSchool.name} (Centre d'Examen)`);
+    activateApiAccount();
 
     setIsAuthModalOpen(false);
     if (currentView === 'auth') {
@@ -465,7 +492,10 @@ export default function App() {
         currentSchool={currentSchool}
         onSelectSchool={handleSelectSchool}
         onAccountCreated={handleAccountCreated}
-        onApiReady={() => { applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.')); }}
+        onApiReady={() => {
+          activateApiAccount();
+          applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
+        }}
         onClose={() => setCurrentView('bulletin')}
       />
     );
@@ -713,7 +743,10 @@ export default function App() {
               currentSchool={currentSchool}
               onSelectSchool={handleSelectSchool}
               onAccountCreated={handleAccountCreated}
-              onApiReady={() => { applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.')); }}
+              onApiReady={() => {
+                activateApiAccount();
+                applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
+              }}
               onClose={() => setIsAuthModalOpen(false)}
             />
           </div>

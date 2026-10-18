@@ -71,8 +71,20 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
     return saved == null ? { value: 1, isDefault: true } : { value: Number(saved), isDefault: false };
   };
 
+  // Un coefficient lié à une classe doit être reconnu : sinon la matière passe à 1 « par défaut ».
+  // Priorité identique au bulletin serveur : classe active, puis coefficient général, puis n'importe quelle classe.
+  const classeIdFor = (matiereId: number): number | undefined => {
+    const activeId = classes[0]?.id;
+    if (activeId != null && coefficients.some((item) => item.matiereId === matiereId && item.classeId === activeId)) {
+      return activeId;
+    }
+    const general = coefficients.some((item) => item.matiereId === matiereId && item.classeId == null);
+    if (general) return activeId;
+    return coefficients.find((item) => item.matiereId === matiereId && item.classeId != null)?.classeId ?? activeId;
+  };
+
   const subjects: Subject[] = matieres.map((matiere) => {
-    const coef = coefOf(matiere.id);
+    const coef = coefOf(matiere.id, classeIdFor(matiere.id));
     return {
       id: String(matiere.id),
       name: matiere.nom,
