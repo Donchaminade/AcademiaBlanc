@@ -14,7 +14,7 @@ import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
-import { PLATFORM_ROLE, apiDelete, apiSend, getSession, getToken, roleLabel } from './api/client';
+import { PLATFORM_ROLE, apiDelete, apiSend, clearToken, getSession, getToken, roleLabel } from './api/client';
 import { loadSchoolWorkspace, ExamOption } from './api/workspace';
 import {
   getRegisteredSchools,
@@ -25,6 +25,7 @@ import {
 } from './data/schoolsData';
 import { Candidate, Subject, ViewMode, AppSettings, SchoolAccount, AdminSection } from './types';
 import { printDocument } from './utils/printDocument';
+import { confirmAction } from './utils/alerts';
 
 export default function App() {
   // Establishment Multi-Tenant State
@@ -167,6 +168,35 @@ export default function App() {
   const openAdmin = (section?: AdminSection) => {
     setAdminTarget((prev) => ({ section: section ?? null, nonce: prev.nonce + 1 }));
     setCurrentView('admin');
+  };
+
+  // Déconnexion : efface le JWT et vide tout l'espace de travail pour qu'aucune donnée
+  // de l'établissement précédent ne reste affichée, puis revient à l'écran de connexion.
+  const handleLogout = async () => {
+    const confirmed = await confirmAction({ title: 'Se déconnecter ?', confirmText: 'Se déconnecter' });
+    if (!confirmed) return;
+    clearToken();
+    setUsingApi(false);
+    setApiUser(null);
+    setAccountRole('');
+    setCandidates([]);
+    setSubjects([]);
+    setApiSessions([]);
+    setApiCenters([]);
+    setActiveSessionId(null);
+    setActiveClasseId(null);
+    setActiveExamType('');
+    setSelectedCandidateId('');
+    setSelectedSession('');
+    setSelectedCenter('');
+    setSettings(getSchoolData(currentSchoolId).settings);
+    setAdminTarget({ section: null, nonce: 0 });
+    setIsAuthModalOpen(false);
+    setIsSignatureModalOpen(false);
+    setIsSmsModalOpen(false);
+    setIsSearchModalOpen(false);
+    setIsBatchPrintModalOpen(false);
+    setCurrentView('auth');
   };
 
   useEffect(() => {
@@ -478,10 +508,10 @@ export default function App() {
   if (currentView === 'auth') {
     return (
       <AuthView
-        currentSchool={currentSchool}
         onSelectSchool={handleSelectSchool}
         onAccountCreated={handleAccountCreated}
         onApiReady={handleApiReady}
+        onLogout={getToken() ? handleLogout : undefined}
         onClose={() => setCurrentView('bulletin')}
       />
     );
@@ -516,6 +546,7 @@ export default function App() {
         usingApi={usingApi}
         apiUser={usingApi ? apiUser : null}
         onOpenAdmin={usingApi ? () => openAdmin() : undefined}
+        onLogout={usingApi ? handleLogout : undefined}
       />
 
       {/* Main Content Area - Navigated strictly via Sidebar */}
@@ -730,10 +761,10 @@ export default function App() {
           <div className="relative w-full max-w-4xl flex justify-center">
             <AuthView
               embedded
-              currentSchool={currentSchool}
               onSelectSchool={handleSelectSchool}
               onAccountCreated={handleAccountCreated}
               onApiReady={handleApiReady}
+              onLogout={usingApi ? handleLogout : undefined}
               onClose={() => setIsAuthModalOpen(false)}
             />
           </div>

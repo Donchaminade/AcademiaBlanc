@@ -1,29 +1,31 @@
 import React, { useState } from 'react';
 import { SchoolAccount } from '../types';
 import { getRegisteredSchools, createSchoolAccount } from '../data/schoolsData';
-import { PLATFORM_ROLE, login as apiLogin, setSession, signup as apiSignup } from '../api/client';
+import { PLATFORM_ROLE, getSession, getToken, login as apiLogin, setSession, signup as apiSignup } from '../api/client';
 import { isPlausibleEmail } from '../utils/safeUrl';
 
 interface AuthViewProps {
-  currentSchool: SchoolAccount;
   onSelectSchool: (schoolId: string) => void;
   onAccountCreated: (newSchool: SchoolAccount) => void;
   onApiReady?: () => void;
   onClose?: () => void;
+  /** Ferme la session API en cours (affiché uniquement quand une session existe). */
+  onLogout?: () => void;
   /** Rendu dans une modale : pas de fond plein écran ni de padding externe. */
   embedded?: boolean;
 }
 
 export const AuthView: React.FC<AuthViewProps> = ({
-  currentSchool,
   onSelectSchool,
   onAccountCreated,
   onApiReady,
   onClose,
+  onLogout,
   embedded = false,
 }) => {
   const [mode, setMode] = useState<'login' | 'register'>('register');
-  const [schools, setSchools] = useState<SchoolAccount[]>(getRegisteredSchools());
+  // Seule la session API authentifiée est affichée : jamais la liste des autres établissements.
+  const activeSession = getToken() ? getSession() : null;
 
   // Registration form state
   const [formData, setFormData] = useState({
@@ -96,7 +98,6 @@ export const AuthView: React.FC<AuthViewProps> = ({
         initialWithSampleStudents: false,
       });
 
-      setSchools(getRegisteredSchools());
       onAccountCreated(newSchool);
       onApiReady?.();
     } catch (error) {
@@ -120,7 +121,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
       if (session.role === PLATFORM_ROLE) {
         return;
       }
-      const found = schools.find((s) => s.email.toLowerCase() === session.email.toLowerCase());
+      const found = getRegisteredSchools().find((s) => s.email.toLowerCase() === session.email.toLowerCase());
       if (found) {
         onSelectSchool(found.id);
         return;
@@ -129,10 +130,6 @@ export const AuthView: React.FC<AuthViewProps> = ({
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : 'Connexion impossible.');
     }
-  };
-
-  const handleQuickSwitch = (schoolId: string) => {
-    onSelectSchool(schoolId);
   };
 
   const labelBase = 'block text-[11px] font-bold uppercase tracking-wider text-[#444651] mb-1';
@@ -169,14 +166,28 @@ export const AuthView: React.FC<AuthViewProps> = ({
         )}
       </div>
 
-      {/* Établissement actif */}
-      <div className="shrink-0 bg-[#f2f3ff] px-4 sm:px-5 py-2 border-b border-[#eaedff] flex items-center gap-2 text-[12px] min-w-0">
-        <span className="material-symbols-outlined text-[#0051d5] text-base">verified_user</span>
-        <span className="text-[#444651] whitespace-nowrap">Établissement actif :</span>
-        <span className="font-bold text-[#00236f] bg-white px-2 py-0.5 rounded border border-[#eaedff] truncate">
-          {currentSchool.name} ({currentSchool.city})
-        </span>
-      </div>
+      {/* Session en cours : uniquement l'établissement de l'utilisateur authentifié */}
+      {activeSession && (
+        <div className="shrink-0 bg-[#f2f3ff] px-4 sm:px-5 py-2 border-b border-[#eaedff] flex items-center justify-between gap-2 text-[12px] min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="material-symbols-outlined text-[#0051d5] text-base">verified_user</span>
+            <span className="text-[#444651] whitespace-nowrap">Connecté :</span>
+            <span className="font-bold text-[#00236f] bg-white px-2 py-0.5 rounded border border-[#eaedff] truncate">
+              {activeSession.nomEtablissement || activeSession.email}
+            </span>
+          </div>
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white text-red-700 text-[12px] font-bold border border-red-200 hover:bg-red-50 transition-colors"
+            >
+              <span className="material-symbols-outlined text-base">logout</span>
+              <span>Se déconnecter</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Onglets */}
       <div className="shrink-0 flex border-b border-[#eaedff] bg-[#faf8ff]">
@@ -202,7 +213,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
           }`}
         >
           <span className="material-symbols-outlined text-lg">login</span>
-          <span>Se connecter ({schools.length})</span>
+          <span>Se connecter</span>
         </button>
       </div>
 
@@ -388,66 +399,18 @@ export const AuthView: React.FC<AuthViewProps> = ({
               </div>
             )}
 
-            {/* Changement rapide d'établissement */}
-            <div>
-              <span className={`${labelStrong} mb-2`}>
-                Établissements enregistrés ({schools.length})
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {schools.map((school) => {
-                  const isCurrent = school.id === currentSchool.id;
-                  return (
-                    <div
-                      key={school.id}
-                      onClick={() => handleQuickSwitch(school.id)}
-                      className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
-                        isCurrent
-                          ? 'bg-[#eaedff] border-[#0051d5] ring-2 ring-[#0051d5]/40 shadow-sm'
-                          : 'bg-white border-[#eaedff] hover:border-[#0051d5] hover:shadow-xs'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white text-[#0051d5] border border-[#eaedff] inline-block mb-1">
-                            {school.code || 'CODE'}
-                          </span>
-                          <h4 className="text-[13px] font-bold text-[#00236f] truncate">
-                            {school.name}
-                          </h4>
-                          <p className="text-[11px] text-[#444651] truncate">
-                            {school.city} • {school.region}
-                          </p>
-                        </div>
-                        {isCurrent && (
-                          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold bg-[#0051d5] text-white px-2 py-0.5 rounded-full">
-                            <span className="material-symbols-outlined text-xs">check</span>
-                            <span>Actif</span>
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="mt-2 pt-2 border-t border-[#eaedff] flex items-center justify-between text-[11px]">
-                        <span className="text-[#444651] truncate max-w-[170px]">
-                          {school.principalName}
-                        </span>
-                        <span className="text-[#0051d5] font-semibold whitespace-nowrap">
-                          {school.candidates?.length || 0} candidats
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Connexion par email */}
-            <form onSubmit={handleLogin} className="space-y-3 pt-3 border-t border-[#eaedff]">
+            {/* Connexion par email et mot de passe uniquement */}
+            <form onSubmit={handleLogin} className="space-y-3">
+              <p className="text-[12px] text-[#444651]">
+                Connectez-vous avec l'adresse email et le mot de passe de votre établissement.
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className={labelBase}>Email</label>
                   <input
                     type="text"
-                    placeholder="direction@lycee-tokoin.tg"
+                    autoComplete="username"
+                    placeholder="secretariat@lycee.tg"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     className={inputBase}
@@ -458,6 +421,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   <label className={labelBase}>Mot de passe</label>
                   <input
                     type="password"
+                    autoComplete="current-password"
                     placeholder="••••••••"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
