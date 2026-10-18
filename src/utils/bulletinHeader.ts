@@ -4,6 +4,50 @@ export interface BulletinHeaderInfo {
   examBadge: string;
 }
 
+const SIGLE_STOPWORDS = new Set([
+  'a',
+  'au',
+  'aux',
+  'd',
+  'de',
+  'des',
+  'du',
+  'en',
+  'et',
+  'l',
+  'la',
+  'le',
+  'les',
+  'pour',
+]);
+
+/**
+ * Sigle officiel entre parenthèses, placé sous le nom du ministère.
+ * MEPST pour l'enseignement primaire, secondaire et technique ;
+ * MESR pour l'enseignement supérieur et la recherche.
+ */
+export function ministrySigle(ministryName: string): string {
+  const normalized = (ministryName || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  const explicit: Array<[RegExp, string]> = [
+    [/ENSEIGNEMENTS?\s+PRIMAIRE[\s,]+SECONDAIRE/i, 'MEPST'],
+    [/ENSEIGNEMENT\s+SUPERIEUR/i, 'MESR'],
+    [/EDUCATION\s+NATIONALE/i, 'MENA'],
+  ];
+
+  for (const [pattern, sigle] of explicit) {
+    if (pattern.test(normalized)) return `(${sigle})`;
+  }
+
+  const words = normalized
+    .split(/[^A-Za-z0-9]+/)
+    .filter((word) => word.length > 0 && !SIGLE_STOPWORDS.has(word.toLowerCase()));
+  const letters = words.map((word) => word.charAt(0).toUpperCase()).join('');
+  return letters ? `(${letters})` : '';
+}
+
 /**
  * Calcule dynamiquement les mentions et titres officiels de l'en-tête du bulletin
  * en fonction de la session choisie (ex : BEPC, BAC I, BAC II Série D, Série C, etc.)

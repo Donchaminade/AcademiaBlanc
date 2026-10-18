@@ -66,6 +66,87 @@
   vertical-align: middle;
 }
 
+/* En-tête du bulletin : ministère + sigle à gauche, république + devise à droite.
+   Ces classes fixent l'alignement à l'écran et à l'impression, sans dépendre
+   des variantes sm: qui suivent la fenêtre plutôt que la feuille A4. */
+.bulletin-official-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: 1rem;
+}
+
+.bulletin-ministry,
+.bulletin-republic {
+  min-width: 0;
+}
+
+.bulletin-ministry {
+  text-align: left;
+}
+
+.bulletin-ministry-name {
+  margin: 0;
+  color: #00236f;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.bulletin-ministry-sigle {
+  margin: 0.12rem 0 0;
+  color: #00236f;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-align: left;
+}
+
+.bulletin-republic {
+  text-align: right;
+}
+
+.bulletin-republic-name {
+  margin: 0;
+  color: #00236f;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bulletin-republic-motto {
+  margin: 0.08rem 0 0;
+  color: #00236f;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-align: right;
+}
+
+.bulletin-exam-meta {
+  margin-top: 0.35rem;
+  text-align: right;
+}
+
+.bulletin-exam-meta .bulletin-rule {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.bulletin-seal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-inline: 0.25rem;
+}
+
 /* Print Styles for official ISO 216 / A4 output */
 @media print {
   @page {
@@ -120,6 +201,25 @@
     height: 16px !important;
     margin-top: 1px !important;
     margin-bottom: 1px !important;
+  }
+
+  .bulletin-official-head {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+    align-items: start !important;
+  }
+
+  .bulletin-ministry,
+  .bulletin-ministry-name,
+  .bulletin-ministry-sigle {
+    text-align: left !important;
+  }
+
+  .bulletin-republic,
+  .bulletin-republic-name,
+  .bulletin-republic-motto,
+  .bulletin-exam-meta {
+    text-align: right !important;
   }
 
   .print\:break-after-page {

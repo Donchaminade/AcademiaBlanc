@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
-import { getBulletinHeaderInfo } from '../utils/bulletinHeader';
+import { getBulletinHeaderInfo, ministrySigle } from '../utils/bulletinHeader';
 import {
   appreciationFromAverage,
   computeSubjectRank,
@@ -130,6 +130,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
           const stats = allStats[candidate.id];
           const isLast = idx === filteredCandidates.length - 1;
           const headerInfo = getBulletinHeaderInfo(selectedSession || settings.sessionName, candidate.serie);
+          const ministryMark = ministrySigle(settings.ministryName);
 
           return (
             <div
@@ -150,24 +151,15 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                 </div>
               )}
 
-              {/* Bilateral Official Header */}
-              <div className="relative z-10 flex items-start justify-between gap-4 pb-3 border-b border-[#eaedff]">
-                {/* Republic / Left Banner */}
-                <div className="flex-1 text-left space-y-0.5">
-                  <p className="text-[11px] uppercase tracking-widest text-[#00236f] font-bold">
-                    {settings.countryName}
-                  </p>
-                  <p className="text-[12px] italic text-[#444651] font-medium">
-                    {settings.motto}
-                  </p>
-                  <div className="w-12 h-0.5 bg-[#0051d5] my-1"></div>
-                  <p className="text-[13px] text-[#00236f] font-bold leading-tight uppercase">
-                    {settings.ministryName}
-                  </p>
+              {/* En-tête : ministère + sigle à gauche, république + devise à droite */}
+              <div className="bulletin-official-head relative z-10 pb-3 border-b border-[#eaedff]">
+                <div className="bulletin-ministry">
+                  <p className="bulletin-ministry-name">{settings.ministryName}</p>
+                  {ministryMark ? <p className="bulletin-ministry-sigle">{ministryMark}</p> : null}
                 </div>
 
                 {/* Central Academic Seal */}
-                <div className="flex flex-col items-center justify-center px-2 shrink-0">
+                <div className="bulletin-seal">
                   {settings.sealUrl && settings.sealUrl.trim() !== '' ? (
                     <div className="w-16 h-16 rounded-full bg-[#f2f3ff] flex items-center justify-center p-1.5 shadow-sm border border-[#eaedff] overflow-hidden">
                       <img
@@ -192,21 +184,24 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                   </span>
                 </div>
 
-                {/* Academic Year / Right Banner */}
-                <div className="flex-1 text-right space-y-0.5">
-                  <p className="text-[11px] uppercase tracking-widest text-[#444651]">
-                    {selectedSession || settings.sessionName}
-                  </p>
-                  <p className="text-[14px] text-[#00236f] font-bold">
-                    {settings.academicYear}
-                  </p>
-                  <div className="w-12 h-0.5 bg-[#0051d5] my-1 ml-auto"></div>
-                  <p className="text-[11px] uppercase font-semibold text-[#131b2e]">
-                    {headerInfo.examBadge}
-                  </p>
-                  <p className="font-mono text-[11px] text-[#0051d5] font-semibold">
-                    TABLE N° {candidate.tableNumber} • BORDEREAU {candidate.matricule}
-                  </p>
+                <div className="bulletin-republic">
+                  <p className="bulletin-republic-name">{settings.countryName}</p>
+                  <p className="bulletin-republic-motto">{settings.motto}</p>
+                  <div className="bulletin-exam-meta space-y-0.5">
+                    <p className="text-[11px] uppercase tracking-widest text-[#444651]">
+                      {selectedSession || settings.sessionName}
+                    </p>
+                    <p className="text-[14px] text-[#00236f] font-bold">
+                      {settings.academicYear}
+                    </p>
+                    <div className="bulletin-rule w-12 h-0.5 bg-[#0051d5] my-1"></div>
+                    <p className="text-[11px] uppercase font-semibold text-[#131b2e]">
+                      {headerInfo.examBadge}
+                    </p>
+                    <p className="font-mono text-[11px] text-[#0051d5] font-semibold">
+                      TABLE N° {candidate.tableNumber} • BORDEREAU {candidate.matricule}
+                    </p>
+                  </div>
                 </div>
               </div>
 

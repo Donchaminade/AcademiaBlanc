@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
-import { getBulletinHeaderInfo } from '../utils/bulletinHeader';
+import { getBulletinHeaderInfo, ministrySigle } from '../utils/bulletinHeader';
 import { appreciationFromAverage, computeSubjectRank, formatSubjectRank } from '../utils/bulletinMetrics';
 import { printDocument } from '../utils/printDocument';
 
@@ -33,6 +33,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
 
+  const ministryMark = ministrySigle(settings.ministryName);
   const headerInfo = useMemo(() => {
     return getBulletinHeaderInfo(
       selectedSession || settings.sessionName,
@@ -230,24 +231,15 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             </div>
           )}
 
-          {/* Bilateral Official Header */}
-          <div className="relative z-10 flex items-start justify-between gap-4 pb-4">
-            {/* Republic / Left Banner */}
-            <div className="flex-1 text-center sm:text-left space-y-0.5">
-              <p className="text-[11px] uppercase tracking-widest text-[#00236f] font-bold">
-                {settings.countryName}
-              </p>
-              <p className="text-[12px] italic text-[#444651] font-medium">
-                {settings.motto}
-              </p>
-              <div className="w-12 h-0.5 bg-[#0051d5] my-1 sm:mx-0 mx-auto"></div>
-              <p className="text-[14px] text-[#00236f] font-bold leading-tight uppercase">
-                {settings.ministryName}
-              </p>
+          {/* En-tête : ministère + sigle à gauche, république + devise à droite */}
+          <div className="bulletin-official-head relative z-10 pb-4">
+            <div className="bulletin-ministry">
+              <p className="bulletin-ministry-name">{settings.ministryName}</p>
+              {ministryMark ? <p className="bulletin-ministry-sigle">{ministryMark}</p> : null}
             </div>
 
             {/* Central Academic Seal */}
-            <div className="flex flex-col items-center justify-center px-2 shrink-0">
+            <div className="bulletin-seal">
               {settings.sealUrl && settings.sealUrl.trim() !== '' ? (
                 <div className="w-20 h-20 rounded-full bg-[#f2f3ff] flex items-center justify-center p-1.5 shadow-sm border border-[#eaedff] overflow-hidden">
                   <img
@@ -272,24 +264,27 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               </span>
             </div>
 
-            {/* Academic Year / Right Banner */}
-            <div className="flex-1 text-center sm:text-right space-y-0.5">
-              <p className="text-[11px] uppercase tracking-widest text-[#444651]">
-                {selectedSession || settings.sessionName}
-              </p>
-              <p className="text-[15px] text-[#00236f] font-bold">
-                {settings.academicYear}
-              </p>
-              <div className="w-12 h-0.5 bg-[#0051d5] my-1 sm:ml-auto mx-auto"></div>
-              <p className="text-[11px] uppercase font-semibold text-[#131b2e]">
-                {headerInfo.examBadge}
-              </p>
-              <p className="text-[12px] text-[#444651]">
-                {selectedCandidate.examCenter}
-              </p>
-              <p className="font-mono text-[11px] text-[#0051d5] font-semibold">
-                BORDEREAU N° {selectedCandidate.matricule}
-              </p>
+            <div className="bulletin-republic">
+              <p className="bulletin-republic-name">{settings.countryName}</p>
+              <p className="bulletin-republic-motto">{settings.motto}</p>
+              <div className="bulletin-exam-meta space-y-0.5">
+                <p className="text-[11px] uppercase tracking-widest text-[#444651]">
+                  {selectedSession || settings.sessionName}
+                </p>
+                <p className="text-[15px] text-[#00236f] font-bold">
+                  {settings.academicYear}
+                </p>
+                <div className="bulletin-rule w-12 h-0.5 bg-[#0051d5] my-1"></div>
+                <p className="text-[11px] uppercase font-semibold text-[#131b2e]">
+                  {headerInfo.examBadge}
+                </p>
+                <p className="text-[12px] text-[#444651]">
+                  {selectedCandidate.examCenter}
+                </p>
+                <p className="font-mono text-[11px] text-[#0051d5] font-semibold">
+                  BORDEREAU N° {selectedCandidate.matricule}
+                </p>
+              </div>
             </div>
           </div>
 
