@@ -631,9 +631,10 @@ export default function App() {
 
       {/* Establishment Accounts / Login Modal */}
       {isAuthModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="relative w-full max-w-4xl">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="relative w-full max-w-4xl flex justify-center">
             <AuthView
+              embedded
               currentSchool={currentSchool}
               onSelectSchool={handleSelectSchool}
               onAccountCreated={handleAccountCreated}
