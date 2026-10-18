@@ -105,7 +105,7 @@ const Field: React.FC<{ label: string; className?: string; children: React.React
 const FormActions: React.FC<{ editing: boolean; createLabel: string; updateLabel?: string; onCancel?: () => void }> = ({ editing, createLabel, updateLabel = 'Mettre à jour', onCancel }) => (
   <div className="col-span-full flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
     {editing && onCancel && (
-      <button type="button" className={ghost} onClick={onCancel}>
+      <button type="button" className={ghost} onClick={() => onCancel()}>
         <span className="material-symbols-outlined text-base">add</span>
         Nouvelle fiche
       </button>
@@ -245,17 +245,22 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const [sessionNotes, setSessionNotes] = useState('');
   const sessionNotesRef = useRef('');
 
+  /**
+   * Vide un formulaire et revient en mode « Nouvelle fiche ».
+   * `keep` permet de conserver quelques choix après une création en série
+   * (classe du coefficient, session de la note…) ; il n’est jamais utilisé après une mise à jour.
+   */
   const reset = {
     annee: () => { setAnneeEdit(null); setAnnee('2025-2026'); },
     centre: () => { setCentreEdit(null); setCentre(EMPTY.centre); },
     session: () => { setSessionEdit(null); setSession(EMPTY.session); },
     matiere: () => { setMatiereEdit(null); setMatiere(EMPTY.matiere); },
-    coefficient: () => { setCoefficientEdit(null); setCoefficient(EMPTY.coefficient); },
+    coefficient: (keep: Partial<typeof EMPTY.coefficient> = {}) => { setCoefficientEdit(null); setCoefficient({ ...EMPTY.coefficient, ...keep }); },
     prof: () => { setProfEdit(null); setProf(EMPTY.prof); },
     classe: () => { setClasseEdit(null); setClasse(EMPTY.classe); },
     affectation: () => { setAffectationEdit(null); setAffectation(EMPTY.affectation); },
-    eleve: () => { setEleveEdit(null); setEleve(EMPTY.eleve); },
-    note: () => { setNoteEdit(null); setNote(EMPTY.note); },
+    eleve: (keep: Partial<typeof EMPTY.eleve> = {}) => { setEleveEdit(null); setEleve({ ...EMPTY.eleve, ...keep }); },
+    note: (keep: Partial<typeof EMPTY.note> = {}) => { setNoteEdit(null); setNote({ ...EMPTY.note, ...keep }); },
   };
 
   const nom = (liste: { id: number; nom?: string; libelle?: string; nomComplet?: string }[], id?: number) =>
@@ -323,12 +328,20 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const run = async (action: () => Promise<void>, ok = 'Enregistré.', afterSuccess?: () => void) => {
     try {
       await action();
-      await load();
-      afterSuccess?.();
-      onDataChanged?.();
-      toastSuccess(ok);
     } catch (err) {
+      // En cas d’échec, le formulaire garde les valeurs saisies pour permettre la correction.
       await showError('Échec de l’enregistrement', err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
+      return;
+    }
+    // L’enregistrement a réussi : on vide le formulaire avant même de recharger les listes,
+    // pour que les champs ne restent pas remplis si l’actualisation échoue.
+    afterSuccess?.();
+    onDataChanged?.();
+    toastSuccess(ok);
+    try {
+      await load();
+    } catch (err) {
+      await showError('Actualisation impossible', err instanceof Error ? err.message : 'Les données ont été enregistrées mais la liste n’a pas pu être rechargée.');
     }
   };
 
@@ -343,9 +356,9 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const remove = async (path: string, label: string, clear: () => void) => {
     const ok = await confirmDelete(label, 'La fiche est retirée si aucun élément lié ne la retient.');
     if (!ok) return;
-    clear();
     try {
       await apiDelete(path);
+      clear();
       await load();
       onDataChanged?.();
       toastSuccess(`« ${label} » supprimé.`);
@@ -611,7 +624,9 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               const body = { matiereId: Number(coefficient.matiereId), classeId: coefficient.classeId ? Number(coefficient.classeId) : null, serie: coefficient.serie, valeur };
               void run(() => coefficientEdit
                 ? apiSend(`/api/coefficients/${coefficientEdit.id}`, 'PUT', body).then(() => undefined)
-                : apiSend('/api/coefficients', 'POST', body).then(() => undefined), coefficientEdit ? 'Coefficient mis à jour.' : 'Coefficient ajouté.', reset.coefficient);
+                : apiSend('/api/coefficients', 'POST', body).then(() => undefined), coefficientEdit ? 'Coefficient mis à jour.' : 'Coefficient ajouté.',
+                // Après un ajout, la classe reste choisie pour enchaîner les matières ; matière et valeur sont vidées.
+                () => reset.coefficient(coefficientEdit ? {} : { classeId: coefficient.classeId }));
             }}>
               <Field label="Matière" className="lg:col-span-2">
                 <select required value={coefficient.matiereId} onChange={(e) => setCoefficient({ ...coefficient, matiereId: e.target.value })} className={field}>
@@ -797,7 +812,9 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             };
             void run(() => eleveEdit
               ? apiSend(`/api/eleves/${eleveEdit.id}`, 'PUT', body).then(() => undefined)
-              : apiSend('/api/eleves', 'POST', body).then(() => undefined), eleveEdit ? 'Élève mis à jour.' : 'Élève inscrit.', reset.eleve);
+              : apiSend('/api/eleves', 'POST', body).then(() => undefined), eleveEdit ? 'Élève mis à jour.' : 'Élève inscrit.',
+              // Après une inscription, classe et session restent choisies pour saisir la liste d’une classe ; nom, matricule et genre sont vidés.
+              () => reset.eleve(eleveEdit ? {} : { classeId: eleve.classeId, sessionId: eleve.sessionId }));
           }}>
             <Field label="Nom complet" className="lg:col-span-2">
               <input required placeholder="Nom Prénom" value={eleve.nomComplet} onChange={(e) => setEleve({ ...eleve, nomComplet: e.target.value })} className={field} />
@@ -884,7 +901,9 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             const body = { eleveId: Number(note.eleveId), matiereId: Number(note.matiereId), sessionId: Number(note.sessionId), valeur, absent: note.absent };
             void run(() => noteEdit
               ? apiSend(`/api/notes/${noteEdit.id}`, 'PUT', body).then(() => undefined)
-              : apiSend('/api/notes', 'POST', body).then(() => undefined), noteEdit ? 'Note mise à jour.' : 'Note enregistrée.', reset.note);
+              : apiSend('/api/notes', 'POST', body).then(() => undefined), noteEdit ? 'Note mise à jour.' : 'Note enregistrée.',
+              // Après une saisie, la session reste choisie ; élève, matière, valeur et absence sont vidés.
+              () => reset.note(noteEdit ? {} : { sessionId: note.sessionId }));
           }}>
             <Field label="Élève">
               <select required value={note.eleveId} onChange={(e) => setNote({ ...note, eleveId: e.target.value })} className={field}>
