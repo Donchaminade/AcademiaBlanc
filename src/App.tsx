@@ -211,6 +211,19 @@ export default function App() {
     setCurrentView('admin');
   };
 
+  // « Consulter » une archive : charge la session réelle correspondante et ouvre son procès-verbal.
+  const openArchivedSession = (sessionId: number) => {
+    if (!getToken()) return;
+    const match = apiSessions.find((item) => item.id === sessionId);
+    if (match) setSelectedSession(match.label);
+    applyWorkspace(sessionId)
+      .then(() => {
+        setCurrentView('records');
+        showToast(`Session ${match?.label ?? sessionId} chargée : procès-verbal et bulletins de cette session.`);
+      })
+      .catch((err: Error) => showToast(err.message || 'Session introuvable.'));
+  };
+
   // Déconnexion : efface le JWT et vide tout l'espace de travail pour qu'aucune donnée
   // de l'établissement précédent ne reste affichée, puis revient à l'écran de connexion.
   const handleLogout = async () => {
@@ -764,6 +777,10 @@ export default function App() {
               candidates={candidates}
               allStats={allStats}
               onAdminDataChanged={reloadWorkspace}
+              usingApi={usingApi}
+              activeSessionId={activeSessionId}
+              onOpenSession={openArchivedSession}
+              onOpenAdmin={usingApi ? openAdmin : undefined}
             />
           )}
         </main>

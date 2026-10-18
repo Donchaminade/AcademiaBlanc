@@ -57,8 +57,23 @@ public class BulletinService {
                             Integer rang, String mention, String appreciation, BigDecimal totalPoints,
                             BigDecimal totalCoef, List<LigneBulletin> lignes) {}
 
+  /** Calcule les bulletins de la session et les enregistre (table {@code bulletin}). */
   @Transactional
   public List<BulletinVue> generer(Long sessionId) {
+    List<BulletinVue> vues = calculer(sessionId);
+    Long etablissementId = Tenant.current().etablissementId();
+    for (BulletinVue vue : vues) {
+      upsert(etablissementId, sessionId, vue);
+    }
+    return vues;
+  }
+
+  /**
+   * Calcule les bulletins de la session sans rien écrire : mêmes moyennes, rangs et mentions que
+   * {@link #generer(Long)}. Sert aux statistiques (archives) pour ne jamais diverger du bulletin.
+   */
+  @Transactional
+  public List<BulletinVue> calculer(Long sessionId) {
     var user = Tenant.current();
     var session = sessions.findById(sessionId)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session introuvable."));
@@ -139,7 +154,6 @@ public class BulletinService {
           detail
       );
       vues.add(vue);
-      upsert(user.etablissementId(), sessionId, vue);
     }
     return vues;
   }

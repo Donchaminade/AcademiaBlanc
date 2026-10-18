@@ -99,9 +99,13 @@ export interface AppSettings {
 export interface ArchivedSession {
   id: string;
   schoolId: string;
+  /** Identifiant de la session réelle sur l'API ; absent pour une archive de démonstration ou saisie à la main. */
+  sessionId?: number;
   academicYear: string;
   sessionName: string;
   examType: string;
+  serie?: string;
+  statut?: string;
   archivedAt: string;
   candidatesCount: number;
   admittedCount: number;

@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { ArchivedSession, Candidate, CandidateComputedStats, AppSettings } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ArchivedSession, Candidate, CandidateComputedStats, AppSettings, AdminSection } from '../types';
 import {
   getSchoolArchivedSessions,
   saveSchoolArchivedSessions,
   getCurrentSchoolId,
 } from '../data/schoolsData';
+import { archiverSession, loadArchives, retirerArchive } from '../api/archives';
 import { printDocument } from '../utils/printDocument';
 import { confirmDelete } from '../utils/alerts';
 
@@ -13,17 +14,60 @@ interface ArchivedSessionsSectionProps {
   candidates?: Candidate[];
   allStats?: Record<string, CandidateComputedStats>;
   onNavigateToBulletin?: () => void;
+  /**
+   * Session API active. Quand l'établissement est connecté à l'API, la vue n'affiche que les
+   * archives réelles renvoyées par `GET /api/archives` ; le jeu de démonstration local est ignoré.
+   */
+  usingApi?: boolean;
+  /** Session d'examen actuellement chargée depuis l'API (archivable en un clic). */
+  activeSessionId?: number | null;
+  /** Ouvre la session réelle correspondant à une archive (bouton « Consulter »). */
+  onOpenSession?: (sessionId: number) => void;
+  /** Ouvre l'écran Administration (API), par exemple sur les sessions. */
+  onOpenAdmin?: (section?: AdminSection) => void;
 }
 
 export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = ({
   settings,
   candidates = [],
   allStats = {},
+  usingApi = false,
+  activeSessionId = null,
+  onOpenSession,
+  onOpenAdmin,
 }) => {
   const currentSchoolId = getCurrentSchoolId();
+  // En mode API, la liste part vide et se remplit uniquement avec les archives de l'établissement.
   const [sessions, setSessions] = useState<ArchivedSession[]>(() =>
-    getSchoolArchivedSessions(currentSchoolId)
+    usingApi ? [] : getSchoolArchivedSessions(currentSchoolId)
   );
+  const [loading, setLoading] = useState<boolean>(usingApi);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState(false);
+
+  const refreshFromApi = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      setSessions(await loadArchives());
+    } catch (err) {
+      setSessions([]);
+      setLoadError((err as Error).message || 'Impossible de charger les archives.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (usingApi) {
+      void refreshFromApi();
+    } else {
+      setSessions(getSchoolArchivedSessions(currentSchoolId));
+      setLoading(false);
+      setLoadError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usingApi, currentSchoolId]);
 
   // Modal states
   const [showArchiveCurrentModal, setShowArchiveCurrentModal] = useState(false);
@@ -135,14 +179,27 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
     return [...sessions].sort((a, b) => b.academicYear.localeCompare(a.academicYear));
   }, [sessions]);
 
-  // Save changes to localStorage
+  // Save changes to localStorage (demo mode only: API archives live on the server)
   const updateAndPersistSessions = (newList: ArchivedSession[]) => {
     setSessions(newList);
-    saveSchoolArchivedSessions(currentSchoolId, newList);
+    if (!usingApi) saveSchoolArchivedSessions(currentSchoolId, newList);
   };
 
   // Archive current session
   const handleConfirmArchiveCurrent = () => {
+    if (usingApi) {
+      if (!activeSessionId) return;
+      setArchiving(true);
+      archiverSession(activeSessionId)
+        .then(async (archived) => {
+          await refreshFromApi();
+          setShowArchiveCurrentModal(false);
+          showNotification(`Session ${archived.sessionName} archivée : ses statistiques réelles figurent dans le registre.`);
+        })
+        .catch((err: Error) => showNotification(err.message || 'Archivage impossible.'))
+        .finally(() => setArchiving(false));
+      return;
+    }
     if (!currentSessionLiveStats) return;
 
     // Check if session for this academic year already archived
@@ -234,7 +291,24 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
   };
 
   // Delete an archived session
-  const handleDeleteSession = async (id: string, year: string) => {
+  const handleDeleteSession = async (session: ArchivedSession) => {
+    const { id, academicYear: year } = session;
+    if (usingApi && session.sessionId) {
+      const ok = await confirmDelete(
+        `archive de la session ${session.sessionName} (${year})`,
+        'La session redeviendra ouverte dans Administration ; ses élèves, notes et bulletins sont conservés.'
+      );
+      if (!ok) return;
+      try {
+        await retirerArchive(session.sessionId);
+        await refreshFromApi();
+        if (selectedSessionForDetail?.id === id) setSelectedSessionForDetail(null);
+        showNotification(`Session ${year} retirée des archives.`);
+      } catch (err) {
+        showNotification((err as Error).message || 'Suppression impossible.');
+      }
+      return;
+    }
     if (await confirmDelete(`archive de la session ${year}`, 'Les statistiques archivées de cette session seront perdues.')) {
       const updated = sessions.filter((s) => s.id !== id);
       updateAndPersistSessions(updated);
@@ -245,7 +319,30 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
     }
   };
 
-  // Key performance comparison metrics
+  // « Consulter » : ouvre la session réelle quand elle existe, sinon la fiche d'archive.
+  const handleConsult = (session: ArchivedSession) => {
+    if (usingApi && session.sessionId && onOpenSession) {
+      onOpenSession(session.sessionId);
+      return;
+    }
+    setSelectedSessionForDetail(session);
+  };
+
+  const canArchiveCurrent = currentSessionLiveStats != null && (!usingApi || activeSessionId != null);
+  const hasSessions = sessions.length > 0;
+
+  // Totaux affichés quel que soit le nombre de sessions (0 quand le registre est vide)
+  const totals = useMemo(() => {
+    const candidates = sortedSessionsChronological.reduce((acc, s) => acc + s.candidatesCount, 0);
+    const avgSuccess = sortedSessionsChronological.length === 0
+      ? 0
+      : Math.round(
+        (sortedSessionsChronological.reduce((acc, s) => acc + s.admittedRate, 0) / sortedSessionsChronological.length) * 10
+      ) / 10;
+    return { candidates, avgSuccess };
+  }, [sortedSessionsChronological]);
+
+  // Key performance comparison metrics (deltas : au moins 2 sessions)
   const comparisonMetrics = useMemo(() => {
     if (sortedSessionsChronological.length < 2) return null;
     const first = sortedSessionsChronological[0];
@@ -276,39 +373,60 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
       {/* Banner: Archiving & Multi-Year Overview */}
       <div className="min-w-0 bg-gradient-to-r from-[#00236f] via-[#003cb3] to-[#0051d5] rounded-xl p-6 text-white shadow-md border border-[#90a8ff]/20">
         <div className="space-y-1.5">
-          <div className="inline-flex max-w-full flex-wrap items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/15 text-[11px] font-bold uppercase tracking-wider">
-            <span className="material-symbols-outlined text-sm shrink-0">history_edu</span>
-            <span>Mémoire Académique &amp; Évaluation Pluriannuelle</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex max-w-full flex-wrap items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/15 text-[11px] font-bold uppercase tracking-wider">
+              <span className="material-symbols-outlined text-sm shrink-0">history_edu</span>
+              <span>Mémoire Académique &amp; Évaluation Pluriannuelle</span>
+            </div>
+            {!usingApi && (
+              <span
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400 text-[#3b2a00] text-[10px] font-bold uppercase tracking-wider"
+                title="Jeu de données fictif affiché hors connexion. Connectez l'établissement pour voir ses archives réelles."
+              >
+                <span className="material-symbols-outlined text-xs">science</span>
+                Données de démonstration
+              </span>
+            )}
           </div>
           <h3 className="text-xl font-bold tracking-tight leading-snug">
             Archives des Sessions &amp; Comparatif Interannuel
           </h3>
           <p className="text-[12.5px] text-white/80 leading-relaxed">
-            Consultez les résultats officiels des promotions antérieures de l'établissement <strong className="text-white">« {settings.institutionName} »</strong>, suivez les courbes de progression et archivez la session en cours en un clic.
+            {usingApi ? (
+              <>
+                Statistiques calculées uniquement à partir des sessions clôturées et des notes enregistrées pour l'établissement <strong className="text-white">« {settings.institutionName} »</strong>. Archivez la session en cours en un clic pour l'ajouter au registre.
+              </>
+            ) : (
+              <>
+                Exemple de registre pluriannuel pour <strong className="text-white">« {settings.institutionName} »</strong> : les chiffres ci-dessous sont fictifs et servent uniquement à présenter l'écran. Connectez l'établissement pour afficher ses archives réelles.
+              </>
+            )}
           </p>
         </div>
 
         <div className="mt-5 flex w-full flex-wrap items-center gap-2">
-          {currentSessionLiveStats && (
+          {canArchiveCurrent && (
             <button
               type="button"
               onClick={() => setShowArchiveCurrentModal(true)}
               className="inline-flex max-w-full shrink-0 items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[12px] text-left shadow-sm transition-all active:scale-95"
-              title="Sauvegarder et archiver la session 2024-2025"
+              title={`Clôturer et archiver la session ${settings.sessionName || settings.academicYear}`}
             >
               <span className="material-symbols-outlined text-base shrink-0">archive</span>
               <span className="min-w-0 whitespace-normal">Archiver la Session Actuelle ({settings.academicYear})</span>
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => setShowAddManualModal(true)}
-            className="inline-flex max-w-full shrink-0 items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold text-[12px] text-left transition-all border border-white/20"
-          >
-            <span className="material-symbols-outlined text-base shrink-0">add</span>
-            <span className="min-w-0 whitespace-normal">Ajouter une Session Antérieure</span>
-          </button>
+          {!usingApi && (
+            <button
+              type="button"
+              onClick={() => setShowAddManualModal(true)}
+              className="inline-flex max-w-full shrink-0 items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold text-[12px] text-left transition-all border border-white/20"
+            >
+              <span className="material-symbols-outlined text-base shrink-0">add</span>
+              <span className="min-w-0 whitespace-normal">Ajouter une Session Antérieure</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -322,31 +440,35 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
         </div>
       </div>
 
-      {/* Comparative KPI Cards */}
-      {comparisonMetrics && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-lg border border-[#eaedff] shadow-xs flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-bold text-[#444651] uppercase tracking-wider block">
-                Sessions Archivées
-              </span>
-              <span className="text-2xl font-bold text-[#00236f] mt-0.5 block">
-                {sessions.length} Années
-              </span>
-              <span className="text-[11px] text-[#444651]">
-                De {comparisonMetrics.firstYear} à {comparisonMetrics.lastYear}
-              </span>
-            </div>
-            <div className="w-11 h-11 rounded-lg bg-[#eaedff] flex items-center justify-center text-[#0051d5]">
-              <span className="material-symbols-outlined text-2xl">event_repeat</span>
-            </div>
+      {/* Comparative KPI Cards : toujours visibles ; les deltas n'ont de sens qu'à partir de 2 sessions. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-lg border border-[#eaedff] shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-[#444651] uppercase tracking-wider block">
+              Sessions Archivées
+            </span>
+            <span className="text-2xl font-bold text-[#00236f] mt-0.5 block">
+              {sessions.length} {sessions.length > 1 ? 'Années' : 'Année'}
+            </span>
+            <span className="text-[11px] text-[#444651]">
+              {comparisonMetrics
+                ? `De ${comparisonMetrics.firstYear} à ${comparisonMetrics.lastYear}`
+                : hasSessions
+                ? `Session ${sortedSessionsChronological[0].academicYear}`
+                : 'Aucune session clôturée'}
+            </span>
           </div>
+          <div className="w-11 h-11 rounded-lg bg-[#eaedff] flex items-center justify-center text-[#0051d5]">
+            <span className="material-symbols-outlined text-2xl">event_repeat</span>
+          </div>
+        </div>
 
-          <div className="bg-white p-4 rounded-lg border border-[#eaedff] shadow-xs flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-bold text-[#444651] uppercase tracking-wider block">
-                Progression du Taux
-              </span>
+        <div className="bg-white p-4 rounded-lg border border-[#eaedff] shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-[#444651] uppercase tracking-wider block">
+              Progression du Taux
+            </span>
+            {comparisonMetrics ? (
               <span
                 className={`text-2xl font-bold mt-0.5 block ${
                   comparisonMetrics.rateDelta >= 0 ? 'text-emerald-600' : 'text-red-600'
@@ -354,20 +476,24 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
               >
                 {comparisonMetrics.rateDelta >= 0 ? `+${comparisonMetrics.rateDelta}%` : `${comparisonMetrics.rateDelta}%`}
               </span>
-              <span className="text-[11px] text-[#444651]">
-                Sur toute la période observée
-              </span>
-            </div>
-            <div className="w-11 h-11 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
-              <span className="material-symbols-outlined text-2xl">trending_up</span>
-            </div>
+            ) : (
+              <span className="text-2xl font-bold mt-0.5 block text-[#9ca3af]">—</span>
+            )}
+            <span className="text-[11px] text-[#444651]">
+              {comparisonMetrics ? 'Sur toute la période observée' : 'Disponible à partir de 2 sessions'}
+            </span>
           </div>
+          <div className="w-11 h-11 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+            <span className="material-symbols-outlined text-2xl">trending_up</span>
+          </div>
+        </div>
 
-          <div className="bg-white p-4 rounded-lg border border-[#eaedff] shadow-xs flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-bold text-[#444651] uppercase tracking-wider block">
-                Évolution de la Moyenne
-              </span>
+        <div className="bg-white p-4 rounded-lg border border-[#eaedff] shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-[#444651] uppercase tracking-wider block">
+              Évolution de la Moyenne
+            </span>
+            {comparisonMetrics ? (
               <span
                 className={`text-2xl font-bold mt-0.5 block ${
                   comparisonMetrics.avgDelta >= 0 ? 'text-[#0051d5]' : 'text-red-600'
@@ -375,35 +501,88 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
               >
                 {comparisonMetrics.avgDelta >= 0 ? `+${comparisonMetrics.avgDelta} pts` : `${comparisonMetrics.avgDelta} pts`}
               </span>
-              <span className="text-[11px] text-[#444651]">
-                Moyenne globale des promotions
-              </span>
-            </div>
-            <div className="w-11 h-11 rounded-lg bg-[#eaedff] flex items-center justify-center text-[#0051d5]">
-              <span className="material-symbols-outlined text-2xl">analytics</span>
-            </div>
+            ) : (
+              <span className="text-2xl font-bold mt-0.5 block text-[#9ca3af]">—</span>
+            )}
+            <span className="text-[11px] text-[#444651]">
+              {comparisonMetrics ? 'Moyenne globale des promotions' : 'Disponible à partir de 2 sessions'}
+            </span>
           </div>
+          <div className="w-11 h-11 rounded-lg bg-[#eaedff] flex items-center justify-center text-[#0051d5]">
+            <span className="material-symbols-outlined text-2xl">analytics</span>
+          </div>
+        </div>
 
-          <div className="bg-white p-4 rounded-lg border border-[#eaedff] shadow-xs flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-bold text-[#444651] uppercase tracking-wider block">
-                Candidats Historiques
-              </span>
-              <span className="text-2xl font-bold text-[#00236f] mt-0.5 block">
-                {comparisonMetrics.totalCandidates} Élèves
-              </span>
-              <span className="text-[11px] text-[#444651]">
-                Taux moyen de réussite : {comparisonMetrics.avgSuccess}%
-              </span>
+        <div className="bg-white p-4 rounded-lg border border-[#eaedff] shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-[#444651] uppercase tracking-wider block">
+              Candidats Historiques
+            </span>
+            <span className="text-2xl font-bold text-[#00236f] mt-0.5 block">
+              {totals.candidates} {totals.candidates > 1 ? 'Élèves' : 'Élève'}
+            </span>
+            <span className="text-[11px] text-[#444651]">
+              Taux moyen de réussite : {totals.candidates > 0 ? `${totals.avgSuccess}%` : '—'}
+            </span>
+          </div>
+          <div className="w-11 h-11 rounded-lg bg-[#f2f3ff] flex items-center justify-center text-[#00236f]">
+            <span className="material-symbols-outlined text-2xl">school</span>
+          </div>
+        </div>
+      </div>
+
+      {/* État de chargement / erreur (mode API) */}
+      {usingApi && loading && (
+        <div className="bg-white p-5 rounded-lg border border-[#eaedff] shadow-xs text-[13px] text-[#444651] flex items-center gap-2">
+          <span className="material-symbols-outlined text-[#0051d5] animate-spin text-base">progress_activity</span>
+          Chargement des archives de l'établissement…
+        </div>
+      )}
+      {usingApi && !loading && loadError && (
+        <div className="bg-red-50 p-5 rounded-lg border border-red-200 text-[13px] text-red-800 flex flex-wrap items-center justify-between gap-3">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={() => void refreshFromApi()}
+            className="px-3 py-1.5 rounded bg-white border border-red-200 text-red-800 text-[12px] font-bold hover:bg-red-100"
+          >
+            Réessayer
+          </button>
+        </div>
+      )}
+
+      {/* État vide : aucune session archivée */}
+      {!loading && !loadError && !hasSessions && (
+        <div className="bg-[#f2f3ff] border border-[#dce1ff] rounded-lg p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-[#0051d5] text-3xl">inventory_2</span>
+              <div>
+                <h4 className="text-[16px] font-bold text-[#00236f]">Aucune session archivée pour le moment.</h4>
+                <p className="text-[13px] text-[#444651] mt-1 max-w-2xl">
+                  Les sessions clôturées apparaîtront ici.
+                  {usingApi
+                    ? ' Créez vos sessions d’examen dans Administration, saisissez les notes, puis archivez la session en cours depuis ce même écran : ses statistiques réelles (effectif, admis, taux de réussite, moyenne de promotion, mentions) alimenteront le graphique et le tableau comparatif.'
+                    : ' Archivez la session en cours ou ajoutez une session antérieure pour alimenter le comparateur.'}
+                </p>
+              </div>
             </div>
-            <div className="w-11 h-11 rounded-lg bg-[#f2f3ff] flex items-center justify-center text-[#00236f]">
-              <span className="material-symbols-outlined text-2xl">school</span>
-            </div>
+            {usingApi && onOpenAdmin && (
+              <button
+                type="button"
+                onClick={() => onOpenAdmin('sessions')}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[#0051d5] text-white text-[13px] font-semibold hover:bg-[#003cb3] transition-colors shadow-xs"
+              >
+                <span className="material-symbols-outlined text-base">admin_panel_settings</span>
+                <span>Ouvrir l’Administration (API)</span>
+              </button>
+            )}
           </div>
         </div>
       )}
 
       {/* Multi-Year Visual Evolution Chart */}
+      {hasSessions && (
       <div className="bg-white p-5 rounded-lg border border-[#eaedff] shadow-xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#eaedff]">
           <div>
@@ -522,8 +701,10 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
           </div>
         </div>
       </div>
+      )}
 
       {/* Multi-Year Detailed Comparative Table */}
+      {hasSessions && (
       <div className="bg-white rounded-lg border border-[#eaedff] shadow-xs overflow-hidden">
         <div className="p-5 border-b border-[#eaedff] flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -534,9 +715,16 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
               Tableau Comparatif des Sessions d'Examens ({sessions.length})
             </h4>
           </div>
-          <span className="text-[11.5px] text-[#444651]">
-            Données officielles scellées de l'établissement
-          </span>
+          {usingApi ? (
+            <span className="text-[11.5px] text-[#444651]">
+              Statistiques calculées à partir des notes enregistrées de l'établissement
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-900 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-full">
+              <span className="material-symbols-outlined text-xs">science</span>
+              Données de démonstration
+            </span>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -618,17 +806,21 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
                     <div className="flex items-center justify-end gap-1">
                       <button
                         type="button"
-                        onClick={() => setSelectedSessionForDetail(session)}
+                        onClick={() => handleConsult(session)}
                         className="px-2.5 py-1 rounded bg-[#eaedff] hover:bg-[#dce1ff] text-[#00236f] text-[11px] font-bold transition-colors"
-                        title="Consulter le rapport complet de cette session"
+                        title={usingApi && session.sessionId
+                          ? 'Ouvrir cette session (procès-verbal et bulletins)'
+                          : 'Consulter le rapport complet de cette session'}
                       >
                         Consulter
                       </button>
                       <button
                         type="button"
-                        onClick={() => void handleDeleteSession(session.id, session.academicYear)}
+                        onClick={() => void handleDeleteSession(session)}
                         className="p-1 rounded text-red-500 hover:bg-red-50 transition-colors"
-                        title="Supprimer cette archive"
+                        title={usingApi && session.sessionId
+                          ? 'Retirer des archives (la session redevient ouverte)'
+                          : 'Supprimer cette archive'}
                       >
                         <span className="material-symbols-outlined text-base">delete</span>
                       </button>
@@ -640,6 +832,7 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
           </table>
         </div>
       </div>
+      )}
 
       {/* Modal: Archiver la Session Actuelle */}
       {showArchiveCurrentModal && currentSessionLiveStats && (
@@ -701,18 +894,26 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
               </div>
             </div>
 
-            <div>
-              <label className="block text-[11.5px] font-bold uppercase text-[#444651] mb-1">
-                Observations Officielles &amp; Remarques du Conseil de Délibération
-              </label>
-              <textarea
-                rows={3}
-                value={archiveNotes}
-                onChange={(e) => setArchiveNotes(e.target.value)}
-                className="w-full bg-[#f2f3ff] text-[12.5px] p-2.5 rounded-lg border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
-                placeholder="Indiquez ici les faits marquants de cette session..."
-              />
-            </div>
+            {usingApi ? (
+              <p className="text-[12px] text-[#444651] leading-relaxed bg-amber-50 border border-amber-200 rounded-lg p-3">
+                La session passe au statut <strong>ARCHIVÉE</strong> sur le serveur : ses statistiques définitives
+                (effectif, admis, second tour, ajournés, moyenne de promotion, major, mentions) sont calculées à partir
+                des notes enregistrées, avec les mêmes règles que le bulletin. Vous pourrez la retirer des archives à tout moment.
+              </p>
+            ) : (
+              <div>
+                <label className="block text-[11.5px] font-bold uppercase text-[#444651] mb-1">
+                  Observations Officielles &amp; Remarques du Conseil de Délibération
+                </label>
+                <textarea
+                  rows={3}
+                  value={archiveNotes}
+                  onChange={(e) => setArchiveNotes(e.target.value)}
+                  className="w-full bg-[#f2f3ff] text-[12.5px] p-2.5 rounded-lg border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
+                  placeholder="Indiquez ici les faits marquants de cette session..."
+                />
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#eaedff]">
               <button
@@ -725,9 +926,10 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
               <button
                 type="button"
                 onClick={handleConfirmArchiveCurrent}
-                className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[12px] shadow-sm transition-all"
+                disabled={archiving}
+                className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[12px] shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Confirmer l'Archivage Officiel
+                {archiving ? 'Archivage en cours…' : "Confirmer l'Archivage Officiel"}
               </button>
             </div>
           </div>

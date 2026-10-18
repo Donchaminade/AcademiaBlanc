@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -37,6 +38,7 @@ import tg.academiablanc.domain.Professeur;
 import tg.academiablanc.domain.Ressource;
 import tg.academiablanc.domain.Role;
 import tg.academiablanc.domain.SessionExamen;
+import tg.academiablanc.domain.SessionStatut;
 import tg.academiablanc.repo.AffectationRepository;
 import tg.academiablanc.repo.AnneeScolaireRepository;
 import tg.academiablanc.repo.CentreExamenRepository;
@@ -656,6 +658,12 @@ public class SchoolController {
     session.setTypeExamen(request.typeExamen().trim());
     session.setSerie(request.serie());
     session.setStatut(request.statut().trim());
+    // La date d'archivage suit le statut : posée à la clôture, effacée à la réouverture.
+    if (!SessionStatut.estArchivee(session.getStatut())) {
+      session.setArchiveeLe(null);
+    } else if (session.getArchiveeLe() == null) {
+      session.setArchiveeLe(Instant.now());
+    }
   }
 
   private void remplir(Classe classe, ClasseRequest request) {
