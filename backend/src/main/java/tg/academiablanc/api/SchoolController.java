@@ -62,6 +62,7 @@ public class SchoolController {
   private final NoteRepository notes;
   private final BulletinService bulletins;
   private final EleveImportService importEleves;
+  private final MatriculeService matricules;
 
   public SchoolController(
       AnneeScolaireRepository annees,
@@ -75,7 +76,8 @@ public class SchoolController {
       EleveRepository eleves,
       NoteRepository notes,
       BulletinService bulletins,
-      EleveImportService importEleves
+      EleveImportService importEleves,
+      MatriculeService matricules
   ) {
     this.annees = annees;
     this.centres = centres;
@@ -89,6 +91,7 @@ public class SchoolController {
     this.notes = notes;
     this.bulletins = bulletins;
     this.importEleves = importEleves;
+    this.matricules = matricules;
   }
 
   public record AnneeRequest(@NotBlank @Size(max = 40) String libelle, LocalDate dateDebut, LocalDate dateFin, boolean courante) {}
@@ -101,7 +104,8 @@ public class SchoolController {
   public record ClasseRequest(@NotNull Long anneeScolaireId, @NotBlank @Size(max = 120) String nom, @NotBlank @Size(max = 80) String niveau, @Size(max = 80) String serie, Long titulaireId) {}
   public record TitulaireRequest(@NotNull Long professeurId) {}
   public record AffectationRequest(@NotNull Long professeurId, @NotNull Long matiereId, @NotNull Long classeId) {}
-  public record EleveRequest(@NotNull Long classeId, Long sessionId, @NotBlank @Size(max = 180) String nomComplet, @NotBlank @Size(max = 60) String matricule,
+  /** Le matricule n'est jamais fourni par le client : attribué par {@link MatriculeService} à la création, figé ensuite. */
+  public record EleveRequest(@NotNull Long classeId, Long sessionId, @NotBlank @Size(max = 180) String nomComplet,
                              @Size(max = 20) String dateNaissance, @Size(max = 120) String lieuNaissance, @NotBlank @Size(min = 1, max = 1) String genre,
                              Integer numeroTable, @Size(max = 180) String etablissementOrigine) {}
   public record NoteRequest(@NotNull Long eleveId, @NotNull Long matiereId, @NotNull Long sessionId,
@@ -469,13 +473,19 @@ public class SchoolController {
     Eleve eleve = new Eleve();
     eleve.setEtablissementId(Tenant.current().etablissementId());
     remplir(eleve, request);
-    return eleves.save(eleve);
+    return matricules.enregistrerNouveau(eleve);
   }
 
   /** Import d'une liste d'élèves (classe créée au besoin, matricules générés, doublons ignorés). */
   @PostMapping("/eleves/import")
   public EleveImportService.Resultat importerEleves(@Valid @RequestBody EleveImportService.Demande request) {
-    return importEleves.importer(request);
+    try {
+      return importEleves.importer(request);
+    } catch (DataIntegrityViolationException ex) {
+      // Collision de matricule avec une inscription concurrente : la transaction a été annulée,
+      // on recalcule la séquence et on rejoue l'import une fois (les doublons restent ignorés).
+      return importEleves.importer(request);
+    }
   }
 
   @GetMapping("/eleves/{id}")
@@ -593,7 +603,6 @@ public class SchoolController {
     eleve.setClasseId(request.classeId());
     eleve.setSessionId(request.sessionId());
     eleve.setNomComplet(request.nomComplet().trim());
-    eleve.setMatricule(request.matricule().trim());
     eleve.setDateNaissance(request.dateNaissance());
     eleve.setLieuNaissance(request.lieuNaissance());
     eleve.setGenre(genre);

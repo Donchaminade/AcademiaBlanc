@@ -71,7 +71,7 @@ class ImportElevesTest {
       assertThat(eleve.get("lieuNaissance").asText()).isNotBlank();
     }
     assertThat(noms).contains("ADOUGBA Komlan Bruno", "BAH-TRAORE Hikmat", "WOBOTI Nadjat");
-    assertThat(matricules).doesNotHaveDuplicates().allMatch(m -> m.matches("[A-Z0-9-]+-3E-\\d{3}"));
+    assertThat(matricules).doesNotHaveDuplicates().allMatch(m -> m.matches("24-COLL-LOME-[0-9-]+-\\d{5}"));
     JsonNode adougba = eleves.get(0);
     assertThat(adougba.get("nomComplet").asText()).isEqualTo("ADOUGBA Komlan Bruno");
     assertThat(adougba.get("genre").asText()).isEqualTo("M");
@@ -118,7 +118,8 @@ class ImportElevesTest {
     assertThat(eleves).hasSize(1);
     assertThat(eleves.get(0).get("nomComplet").asText()).isEqualTo("KOFFI Ama");
     assertThat(eleves.get(0).get("genre").asText()).isEqualTo("F");
-    assertThat(eleves.get(0).get("matricule").asText()).isEqualTo("EXT-01");
+    // Le matricule envoyé par le client est ignoré : il est toujours attribué par le serveur.
+    assertThat(eleves.get(0).get("matricule").asText()).matches("24-LYCE-LOME-[0-9-]+-00001");
     assertThat(eleves.get(0).get("classeId").asLong()).isEqualTo(classeId);
 
     envoyer(token, post("/api/eleves/import").contentType(MediaType.APPLICATION_JSON)

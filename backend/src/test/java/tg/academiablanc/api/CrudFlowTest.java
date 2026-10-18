@@ -1,5 +1,6 @@
 package tg.academiablanc.api;
 
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -63,11 +64,12 @@ class CrudFlowTest {
 
     long eleveId = id(envoyer(token, post("/api/eleves"),
         "{\"classeId\":" + classeId + ",\"sessionId\":" + sessionId
-            + ",\"nomComplet\":\"CISSE Fatoumata\",\"matricule\":\"CRUD-01\",\"genre\":\"F\",\"numeroTable\":12}"));
+            + ",\"nomComplet\":\"CISSE Fatoumata\",\"genre\":\"F\",\"numeroTable\":12}"));
     envoyer(token, put("/api/eleves/" + eleveId),
         "{\"classeId\":" + classeId + ",\"sessionId\":" + sessionId
-            + ",\"nomComplet\":\"CISSE Fatou\",\"matricule\":\"CRUD-01\",\"genre\":\"F\",\"numeroTable\":12}")
-        .andExpect(jsonPath("$.nomComplet").value("CISSE Fatou"));
+            + ",\"nomComplet\":\"CISSE Fatou\",\"genre\":\"F\",\"numeroTable\":12}")
+        .andExpect(jsonPath("$.nomComplet").value("CISSE Fatou"))
+        .andExpect(jsonPath("$.matricule", matchesPattern("24-LYCE-LOME-[0-9-]+-00001")));
     long noteId = id(envoyer(token, post("/api/notes"),
         "{\"eleveId\":" + eleveId + ",\"matiereId\":" + matiereId + ",\"sessionId\":" + sessionId + ",\"valeur\":14.5,\"absent\":false}"));
     envoyer(token, get("/api/notes/" + noteId)).andExpect(jsonPath("$.valeur").value(14.5));
