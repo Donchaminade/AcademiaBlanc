@@ -13,7 +13,7 @@ Santé : http://localhost:8080/actuator/health
 
 Compte de démonstration (jeu chargé au premier démarrage) : `direction@lycee-tokoin.tg` / `password123`.
 
-Le propriétaire du logiciel n’est pas ce compte. Après une inscription normale, poser `SUPER_ADMIN_EMAIL` sur l’email choisi, puis se reconnecter. Aucun mot de passe n’est fourni par l’API pour ce rôle. Voir `docs/DEPLOIEMENT.md`.
+Le propriétaire du logiciel n’est pas ce compte et n’a pas à s’inscrire : poser `SUPER_ADMIN_EMAIL` et `SUPER_ADMIN_PASSWORD`, démarrer l’API, le compte `SUPER_ADMIN` (sans établissement) est créé automatiquement. Changer `SUPER_ADMIN_PASSWORD` puis redémarrer réinitialise son mot de passe. Voir `docs/DEPLOIEMENT.md`.
 
 ## Démarrage avec Postgres
 

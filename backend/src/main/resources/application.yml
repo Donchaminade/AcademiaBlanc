@@ -43,6 +43,9 @@ app:
     enabled: true
   platform:
     super-admin-email: ${SUPER_ADMIN_EMAIL:}
+    # Mot de passe initial du propriétaire : sert à créer le compte au démarrage s'il n'existe pas,
+    # ou à le réinitialiser. Jamais commité : variable du service (Render) ou .env local.
+    super-admin-password: ${SUPER_ADMIN_PASSWORD:}
   jwt:
     secret: ${JWT_SECRET:dev-only-local-secret-change-me-32}
     expiration-hours: 12

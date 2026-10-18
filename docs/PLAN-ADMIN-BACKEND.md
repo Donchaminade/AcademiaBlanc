@@ -36,7 +36,7 @@ Rôles : `OWNER` (créateur du compte), `ADMIN` (même droits de paramétrage), 
 ## 3. Authentification
 
 - `POST /api/auth/signup` crée l’établissement, l’utilisateur `OWNER` et une année courante. Mot de passe BCrypt, jamais renvoyé. Cette route ne peut pas créer un `SUPER_ADMIN`.
-- `POST /api/auth/login` renvoie un JWT (12 h). Si l’email est celui de `SUPER_ADMIN_EMAIL`, le jeton porte le rôle `SUPER_ADMIN`.
+- `POST /api/auth/login` renvoie un JWT (12 h). Si l’email est celui de `SUPER_ADMIN_EMAIL`, le jeton porte le rôle `SUPER_ADMIN`. Le compte du propriétaire est créé automatiquement au démarrage à partir de `SUPER_ADMIN_EMAIL` et `SUPER_ADMIN_PASSWORD` (sans établissement) ; voir `docs/DEPLOIEMENT.md`.
 - `GET /api/plateforme/etablissements` est réservé à `SUPER_ADMIN`. Les autres routes restent filtrées par `etablissement_id`.
 - Le front envoie `Authorization: Bearer`. Le jeton reste en `sessionStorage`, pas dans l’URL.
 - CORS : liste `CORS_ALLOWED_ORIGINS` (domaine Vercel de production et aperçus).

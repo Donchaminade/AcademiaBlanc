@@ -21,6 +21,7 @@ Le front de la branche `feat/backend-spring-admin` est en production Vercel : ht
 3. `DATABASE_URL` est relié à la base (`postgres://` ou `postgresql://`). Au démarrage, l’API le convertit en URL JDBC `jdbc:postgresql://…`, avec l’utilisateur et le mot de passe, sauf si `SPRING_DATASOURCE_URL` est déjà défini dans l’environnement (Docker ou Postgres local). Sans `DATABASE_URL`, le profil par défaut reste sur H2.
 4. `SPRING_PROFILES_ACTIVE=prod` : pas de jeu de démonstration. Flyway est activé (`spring.flyway.enabled=true`) et applique les migrations au démarrage.
 5. Le port d’écoute est `${PORT:8080}`.
+6. `SUPER_ADMIN_EMAIL` est dans le blueprint (`chaminade.don.adjolou@gmail.com`). `SUPER_ADMIN_PASSWORD` est déclaré avec `sync: false` : Render le demande à l’application du blueprint et il se saisit dans le tableau de bord (Environment). Il n’est jamais commité. Voir la section « Propriétaire du logiciel ».
 
 Lancement local équivalent : `backend/docker-compose.yml` ou, sans Docker, `mvn spring-boot:run` (H2). Voir `backend/README.md` et `backend/.env.example`.
 
@@ -40,15 +41,29 @@ Le rôle `SUPER_ADMIN` surveille tous les établissements. Il est distinct du co
 
 `POST /api/auth/signup` crée toujours un établissement et un utilisateur `OWNER`. Elle n’accorde jamais `SUPER_ADMIN`, même si l’email est celui du propriétaire.
 
-Pour désigner le propriétaire :
+Le propriétaire n’a pas besoin de s’inscrire : son compte est créé directement au démarrage de l’API à partir de deux variables d’environnement.
 
-1. Créer un compte par l’inscription habituelle. Le mot de passe est celui choisi à ce moment. Aucun mot de passe n’est écrit dans le dépôt.
-2. Poser la variable `SUPER_ADMIN_EMAIL` avec cet email, sur l’API (local, Docker ou variables du service). Ne pas l’ajouter au blueprint : elle ne doit pas être commitée.
-3. Redémarrer l’API, ou se reconnecter. Le rôle stocké devient `SUPER_ADMIN` et un nouveau jeton est nécessaire. L’ancien jeton d’inscription reste `OWNER` jusqu’à cette connexion.
+| Variable | Rôle | Où |
+|---|---|---|
+| `SUPER_ADMIN_EMAIL` | Email du propriétaire. | `render.yaml` (`chaminade.don.adjolou@gmail.com`), `.env` local, `docker-compose`. |
+| `SUPER_ADMIN_PASSWORD` | Mot de passe initial, ou nouveau mot de passe pour réinitialiser l’accès. | Tableau de bord Render (`sync: false`), `.env` local. Jamais dans le dépôt. |
 
-Si la variable est vide ou retirée, le démarrage retire `SUPER_ADMIN` des comptes qui ne correspondent plus, et la connexion suivante leur redonne le rôle `OWNER` de l’établissement créé avec le compte. Tant que la variable reste posée, seul cet email reçoit le rôle.
+Procédure :
 
-La ligne `utilisateur` du propriétaire continue de pointer vers l’établissement créé à l’inscription. Les API d’un établissement (`/api/annees-scolaires`, `/api/eleves`, `/api/notes`, etc.) restent filtrées par l’identifiant du jeton.
+1. Poser `SUPER_ADMIN_EMAIL` et `SUPER_ADMIN_PASSWORD` sur le service API (Render : Environment du service `academiablanc-api`).
+2. Redéployer ou redémarrer l’API.
+3. Se connecter avec cet email et ce mot de passe sur l’écran de connexion habituel. L’écran « Plateforme : établissements & gestionnaires » s’affiche directement.
+
+Comportement au démarrage (`PlatformOwnerService`) :
+
+- Aucun compte avec cet email et mot de passe fourni : l’utilisateur `SUPER_ADMIN` est créé (nom « Propriétaire de la plateforme », `etablissement_id` nul, `actif`, mot de passe haché BCrypt). Aucun établissement n’est créé.
+- Aucun compte et mot de passe vide : rien n’est créé, un avertissement est journalisé. Poser `SUPER_ADMIN_PASSWORD` puis redémarrer.
+- Compte existant (par exemple inscrit avant cette version) : il reçoit le rôle `SUPER_ADMIN` ; si `SUPER_ADMIN_PASSWORD` est fourni et ne correspond pas au mot de passe actuel, celui-ci est remplacé. Pour réinitialiser l’accès du propriétaire, il suffit donc de changer la variable sur Render et de redéployer. Avec la variable vide, le mot de passe en base est conservé.
+- Le mot de passe n’apparaît jamais dans les journaux, seuls l’email et l’action (création, mise à jour) sont tracés.
+
+Si `SUPER_ADMIN_EMAIL` est vide ou retiré, le démarrage retire `SUPER_ADMIN` des comptes qui ne correspondent plus, et la connexion suivante leur redonne le rôle `OWNER`. Tant que la variable reste posée, seul cet email reçoit le rôle.
+
+Le compte créé automatiquement n’a aucun établissement : le jeton ne porte pas de `etablissement_id`, `GET /api/auth/me` renvoie `etablissementId: null`, et les API d’un établissement (`/api/annees-scolaires`, `/api/eleves`, `/api/notes`, etc.) lui sont refusées. Un compte propriétaire inscrit avant cette version garde l’établissement créé à l’inscription.
 
 La réponse liste le nom, le code, la ville, l’état (actif ou désactivé), le contact enregistré (responsable, email, téléphone) et les effectifs : utilisateurs, classes, élèves, enseignants, sessions, notes. La table `etablissement` ne contient pas de date de création. Un établissement peut être créé (`POST /api/plateforme/etablissements`) ou désactivé (`DELETE /api/plateforme/etablissements/{id}`, suppression logique : ses comptes ne peuvent plus se connecter, aucune donnée n’est effacée) puis réactivé. Il n’y a pas d’écriture inter-établissements ni de prise de contrôle d’un compte.
 
