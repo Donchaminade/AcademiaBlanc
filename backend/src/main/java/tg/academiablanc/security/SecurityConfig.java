@@ -34,6 +34,8 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/plateforme/etablissements").hasRole("SUPER_ADMIN")
+            .requestMatchers("/api/plateforme/**").denyAll()
             .anyRequest().authenticated())
         .addFilterBefore(new JwtAuthFilter(jwtService), UsernamePasswordAuthenticationFilter.class)
         .build();

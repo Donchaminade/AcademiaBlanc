@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SchoolAccount } from '../types';
 import { getRegisteredSchools, createSchoolAccount } from '../data/schoolsData';
-import { login as apiLogin, setSession, signup as apiSignup } from '../api/client';
+import { PLATFORM_ROLE, login as apiLogin, setSession, signup as apiSignup } from '../api/client';
 import { isPlausibleEmail } from '../utils/safeUrl';
 
 interface AuthViewProps {
@@ -114,6 +114,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
       const session = await apiLogin(email, loginPassword);
       setSession(session);
       onApiReady?.();
+      if (session.role === PLATFORM_ROLE) {
+        return;
+      }
       const found = schools.find((s) => s.email.toLowerCase() === session.email.toLowerCase());
       if (found) {
         onSelectSchool(found.id);

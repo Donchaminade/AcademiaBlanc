@@ -33,3 +33,21 @@ Le blueprint est sur l’offre gratuite uniquement : plan `free` pour le service
 - La base Postgres gratuite expire au bout de 30 jours, puis Render la supprime. Ne pas y mettre les notes réelles.
 
 Rien dans ce changement ne déploie le service.
+
+## Propriétaire du logiciel
+
+Le rôle `SUPER_ADMIN` surveille tous les établissements. Il est distinct du compte d’un établissement (`OWNER`, `ADMIN`, `SECRETAIRE`) et du rôle `ENSEIGNANT`. L’écran s’appelle « Surveillance des établissements » et n’apparaît qu’avec ce rôle. L’API de lecture est `GET /api/plateforme/etablissements`.
+
+`POST /api/auth/signup` crée toujours un établissement et un utilisateur `OWNER`. Elle n’accorde jamais `SUPER_ADMIN`, même si l’email est celui du propriétaire.
+
+Pour désigner le propriétaire :
+
+1. Créer un compte par l’inscription habituelle. Le mot de passe est celui choisi à ce moment. Aucun mot de passe n’est écrit dans le dépôt.
+2. Poser la variable `SUPER_ADMIN_EMAIL` avec cet email, sur l’API (local, Docker ou variables du service). Ne pas l’ajouter au blueprint : elle ne doit pas être commitée.
+3. Redémarrer l’API, ou se reconnecter. Le rôle stocké devient `SUPER_ADMIN` et un nouveau jeton est nécessaire. L’ancien jeton d’inscription reste `OWNER` jusqu’à cette connexion.
+
+Si la variable est vide ou retirée, le démarrage retire `SUPER_ADMIN` des comptes qui ne correspondent plus, et la connexion suivante leur redonne le rôle `OWNER` de l’établissement créé avec le compte. Tant que la variable reste posée, seul cet email reçoit le rôle.
+
+La ligne `utilisateur` continue de pointer vers l’établissement créé à l’inscription, parce que la colonne `etablissement_id` est obligatoire. Ce lien ne donne pas les droits d’écriture du personnel, et les API d’un établissement (`/api/annees-scolaires`, `/api/eleves`, `/api/notes`, etc.) restent filtrées par l’identifiant du jeton. `SUPER_ADMIN` n’est pas ajouté à ces droits.
+
+La réponse liste le nom, le code, la ville, le contact enregistré (responsable, email, téléphone) et les effectifs : utilisateurs, classes, élèves, enseignants, sessions, notes. La table `etablissement` ne contient pas de date de création. Il n’y a pas de suppression d’établissement, pas d’écriture inter-établissements et pas de prise de contrôle d’un compte.
