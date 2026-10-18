@@ -16,6 +16,7 @@ import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
 import { PLATFORM_ROLE, apiDelete, apiSend, clearToken, getSession, getToken, roleLabel } from './api/client';
 import { loadSchoolWorkspace, ExamOption } from './api/workspace';
+import { applyCharte, charteChanged, loadCharte, saveCharte } from './api/charte';
 import {
   getRegisteredSchools,
   getCurrentSchoolId,
@@ -115,6 +116,11 @@ export default function App() {
     setSettings(newSettings);
     saveSchoolData(currentSchoolId, newSettings, candidates);
     setSchools(getRegisteredSchools());
+    // Cachet et signatures suivent l'établissement sur l'API pour être retrouvés depuis un autre poste.
+    if (getToken() && charteChanged(settings, newSettings)) {
+      void saveCharte(newSettings).catch((err: Error) =>
+        showToast(err.message || 'Cachet / signatures non enregistrés sur le serveur.'));
+    }
   };
 
   const handleUpdateCandidates = (newCandidates: Candidate[]) => {
@@ -123,7 +129,11 @@ export default function App() {
   };
 
   const applyWorkspace = async (sessionId?: number) => {
-    const workspace = await loadSchoolWorkspace(sessionId);
+    const [workspace, charte] = await Promise.all([
+      loadSchoolWorkspace(sessionId),
+      // Une charte indisponible (ancienne API) ne doit pas bloquer le chargement de l'espace.
+      loadCharte().catch(() => null),
+    ]);
     const session = getSession();
     setUsingApi(true);
     setApiUser(session ? { name: session.nomUtilisateur || session.email, role: roleLabel(session.role) } : null);
@@ -134,13 +144,16 @@ export default function App() {
     setActiveSessionId(workspace.sessionId);
     setActiveClasseId(workspace.classeId);
     setActiveExamType(workspace.examType);
-    setSettings((prev) => ({
-      ...prev,
-      institutionName: session?.nomEtablissement || prev.institutionName,
-      academicYear: workspace.academicYear || prev.academicYear,
-      sessionName: workspace.sessionName || prev.sessionName,
-      examType: workspace.examType || prev.examType,
-    }));
+    setSettings((prev) => {
+      const next: AppSettings = {
+        ...prev,
+        institutionName: session?.nomEtablissement || prev.institutionName,
+        academicYear: workspace.academicYear || prev.academicYear,
+        sessionName: workspace.sessionName || prev.sessionName,
+        examType: workspace.examType || prev.examType,
+      };
+      return charte ? applyCharte(next, charte) : next;
+    });
     // Les libellés viennent exclusivement de l'API : vide tant qu'aucune session / aucun centre n'existe.
     setSelectedSession(workspace.sessionName);
     setSelectedCenter(workspace.centerLabel);

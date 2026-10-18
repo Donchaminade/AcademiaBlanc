@@ -41,4 +41,14 @@ public class Etablissement {
 
   @Column(name = "nom_responsable", nullable = false)
   private String nomResponsable;
+
+  /** Cachet affiché dans la carte « Le Proviseur » du bulletin ; null = cachet physique. */
+  @Column(name = "sceau_url", columnDefinition = "TEXT")
+  private String sceauUrl;
+
+  @Column(name = "signature_proviseur_url", columnDefinition = "TEXT")
+  private String signatureProviseurUrl;
+
+  @Column(name = "signature_titulaire_url", columnDefinition = "TEXT")
+  private String signatureTitulaireUrl;
 }

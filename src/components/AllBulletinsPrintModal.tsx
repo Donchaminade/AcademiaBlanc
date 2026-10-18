@@ -8,6 +8,7 @@ import {
   formatSubjectRank,
 } from '../utils/bulletinMetrics';
 import { printDocument } from '../utils/printDocument';
+import { BulletinSignatureZone } from './BulletinSignatureZone';
 
 interface AllBulletinsPrintModalProps {
   candidates: Candidate[];
@@ -406,12 +407,12 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       {settings.principalTeacherName}
                     </span>
                   </div>
-                  <div className="bulletin-signature-stroke w-16 h-4 flex items-center justify-center my-0">
-                    <svg className="w-full h-full text-[#00236f]" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" viewBox="0 0 160 50">
-                      <path d="M10 35 C 30 15, 45 45, 60 25 C 75 5, 80 40, 110 30 C 130 22, 140 10, 150 20 M70 20 L 130 20" />
-                    </svg>
-                  </div>
-                  <span className="text-[9px] text-[#444651] italic leading-tight">Visa certifié</span>
+                  <BulletinSignatureZone
+                    signatureUrl={settings.signatureTitulaireUrl}
+                    signatureAlt={`Signature — ${settings.principalTeacherTitle || 'Le Titulaire'}`}
+                    className="h-11"
+                  />
+                  <span className="text-[9px] text-[#444651] italic leading-tight">Visa du titulaire</span>
                 </div>
 
                 {/* Le Proviseur / Le Directeur / Le Principal */}
@@ -424,21 +425,13 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       {candidate.digitalSignature?.signer || settings.jurySignerName}
                     </span>
                   </div>
-                  <div className="bulletin-signature-stamp relative w-11 h-11 my-0 flex items-center justify-center">
-                    <div className="absolute inset-0 rounded-full border border-dashed border-[#0051d5]/40 flex items-center justify-center">
-                      <div className="bulletin-signature-stamp-inner w-9 h-9 rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none">
-                        <span className="text-[6px] font-bold uppercase text-center leading-none">
-                          MEPST • TOGO<br />LOMÉ
-                        </span>
-                        <span className="text-[6.5px] font-bold uppercase leading-none">
-                          CERTIFIÉ
-                        </span>
-                      </div>
-                    </div>
-                    <svg className="bulletin-signature-stroke relative z-10 w-11 h-4 text-[#0051d5]" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 140 60">
-                      <path d="M15 45 Q 40 5, 70 30 T 120 20 Q 90 55, 60 40" />
-                    </svg>
-                  </div>
+                  <BulletinSignatureZone
+                    stampUrl={settings.sceauUrl}
+                    signatureUrl={settings.signatureProviseurUrl}
+                    stampAlt={`Cachet — ${settings.institutionName}`}
+                    signatureAlt={`Signature — ${settings.jurySignerTitle || 'Le Proviseur'}`}
+                    className="h-11"
+                  />
                   <span className="text-[9px] text-[#444651] italic leading-tight">Sceau officiel</span>
                 </div>
               </div>

@@ -84,6 +84,12 @@ export interface AppSettings {
   jurySignerName: string;
   principalTeacherTitle?: string;
   principalTeacherName: string;
+  /** Cachet affiché dans la carte « Le Proviseur » ; vide = emplacement libre pour le cachet physique. */
+  sceauUrl?: string;
+  /** Signature manuscrite du proviseur ; vide = signature à la main sur le papier. */
+  signatureProviseurUrl?: string;
+  /** Signature manuscrite du titulaire ; vide = signature à la main sur le papier. */
+  signatureTitulaireUrl?: string;
   startTableNumber: number;
   autoAssignTables: boolean;
 }
