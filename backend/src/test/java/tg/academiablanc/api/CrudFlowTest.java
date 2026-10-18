@@ -55,7 +55,7 @@ class CrudFlowTest {
 
     long profId = id(envoyer(token, post("/api/professeurs"), "{\"nom\":\"M. Konan\",\"email\":\"konan@ecole.tg\"}"));
     long classeId = id(envoyer(token, post("/api/classes"),
-        "{\"anneeScolaireId\":" + anneeId + ",\"nom\":\"Terminale D\",\"niveau\":\"Terminale\",\"serie\":\"Série D\",\"titulaireId\":" + profId + "}"));
+        "{\"anneeScolaireId\":" + anneeId + ",\"nom\":\"Tle D\",\"niveau\":\"Tle\",\"serie\":\"D\",\"titulaireId\":" + profId + "}"));
     envoyer(token, get("/api/classes/" + classeId))
         .andExpect(jsonPath("$.titulaireId").value(profId));
     long affectationId = id(envoyer(token, post("/api/affectations"),
