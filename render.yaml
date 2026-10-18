@@ -17,6 +17,12 @@ services:
         value: https://academia-chaminadegithubs-projects.vercel.app,https://academia-ochre-chi.vercel.app
       - key: JAVA_TOOL_OPTIONS
         value: "-XX:MaxRAMPercentage=75.0 -XX:+UseSerialGC"
+      # Propriétaire du logiciel : compte SUPER_ADMIN créé automatiquement au démarrage.
+      - key: SUPER_ADMIN_EMAIL
+        value: chaminade.don.adjolou@gmail.com
+      # Saisi dans le tableau de bord Render, jamais commité.
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: academiablanc-db

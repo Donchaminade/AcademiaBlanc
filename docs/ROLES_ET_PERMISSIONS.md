@@ -132,6 +132,8 @@ Migration `V10__permissions_utilisateurs.sql` :
 - `etablissement.actif` (défaut vrai) pour la désactivation douce.
 - Table `permission_utilisateur (id, utilisateur_id, ressource, action, accorde)` avec unicité `(utilisateur_id, ressource, action)` et suppression en cascade avec l’utilisateur.
 
-## Variable d’environnement
+## Variables d’environnement
 
-`SUPER_ADMIN_EMAIL` : email du compte qui reçoit `SUPER_ADMIN` au démarrage et à la connexion. Jamais commitée ; à poser sur le service API. Sans elle, personne n’a le rôle plateforme et les gestionnaires existants gardent leurs droits mais ne peuvent plus être gérés.
+`SUPER_ADMIN_EMAIL` : email du propriétaire, qui reçoit `SUPER_ADMIN` au démarrage et à la connexion. Sans elle, personne n’a le rôle plateforme et les gestionnaires existants gardent leurs droits mais ne peuvent plus être gérés.
+
+`SUPER_ADMIN_PASSWORD` : mot de passe du propriétaire. Au démarrage, si aucun compte ne porte `SUPER_ADMIN_EMAIL`, l’API crée directement le compte `SUPER_ADMIN` (sans inscription, sans établissement) avec ce mot de passe ; si le compte existe et que la valeur a changé, le mot de passe est réinitialisé. Jamais commitée : variable du service (Render, `sync: false`) ou `.env` local. Détails dans `docs/DEPLOIEMENT.md`.
