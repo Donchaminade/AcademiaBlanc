@@ -427,14 +427,14 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           {/* Deliberation Decision & Statistical Synthesis (Bento Grid) */}
           <div className="bulletin-summary relative z-10">
             {/* Main Decision Card */}
-            <div className="bulletin-decision bg-[#f2f3ff] rounded-xs p-3.5 flex flex-col justify-between shadow-xs border border-[#eaedff]">
-              <div className="flex items-center justify-between pb-2">
+            <div className="bulletin-decision bg-[#f2f3ff] rounded-xs p-2 flex flex-col justify-between shadow-xs border border-[#eaedff]">
+              <div className="bulletin-decision-head flex items-center justify-between pb-1">
                 <div>
                   <span className="text-[11px] text-[#444651] uppercase font-semibold block">
                     Décision Officielle du Conseil de Délibération
                   </span>
-                  <span className="text-[17px] font-bold text-[#0051d5] flex items-center gap-2 mt-0.5">
-                    <span className="material-symbols-outlined text-xl">check_circle</span>
+                  <span className="text-[15px] font-bold text-[#0051d5] flex items-center gap-1.5 mt-0.5">
+                    <span className="material-symbols-outlined text-base">check_circle</span>
                     {computedStats.decision}
                   </span>
                 </div>
@@ -442,13 +442,13 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   <span className="text-[11px] text-[#444651] uppercase font-semibold block">
                     Mention Obtenue
                   </span>
-                  <span className="inline-block px-3 py-1 rounded bg-[#0051d5] text-white text-[15px] font-bold tracking-wider shadow-xs">
+                  <span className="inline-block px-2.5 py-0.5 rounded bg-[#0051d5] text-white text-[13px] font-bold tracking-wider shadow-xs">
                     {computedStats.mention}
                   </span>
                 </div>
               </div>
 
-              <div className="bg-white p-3 rounded-xs mt-2 border border-[#eaedff]">
+              <div className="bulletin-observation bg-white px-2.5 py-1.5 rounded-xs mt-1 border border-[#eaedff]">
                 <span className="text-[11px] text-[#444651] uppercase font-semibold block">
                   Observation Générale du Conseil d'Établissement
                 </span>
@@ -460,27 +460,27 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
 
             {/* Metrics Summary Mini Cards */}
             <div className="bulletin-metrics">
-              <div className="bulletin-metric bg-white rounded-xs p-3 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
+              <div className="bulletin-metric bg-white rounded-xs px-2 py-1.5 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
                 <span className="text-[11px] text-[#444651] uppercase font-semibold">
                   Moyenne Générale
                 </span>
-                <span className="font-sans text-[28px] text-[#00236f] font-bold my-0.5 leading-none">
+                <span className="font-sans text-[22px] text-[#00236f] font-bold my-0 leading-none">
                   {computedStats.average.toFixed(2)}
                 </span>
                 <span className="font-mono text-[11px] text-[#444651]">sur 20.00</span>
               </div>
 
-              <div className="bulletin-metric bg-white rounded-xs p-3 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
+              <div className="bulletin-metric bg-white rounded-xs px-2 py-1.5 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
                 <span className="text-[11px] text-[#444651] uppercase font-semibold">
                   Rang de Promotion
                 </span>
-                <span className="font-sans text-[28px] text-[#0051d5] font-bold my-0.5 leading-none">
+                <span className="font-sans text-[22px] text-[#0051d5] font-bold my-0 leading-none">
                   {computedStats.rank === 1 ? (
-                    <span className="text-amber-600">1<span className="text-[16px]">er</span></span>
+                    <span className="text-amber-600">1<span className="text-[13px]">er</span></span>
                   ) : (
                     <>
                       {computedStats.rank < 10 ? `0${computedStats.rank}` : computedStats.rank}
-                      <span className="text-[15px]">e</span>
+                      <span className="text-[12px]">e</span>
                     </>
                   )}
                 </span>
@@ -492,9 +492,9 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           </div>
 
           {/* Signatures & Endorsement Section: Le Titulaire et Le Proviseur */}
-          <div className="relative z-10 pt-2 grid grid-cols-2 gap-3 max-w-2xl mx-auto text-center">
+          <div className="bulletin-signatures relative z-10 pt-1 grid grid-cols-2 gap-2 max-w-2xl mx-auto text-center">
             {/* Signature 1: Le Titulaire */}
-            <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[72px] bg-[#f2f3ff]/50 px-2.5 py-1.5 rounded-xs border border-[#eaedff]">
+            <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[52px] bg-[#f2f3ff]/50 px-2 py-1 rounded-xs border border-[#eaedff]">
               <div>
                 <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
                   {settings.principalTeacherTitle || 'Le Titulaire'}
@@ -505,7 +505,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               </div>
 
               {/* Vector Signature Artifact */}
-              <div className="bulletin-signature-stroke w-24 h-6 flex items-center justify-center my-0.5">
+              <div className="bulletin-signature-stroke w-20 h-4 flex items-center justify-center my-0">
                 <svg
                   className="w-full h-full text-[#00236f]"
                   fill="none"
@@ -523,7 +523,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             </div>
 
             {/* Signature 2: Le Proviseur / Le Directeur / Le Principal (configurable) */}
-            <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[72px] bg-[#f2f3ff]/50 px-2.5 py-1.5 rounded-xs relative border border-[#eaedff]">
+            <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[52px] bg-[#f2f3ff]/50 px-2 py-1 rounded-xs relative border border-[#eaedff]">
               <div>
                 <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
                   {settings.jurySignerTitle || 'Le Proviseur'}
@@ -534,9 +534,9 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               </div>
 
               {/* Official Stamp / Cachet Humide Virtuel */}
-              <div className="bulletin-signature-stamp relative w-16 h-16 my-0.5 flex items-center justify-center">
+              <div className="bulletin-signature-stamp relative w-12 h-12 my-0 flex items-center justify-center">
                 <div className="absolute inset-0 rounded-full border-2 border-dashed border-[#0051d5]/40 flex items-center justify-center">
-                  <div className="bulletin-signature-stamp-inner w-[3.25rem] h-[3.25rem] rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none">
+                  <div className="bulletin-signature-stamp-inner w-10 h-10 rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none">
                     <span className="text-[6.5px] font-bold uppercase tracking-wider text-center leading-none">
                       {settings.countryName.includes('TOGO') ? (
                         <>
@@ -550,7 +550,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                         </>
                       )}
                     </span>
-                    <span className="material-symbols-outlined text-[13px] leading-none my-0 text-[#0051d5]">
+                    <span className="material-symbols-outlined text-[11px] leading-none my-0 text-[#0051d5]">
                       verified
                     </span>
                     <span className="text-[6.5px] font-bold uppercase tracking-tight leading-none">
@@ -561,7 +561,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
 
                 {/* Dynamic ink signature */}
                 <svg
-                  className="bulletin-signature-stroke relative z-10 w-16 h-6 text-[#0051d5]"
+                  className="bulletin-signature-stroke relative z-10 w-12 h-4 text-[#0051d5]"
                   fill="none"
                   stroke="currentColor"
                   strokeLinecap="round"
