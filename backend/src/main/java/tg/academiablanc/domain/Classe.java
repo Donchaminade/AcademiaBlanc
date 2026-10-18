@@ -15,7 +15,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Classe {
+public class Classe implements TenantOwned {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;

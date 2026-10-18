@@ -20,7 +20,7 @@ Les aperçus Vercel ont des domaines `*.vercel.app`. Les ajouter, avec le domain
 2. `JWT_SECRET` est généré par Render (`generateValue`). Ne pas le recopier dans le dépôt.
 3. `DATABASE_URL` est relié à la base. L’API transforme `postgres://…` en URL JDBC si `SPRING_DATASOURCE_URL` n’est pas défini.
 4. `SPRING_PROFILES_ACTIVE=prod` : pas de jeu de démonstration, validation Flyway du schéma.
-5. Remplacer `https://VOTRE-PROJET.vercel.app` dans `CORS_ALLOWED_ORIGINS` par les domaines réels avant d’appliquer le blueprint.
+5. `CORS_ALLOWED_ORIGINS` autorise `https://academia.vercel.app`, les aperçus `https://academia-*.vercel.app`, et le front local.
 6. Le port d’écoute est `$PORT` (défaut 8080).
 
 Lancement local équivalent : `backend/docker-compose.yml` ou, sans Docker, `mvn spring-boot:run` (H2). Voir `backend/README.md` et `backend/.env.example`.

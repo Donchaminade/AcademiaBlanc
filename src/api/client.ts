@@ -90,3 +90,7 @@ export function apiGet<T>(path: string): Promise<T> {
 export function apiSend<T>(path: string, method: 'POST' | 'PUT', body: unknown): Promise<T> {
   return request<T>(path, { method, body: JSON.stringify(body) });
 }
+
+export function apiDelete(path: string): Promise<void> {
+  return request<void>(path, { method: 'DELETE' });
+}

@@ -42,7 +42,7 @@ public class SecurityConfig {
   @Bean
   CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origins}") String allowed) {
     CorsConfiguration config = new CorsConfiguration();
-    config.setAllowedOrigins(Arrays.stream(allowed.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList());
+    config.setAllowedOriginPatterns(Arrays.stream(allowed.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList());
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     config.setAllowedHeaders(List.of("*"));
     config.setAllowCredentials(false);

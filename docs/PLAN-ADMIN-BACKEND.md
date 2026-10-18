@@ -1,6 +1,6 @@
 # Plan administration et backend
 
-Décision retenue : **API Java Spring Boot 3** (Java 21), front Vite/React inchangé dans son rôle d’interface, Postgres en production. Ce document regroupe les points 5, 8, 9, 10 et 11. Le code de départ est dans `backend/`. Il ne remplace pas encore tout le stockage navigateur des bulletins.
+Décision retenue : **API Java Spring Boot 3** (Java 21), front Vite/React inchangé dans son rôle d’interface, **PostgreSQL 16** en production sur Render. H2 en mémoire sert aux tests et au démarrage local sans Docker. MySQL n’est pas retenu. Ce document regroupe les points 5, 8, 9, 10 et 11. Le code de départ est dans `backend/`. Il ne remplace pas encore tout le stockage navigateur des bulletins.
 
 ## 1. Parcours
 

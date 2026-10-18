@@ -15,7 +15,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Affectation {
+public class Affectation implements TenantOwned {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;

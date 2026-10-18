@@ -16,7 +16,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Coefficient {
+public class Coefficient implements TenantOwned {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;

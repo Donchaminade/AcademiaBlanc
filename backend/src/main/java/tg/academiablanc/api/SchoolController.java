@@ -9,8 +9,11 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import tg.academiablanc.domain.Affectation;
@@ -113,13 +117,26 @@ public class SchoolController {
     return annees.save(annee);
   }
 
+  @GetMapping("/annees-scolaires/{id}")
+  public AnneeScolaire annee(@PathVariable Long id) {
+    return lire(annees, id);
+  }
+
   @PutMapping("/annees-scolaires/{id}")
   public AnneeScolaire majAnnee(@PathVariable Long id, @Valid @RequestBody AnneeRequest request) {
     Tenant.requireStaff();
-    AnneeScolaire annee = annees.findById(id).orElseThrow(SchoolController::absent);
-    Tenant.same(annee.getEtablissementId());
+    AnneeScolaire annee = lire(annees, id);
     appliquer(annee, request);
     return annees.save(annee);
+  }
+
+  @DeleteMapping("/annees-scolaires/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Transactional
+  public void supprimerAnnee(@PathVariable Long id) {
+    Tenant.requireStaff();
+    annees.delete(lire(annees, id));
+    flush(annees);
   }
 
   @GetMapping("/centres")
@@ -138,15 +155,28 @@ public class SchoolController {
     return centres.save(centre);
   }
 
+  @GetMapping("/centres/{id}")
+  public CentreExamen centre(@PathVariable Long id) {
+    return lire(centres, id);
+  }
+
   @PutMapping("/centres/{id}")
   public CentreExamen majCentre(@PathVariable Long id, @Valid @RequestBody CentreRequest request) {
     Tenant.requireStaff();
-    CentreExamen centre = centres.findById(id).orElseThrow(SchoolController::absent);
-    Tenant.same(centre.getEtablissementId());
+    CentreExamen centre = lire(centres, id);
     centre.setNom(request.nom().trim());
     centre.setVille(request.ville());
     centre.setCode(request.code().trim());
     return centres.save(centre);
+  }
+
+  @DeleteMapping("/centres/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Transactional
+  public void supprimerCentre(@PathVariable Long id) {
+    Tenant.requireStaff();
+    centres.delete(lire(centres, id));
+    flush(centres);
   }
 
   @GetMapping("/sessions")
@@ -165,15 +195,28 @@ public class SchoolController {
     return sessions.save(session);
   }
 
+  @GetMapping("/sessions/{id}")
+  public SessionExamen session(@PathVariable Long id) {
+    return lire(sessions, id);
+  }
+
   @PutMapping("/sessions/{id}")
   public SessionExamen majSession(@PathVariable Long id, @Valid @RequestBody SessionRequest request) {
     Tenant.requireStaff();
-    SessionExamen session = sessions.findById(id).orElseThrow(SchoolController::absent);
-    Tenant.same(session.getEtablissementId());
+    SessionExamen session = lire(sessions, id);
     verifierAnnee(request.anneeScolaireId());
     verifierCentre(request.centreId());
     remplir(session, request);
     return sessions.save(session);
+  }
+
+  @DeleteMapping("/sessions/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Transactional
+  public void supprimerSession(@PathVariable Long id) {
+    Tenant.requireStaff();
+    sessions.delete(lire(sessions, id));
+    flush(sessions);
   }
 
   @GetMapping("/matieres")
@@ -191,14 +234,27 @@ public class SchoolController {
     return matieres.save(matiere);
   }
 
+  @GetMapping("/matieres/{id}")
+  public Matiere matiere(@PathVariable Long id) {
+    return lire(matieres, id);
+  }
+
   @PutMapping("/matieres/{id}")
   public Matiere majMatiere(@PathVariable Long id, @Valid @RequestBody MatiereRequest request) {
     Tenant.requireAdmin();
-    Matiere matiere = matieres.findById(id).orElseThrow(SchoolController::absent);
-    Tenant.same(matiere.getEtablissementId());
+    Matiere matiere = lire(matieres, id);
     matiere.setNom(request.nom().trim());
     matiere.setCode(request.code().trim().toLowerCase());
     return matieres.save(matiere);
+  }
+
+  @DeleteMapping("/matieres/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Transactional
+  public void supprimerMatiere(@PathVariable Long id) {
+    Tenant.requireAdmin();
+    matieres.delete(lire(matieres, id));
+    flush(matieres);
   }
 
   @GetMapping("/coefficients")
@@ -221,6 +277,34 @@ public class SchoolController {
     return coefficients.save(coefficient);
   }
 
+  @GetMapping("/coefficients/{id}")
+  public Coefficient coefficient(@PathVariable Long id) {
+    return lire(coefficients, id);
+  }
+
+  @PutMapping("/coefficients/{id}")
+  public Coefficient majCoefficient(@PathVariable Long id, @Valid @RequestBody CoefficientRequest request) {
+    Tenant.requireAdmin();
+    Coefficient coefficient = lire(coefficients, id);
+    Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
+    Tenant.same(matiere.getEtablissementId());
+    if (request.classeId() != null) verifierClasse(request.classeId());
+    coefficient.setMatiereId(request.matiereId());
+    coefficient.setClasseId(request.classeId());
+    coefficient.setSerie(request.serie());
+    coefficient.setValeur(request.valeur());
+    return coefficients.save(coefficient);
+  }
+
+  @DeleteMapping("/coefficients/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Transactional
+  public void supprimerCoefficient(@PathVariable Long id) {
+    Tenant.requireAdmin();
+    coefficients.delete(lire(coefficients, id));
+    flush(coefficients);
+  }
+
   @GetMapping("/professeurs")
   public List<Professeur> professeurs() {
     return professeurs.findByEtablissementIdOrderByNomAsc(Tenant.current().etablissementId());
@@ -236,14 +320,27 @@ public class SchoolController {
     return professeurs.save(professeur);
   }
 
+  @GetMapping("/professeurs/{id}")
+  public Professeur professeur(@PathVariable Long id) {
+    return lire(professeurs, id);
+  }
+
   @PutMapping("/professeurs/{id}")
   public Professeur majProfesseur(@PathVariable Long id, @Valid @RequestBody ProfesseurRequest request) {
     Tenant.requireAdmin();
-    Professeur professeur = professeurs.findById(id).orElseThrow(SchoolController::absent);
-    Tenant.same(professeur.getEtablissementId());
+    Professeur professeur = lire(professeurs, id);
     professeur.setNom(request.nom().trim());
     professeur.setEmail(request.email());
     return professeurs.save(professeur);
+  }
+
+  @DeleteMapping("/professeurs/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Transactional
+  public void supprimerProfesseur(@PathVariable Long id) {
+    Tenant.requireAdmin();
+    professeurs.delete(lire(professeurs, id));
+    flush(professeurs);
   }
 
   @GetMapping("/classes")
@@ -262,15 +359,28 @@ public class SchoolController {
     return classes.save(classe);
   }
 
+  @GetMapping("/classes/{id}")
+  public Classe classe(@PathVariable Long id) {
+    return lire(classes, id);
+  }
+
   @PutMapping("/classes/{id}")
   public Classe majClasse(@PathVariable Long id, @Valid @RequestBody ClasseRequest request) {
     Tenant.requireAdmin();
-    Classe classe = classes.findById(id).orElseThrow(SchoolController::absent);
-    Tenant.same(classe.getEtablissementId());
+    Classe classe = lire(classes, id);
     verifierAnnee(request.anneeScolaireId());
     if (request.titulaireId() != null) verifierProfesseur(request.titulaireId());
     remplir(classe, request);
     return classes.save(classe);
+  }
+
+  @DeleteMapping("/classes/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Transactional
+  public void supprimerClasse(@PathVariable Long id) {
+    Tenant.requireAdmin();
+    classes.delete(lire(classes, id));
+    flush(classes);
   }
 
   @PutMapping("/classes/{id}/titulaire")
@@ -307,6 +417,42 @@ public class SchoolController {
     return affectations.save(affectation);
   }
 
+  @GetMapping("/affectations/{id}")
+  public Affectation affectation(@PathVariable Long id) {
+    return lire(affectations, id);
+  }
+
+  @PutMapping("/affectations/{id}")
+  public Affectation majAffectation(@PathVariable Long id, @Valid @RequestBody AffectationRequest request) {
+    Tenant.requireAdmin();
+    Affectation affectation = lire(affectations, id);
+    verifierProfesseur(request.professeurId());
+    Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
+    Tenant.same(matiere.getEtablissementId());
+    verifierClasse(request.classeId());
+    boolean doublon = affectations.findByEtablissementId(Tenant.current().etablissementId()).stream().anyMatch(item ->
+        !item.getId().equals(id)
+            && item.getProfesseurId().equals(request.professeurId())
+            && item.getMatiereId().equals(request.matiereId())
+            && item.getClasseId().equals(request.classeId()));
+    if (doublon) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "Cette affectation existe déjà.");
+    }
+    affectation.setProfesseurId(request.professeurId());
+    affectation.setMatiereId(request.matiereId());
+    affectation.setClasseId(request.classeId());
+    return affectations.save(affectation);
+  }
+
+  @DeleteMapping("/affectations/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Transactional
+  public void supprimerAffectation(@PathVariable Long id) {
+    Tenant.requireAdmin();
+    affectations.delete(lire(affectations, id));
+    flush(affectations);
+  }
+
   @GetMapping("/eleves")
   public List<Eleve> eleves() {
     return eleves.findByEtablissementIdOrderByNomCompletAsc(Tenant.current().etablissementId());
@@ -323,15 +469,28 @@ public class SchoolController {
     return eleves.save(eleve);
   }
 
+  @GetMapping("/eleves/{id}")
+  public Eleve eleve(@PathVariable Long id) {
+    return lire(eleves, id);
+  }
+
   @PutMapping("/eleves/{id}")
   public Eleve majEleve(@PathVariable Long id, @Valid @RequestBody EleveRequest request) {
     Tenant.requireStaff();
-    Eleve eleve = eleves.findById(id).orElseThrow(SchoolController::absent);
-    Tenant.same(eleve.getEtablissementId());
+    Eleve eleve = lire(eleves, id);
     verifierClasse(request.classeId());
     if (request.sessionId() != null) verifierSession(request.sessionId());
     remplir(eleve, request);
     return eleves.save(eleve);
+  }
+
+  @DeleteMapping("/eleves/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Transactional
+  public void supprimerEleve(@PathVariable Long id) {
+    Tenant.requireStaff();
+    eleves.delete(lire(eleves, id));
+    flush(eleves);
   }
 
   @GetMapping("/notes")
@@ -340,41 +499,45 @@ public class SchoolController {
     return notes.findByEtablissementIdAndSessionId(Tenant.current().etablissementId(), sessionId);
   }
 
+  @GetMapping("/notes/{id}")
+  public Note note(@PathVariable Long id) {
+    return lire(notes, id);
+  }
+
   @PostMapping("/notes")
   @Transactional
   public Note saisirNote(@Valid @RequestBody NoteRequest request) {
-    var user = Tenant.current();
-    if (request.absent() && request.valeur() != null) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Une absence n'a pas de note.");
-    }
-    if (!request.absent() && request.valeur() == null) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indiquez une note sur 20 ou cochez absent.");
-    }
-    Eleve eleve = eleves.findById(request.eleveId()).orElseThrow(SchoolController::absent);
-    Tenant.same(eleve.getEtablissementId());
-    Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
-    Tenant.same(matiere.getEtablissementId());
-    verifierSession(request.sessionId());
-    if (user.role() == Role.ENSEIGNANT) {
-      boolean autorise = affectations.findByEtablissementId(user.etablissementId()).stream().anyMatch(item ->
-          item.getMatiereId().equals(request.matiereId())
-              && item.getClasseId().equals(eleve.getClasseId())
-              && professeurs.findById(item.getProfesseurId())
-                  .map(prof -> user.userId().equals(prof.getUtilisateurId()))
-                  .orElse(false));
-      if (!autorise) {
-        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Matière non affectée à cet enseignant.");
-      }
-    }
+    Eleve eleve = controlerNote(request);
     Note note = notes.findByEleveIdAndMatiereIdAndSessionId(request.eleveId(), request.matiereId(), request.sessionId())
         .orElseGet(Note::new);
-    note.setEtablissementId(user.etablissementId());
-    note.setEleveId(request.eleveId());
-    note.setMatiereId(request.matiereId());
-    note.setSessionId(request.sessionId());
-    note.setAbsent(request.absent());
-    note.setValeur(request.absent() ? null : request.valeur());
+    appliquer(note, request, eleve);
     return notes.save(note);
+  }
+
+  @PutMapping("/notes/{id}")
+  @Transactional
+  public Note majNote(@PathVariable Long id, @Valid @RequestBody NoteRequest request) {
+    Note note = lire(notes, id);
+    Eleve eleve = controlerNote(request);
+    notes.findByEleveIdAndMatiereIdAndSessionId(request.eleveId(), request.matiereId(), request.sessionId())
+        .filter(other -> !other.getId().equals(id))
+        .ifPresent(other -> {
+          throw new ResponseStatusException(HttpStatus.CONFLICT, "Une note existe déjà pour cet élève, cette matière et cette session.");
+        });
+    appliquer(note, request, eleve);
+    return notes.save(note);
+  }
+
+  @DeleteMapping("/notes/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Transactional
+  public void supprimerNote(@PathVariable Long id) {
+    Tenant.requireStaff();
+    if (Tenant.current().role() == Role.ENSEIGNANT) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Droit insuffisant.");
+    }
+    notes.delete(lire(notes, id));
+    flush(notes);
   }
 
   @GetMapping("/bulletins")
@@ -452,6 +615,58 @@ public class SchoolController {
   private void verifierProfesseur(Long id) {
     Professeur professeur = professeurs.findById(id).orElseThrow(SchoolController::absent);
     Tenant.same(professeur.getEtablissementId());
+  }
+
+  private <T extends tg.academiablanc.domain.TenantOwned> T lire(JpaRepository<T, Long> repo, Long id) {
+    T value = repo.findById(id).orElseThrow(SchoolController::absent);
+    Tenant.same(value.getEtablissementId());
+    return value;
+  }
+
+  private void flush(JpaRepository<?, ?> repo) {
+    try {
+      repo.flush();
+    } catch (DataIntegrityViolationException ex) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "Suppression impossible : des éléments liés existent encore.");
+    }
+  }
+
+  private Eleve controlerNote(NoteRequest request) {
+    if (request.absent() && request.valeur() != null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Une absence n'a pas de note.");
+    }
+    if (!request.absent() && request.valeur() == null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indiquez une note sur 20 ou cochez absent.");
+    }
+    Eleve eleve = eleves.findById(request.eleveId()).orElseThrow(SchoolController::absent);
+    Tenant.same(eleve.getEtablissementId());
+    Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
+    Tenant.same(matiere.getEtablissementId());
+    verifierSession(request.sessionId());
+    var user = Tenant.current();
+    if (user.role() == Role.ENSEIGNANT) {
+      boolean autorise = affectations.findByEtablissementId(user.etablissementId()).stream().anyMatch(item ->
+          item.getMatiereId().equals(request.matiereId())
+              && item.getClasseId().equals(eleve.getClasseId())
+              && professeurs.findById(item.getProfesseurId())
+                  .map(prof -> user.userId().equals(prof.getUtilisateurId()))
+                  .orElse(false));
+      if (!autorise) {
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Matière non affectée à cet enseignant.");
+      }
+    } else {
+      Tenant.requireStaff();
+    }
+    return eleve;
+  }
+
+  private void appliquer(Note note, NoteRequest request, Eleve eleve) {
+    note.setEtablissementId(eleve.getEtablissementId());
+    note.setEleveId(request.eleveId());
+    note.setMatiereId(request.matiereId());
+    note.setSessionId(request.sessionId());
+    note.setAbsent(request.absent());
+    note.setValeur(request.absent() ? null : request.valeur());
   }
 
   private static ResponseStatusException absent() {
