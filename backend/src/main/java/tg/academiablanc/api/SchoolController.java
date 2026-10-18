@@ -61,6 +61,7 @@ public class SchoolController {
   private final EleveRepository eleves;
   private final NoteRepository notes;
   private final BulletinService bulletins;
+  private final EleveImportService importEleves;
 
   public SchoolController(
       AnneeScolaireRepository annees,
@@ -73,7 +74,8 @@ public class SchoolController {
       AffectationRepository affectations,
       EleveRepository eleves,
       NoteRepository notes,
-      BulletinService bulletins
+      BulletinService bulletins,
+      EleveImportService importEleves
   ) {
     this.annees = annees;
     this.centres = centres;
@@ -86,6 +88,7 @@ public class SchoolController {
     this.eleves = eleves;
     this.notes = notes;
     this.bulletins = bulletins;
+    this.importEleves = importEleves;
   }
 
   public record AnneeRequest(@NotBlank @Size(max = 40) String libelle, LocalDate dateDebut, LocalDate dateFin, boolean courante) {}
@@ -467,6 +470,12 @@ public class SchoolController {
     eleve.setEtablissementId(Tenant.current().etablissementId());
     remplir(eleve, request);
     return eleves.save(eleve);
+  }
+
+  /** Import d'une liste d'élèves (classe créée au besoin, matricules générés, doublons ignorés). */
+  @PostMapping("/eleves/import")
+  public EleveImportService.Resultat importerEleves(@Valid @RequestBody EleveImportService.Demande request) {
+    return importEleves.importer(request);
   }
 
   @GetMapping("/eleves/{id}")
