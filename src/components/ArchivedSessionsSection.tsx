@@ -273,50 +273,50 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
   return (
     <div className="space-y-6">
       {/* Banner: Archiving & Multi-Year Overview */}
-      <div className="bg-gradient-to-r from-[#00236f] via-[#003cb3] to-[#0051d5] rounded-xl p-6 text-white shadow-md border border-[#90a8ff]/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+      <div className="min-w-0 bg-gradient-to-r from-[#00236f] via-[#003cb3] to-[#0051d5] rounded-xl p-6 text-white shadow-md border border-[#90a8ff]/20">
         <div className="space-y-1.5">
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/15 text-[11px] font-bold uppercase tracking-wider">
-            <span className="material-symbols-outlined text-sm">history_edu</span>
+          <div className="inline-flex max-w-full flex-wrap items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/15 text-[11px] font-bold uppercase tracking-wider">
+            <span className="material-symbols-outlined text-sm shrink-0">history_edu</span>
             <span>Mémoire Académique &amp; Évaluation Pluriannuelle</span>
           </div>
-          <h3 className="text-xl font-bold tracking-tight">
+          <h3 className="text-xl font-bold tracking-tight leading-snug">
             Archives des Sessions &amp; Comparatif Interannuel
           </h3>
-          <p className="text-[12.5px] text-white/80 max-w-2xl leading-relaxed">
+          <p className="text-[12.5px] text-white/80 leading-relaxed">
             Consultez les résultats officiels des promotions antérieures de l'établissement <strong className="text-white">« {settings.institutionName} »</strong>, suivez les courbes de progression et archivez la session en cours en un clic.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
+        <div className="mt-5 flex w-full flex-wrap items-center gap-2">
           {currentSessionLiveStats && (
             <button
               type="button"
               onClick={() => setShowArchiveCurrentModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[12px] shadow-sm transition-all active:scale-95"
+              className="inline-flex max-w-full shrink-0 items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[12px] text-left shadow-sm transition-all active:scale-95"
               title="Sauvegarder et archiver la session 2024-2025"
             >
-              <span className="material-symbols-outlined text-base">archive</span>
-              <span>Archiver la Session Actuelle ({settings.academicYear})</span>
+              <span className="material-symbols-outlined text-base shrink-0">archive</span>
+              <span className="min-w-0 whitespace-normal">Archiver la Session Actuelle ({settings.academicYear})</span>
             </button>
           )}
 
           <button
             type="button"
             onClick={() => setShowAddManualModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold text-[12px] transition-all border border-white/20"
+            className="inline-flex max-w-full shrink-0 items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold text-[12px] text-left transition-all border border-white/20"
           >
-            <span className="material-symbols-outlined text-base">add</span>
-            <span>Ajouter une Session Antérieure</span>
+            <span className="material-symbols-outlined text-base shrink-0">add</span>
+            <span className="min-w-0 whitespace-normal">Ajouter une Session Antérieure</span>
           </button>
 
           <button
             type="button"
             onClick={() => printDocument('archives', `Archives_${settings.institutionName}`)}
-            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold text-[12px] transition-all border border-white/20"
+            className="inline-flex max-w-full shrink-0 items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold text-[12px] text-left transition-all border border-white/20"
             title="Imprimer le rapport de comparaison pluriannuel"
           >
-            <span className="material-symbols-outlined text-base">print</span>
-            <span>Imprimer Bilan</span>
+            <span className="material-symbols-outlined text-base shrink-0">print</span>
+            <span className="whitespace-nowrap">Imprimer Bilan</span>
           </button>
         </div>
       </div>

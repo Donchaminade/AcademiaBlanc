@@ -147,45 +147,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* Navigation Tabs between Configuration & Session Archives */}
-      <div className="settings-chrome flex border-b border-[#eaedff] gap-2">
+      <div className="settings-chrome flex w-full min-w-0 flex-wrap items-end gap-x-2 gap-y-1 border-b border-[#eaedff]">
         <button
           type="button"
           onClick={() => setActiveTab('branding')}
-          className={`flex items-center gap-2 pb-3 px-4 font-bold text-[13px] border-b-2 transition-all ${
+          className={`inline-flex max-w-full shrink-0 items-center gap-2 whitespace-nowrap pb-3 px-4 font-bold text-[13px] border-b-2 transition-all ${
             activeTab === 'branding'
               ? 'border-[#0051d5] text-[#0051d5]'
               : 'border-transparent text-[#444651] hover:text-[#131b2e]'
           }`}
         >
-          <span className="material-symbols-outlined text-base">palette</span>
+          <span className="material-symbols-outlined text-base shrink-0">palette</span>
           <span>Charte Graphique &amp; Établissement</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('archives')}
-          className={`flex items-center gap-2 pb-3 px-4 font-bold text-[13px] border-b-2 transition-all ${
+          className={`inline-flex max-w-full shrink-0 flex-wrap items-center gap-x-2 gap-y-1 pb-3 px-4 font-bold text-[13px] border-b-2 transition-all ${
             activeTab === 'archives'
               ? 'border-[#0051d5] text-[#0051d5]'
               : 'border-transparent text-[#444651] hover:text-[#131b2e]'
           }`}
         >
-          <span className="material-symbols-outlined text-base">history_edu</span>
-          <span>Archives des Sessions &amp; Comparateur Pluriannuel</span>
-          <span className="ml-1 text-[10px] font-bold uppercase bg-[#eaedff] text-[#00236f] px-2 py-0.5 rounded-full">
+          <span className="material-symbols-outlined text-base shrink-0">history_edu</span>
+          <span className="min-w-0 text-left leading-snug">Archives des Sessions &amp; Comparateur Pluriannuel</span>
+          <span className="shrink-0 whitespace-nowrap text-[10px] font-bold uppercase bg-[#eaedff] text-[#00236f] px-2 py-0.5 rounded-full">
             Interannuel
           </span>
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('admin')}
-          className={`flex items-center gap-2 pb-3 px-4 font-bold text-[13px] border-b-2 transition-all ${
+          className={`inline-flex max-w-full shrink-0 items-center gap-2 whitespace-nowrap pb-3 px-4 font-bold text-[13px] border-b-2 transition-all ${
             activeTab === 'admin'
               ? 'border-[#0051d5] text-[#0051d5]'
               : 'border-transparent text-[#444651] hover:text-[#131b2e]'
           }`}
         >
-          <span className="material-symbols-outlined text-base">admin_panel_settings</span>
+          <span className="material-symbols-outlined text-base shrink-0">admin_panel_settings</span>
           <span>Administration (API)</span>
         </button>
       </div>
