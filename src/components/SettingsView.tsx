@@ -30,6 +30,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'branding' | 'archives' | 'admin'>('branding');
   const [formData, setFormData] = useState<AppSettings>(settings);
+  // Dernier formulaire connu, y compris un téléversement pas encore rendu.
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
   const [logoInputUrl, setLogoInputUrl] = useState('');
   const [sealInputUrl, setSealInputUrl] = useState('');
   const [showSavedToast, setShowSavedToast] = useState(false);
@@ -37,14 +40,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const sealFileInputRef = useRef<HTMLInputElement>(null);
 
+  const withCurrentCharte = (base: AppSettings): AppSettings => {
+    const current = formDataRef.current;
+    return {
+      ...base,
+      sceauUrl: current.sceauUrl,
+      signatureProviseurUrl: current.signatureProviseurUrl,
+      signatureTitulaireUrl: current.signatureTitulaireUrl,
+    };
+  };
+
   const applyPreset = (preset: AppSettings, label: string) => {
     // Un préréglage national ne touche pas aux cachet / signatures déjà téléversés.
-    const next: AppSettings = {
-      ...preset,
-      sceauUrl: formData.sceauUrl,
-      signatureProviseurUrl: formData.signatureProviseurUrl,
-      signatureTitulaireUrl: formData.signatureTitulaireUrl,
-    };
+    const next = withCurrentCharte(preset);
+    formDataRef.current = next;
     setFormData(next);
     onUpdateSettings(next);
     setToastMessage(`Préréglage officiel pour ${label} appliqué avec succès !`);
@@ -117,7 +126,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const applyCharteAsset = (field: CharteField, dataUrl: string) => {
-    const updated = { ...formData, [field]: dataUrl };
+    // Deux images peuvent finir avant le prochain rendu : on fusionne sur le
+    // dernier instantané, sinon chaque appel réécrit l'autre champ à vide.
+    const updated = { ...formDataRef.current, [field]: dataUrl };
+    formDataRef.current = updated;
     setFormData(updated);
     onUpdateSettings(updated);
     setToastMessage(dataUrl
@@ -140,8 +152,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       icon: 'warning',
     });
     if (ok) {
-      setFormData(DEFAULT_SETTINGS);
-      onUpdateSettings(DEFAULT_SETTINGS);
+      // Même règle que les préréglages : rétablir l'en-tête ne retire pas le cachet ni les signatures.
+      const next = withCurrentCharte(DEFAULT_SETTINGS);
+      formDataRef.current = next;
+      setFormData(next);
+      onUpdateSettings(next);
       triggerToast();
     }
   };

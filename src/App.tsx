@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { BulletinView } from './components/BulletinView';
 import { DashboardView } from './components/DashboardView';
@@ -48,6 +48,8 @@ export default function App() {
     const data = getSchoolData(getCurrentSchoolId());
     return data.settings;
   });
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   // En mode API, aucune matière de démonstration : la liste vient de l'espace de travail chargé.
   const [subjects, setSubjects] = useState<Subject[]>(() => (getToken() ? [] : INITIAL_SUBJECTS));
@@ -113,11 +115,14 @@ export default function App() {
 
   // Sync isolated data on changes
   const handleUpdateSettings = (newSettings: AppSettings) => {
+    const previous = settingsRef.current;
+    settingsRef.current = newSettings;
     setSettings(newSettings);
     saveSchoolData(currentSchoolId, newSettings, candidates);
     setSchools(getRegisteredSchools());
     // Cachet et signatures suivent l'établissement sur l'API pour être retrouvés depuis un autre poste.
-    if (getToken() && charteChanged(settings, newSettings)) {
+    // Comparer au dernier jeu connu : deux téléversements peuvent aboutir avant le rendu suivant.
+    if (getToken() && charteChanged(previous, newSettings)) {
       void saveCharte(newSettings).catch((err: Error) =>
         showToast(err.message || 'Cachet / signatures non enregistrés sur le serveur.'));
     }
