@@ -4,6 +4,20 @@ export interface AuthSession {
   role: string;
   nomEtablissement: string;
   email: string;
+  nomUtilisateur?: string;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: 'Responsable de l’établissement',
+  ADMIN: 'Administrateur',
+  SECRETAIRE: 'Secrétariat',
+  ENSEIGNANT: 'Enseignant',
+  SUPER_ADMIN: 'Propriétaire de la plateforme',
+};
+
+export function roleLabel(role?: string | null): string {
+  if (!role) return 'Compte établissement';
+  return ROLE_LABELS[role.toUpperCase()] || role;
 }
 
 /** Rôle du propriétaire du logiciel, distinct de OWNER / ADMIN / SECRETAIRE. */
