@@ -521,20 +521,20 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           </div>
 
           {/* Signatures & Endorsement Section: Le Titulaire et Le Proviseur */}
-          <div className="relative z-10 pt-4 grid grid-cols-2 gap-6 max-w-2xl mx-auto text-center">
+          <div className="relative z-10 pt-2 grid grid-cols-2 gap-3 max-w-2xl mx-auto text-center">
             {/* Signature 1: Le Titulaire */}
-            <div className="flex flex-col items-center justify-between min-h-[125px] bg-[#f2f3ff]/50 p-4 rounded-xs border border-[#eaedff]">
+            <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[72px] bg-[#f2f3ff]/50 px-2.5 py-1.5 rounded-xs border border-[#eaedff]">
               <div>
-                <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold block">
+                <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
                   {settings.principalTeacherTitle || 'Le Titulaire'}
                 </span>
-                <span className="text-[13px] text-[#131b2e] font-semibold mt-0.5 block">
+                <span className="text-[13px] text-[#131b2e] font-semibold mt-0.5 block leading-tight">
                   {settings.principalTeacherName}
                 </span>
               </div>
 
               {/* Vector Signature Artifact */}
-              <div className="w-28 h-10 flex items-center justify-center my-1.5">
+              <div className="bulletin-signature-stroke w-24 h-6 flex items-center justify-center my-0.5">
                 <svg
                   className="w-full h-full text-[#00236f]"
                   fill="none"
@@ -546,27 +546,27 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   <path d="M10 35 C 30 15, 45 45, 60 25 C 75 5, 80 40, 110 30 C 130 22, 140 10, 150 20 M70 20 L 130 20" />
                 </svg>
               </div>
-              <span className="text-[10px] text-[#444651] italic">
+              <span className="text-[10px] text-[#444651] italic leading-tight">
                 Visa apposé le 15/05/2025
               </span>
             </div>
 
             {/* Signature 2: Le Proviseur / Le Directeur / Le Principal (configurable) */}
-            <div className="flex flex-col items-center justify-between min-h-[125px] bg-[#f2f3ff]/50 p-4 rounded-xs relative border border-[#eaedff]">
+            <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[72px] bg-[#f2f3ff]/50 px-2.5 py-1.5 rounded-xs relative border border-[#eaedff]">
               <div>
-                <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold block">
+                <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
                   {settings.jurySignerTitle || 'Le Proviseur'}
                 </span>
-                <span className="text-[13px] text-[#00236f] font-bold mt-0.5 block">
+                <span className="text-[13px] text-[#00236f] font-bold mt-0.5 block leading-tight">
                   {selectedCandidate.digitalSignature?.signer || settings.jurySignerName}
                 </span>
               </div>
 
               {/* Official Stamp / Cachet Humide Virtuel */}
-              <div className="relative w-24 h-24 my-1 flex items-center justify-center">
+              <div className="bulletin-signature-stamp relative w-16 h-16 my-0.5 flex items-center justify-center">
                 <div className="absolute inset-0 rounded-full border-2 border-dashed border-[#0051d5]/40 flex items-center justify-center">
-                  <div className="w-20 h-20 rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none">
-                    <span className="text-[7.5px] font-bold uppercase tracking-wider text-center leading-tight">
+                  <div className="bulletin-signature-stamp-inner w-[3.25rem] h-[3.25rem] rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none">
+                    <span className="text-[6.5px] font-bold uppercase tracking-wider text-center leading-none">
                       {settings.countryName.includes('TOGO') ? (
                         <>
                           MEPST • TOGO<br />
@@ -579,10 +579,10 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                         </>
                       )}
                     </span>
-                    <span className="material-symbols-outlined text-base my-0.5 text-[#0051d5]">
+                    <span className="material-symbols-outlined text-[13px] leading-none my-0 text-[#0051d5]">
                       verified
                     </span>
-                    <span className="text-[8px] font-bold uppercase tracking-tight">
+                    <span className="text-[6.5px] font-bold uppercase tracking-tight leading-none">
                       CERTIFIÉ CONFORME
                     </span>
                   </div>
@@ -590,7 +590,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
 
                 {/* Dynamic ink signature */}
                 <svg
-                  className="relative z-10 w-24 h-12 text-[#0051d5]"
+                  className="bulletin-signature-stroke relative z-10 w-16 h-6 text-[#0051d5]"
                   fill="none"
                   stroke="currentColor"
                   strokeLinecap="round"
@@ -600,7 +600,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   <path d="M15 45 Q 40 5, 70 30 T 120 20 Q 90 55, 60 40" />
                 </svg>
               </div>
-              <span className="text-[10px] text-[#444651] italic">
+              <span className="text-[10px] text-[#444651] italic leading-tight">
                 Sceau officiel de l'établissement
               </span>
             </div>
