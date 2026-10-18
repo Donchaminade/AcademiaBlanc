@@ -92,6 +92,8 @@ const btnPrimary =
   'inline-flex items-center justify-center gap-2 rounded-lg bg-[#0051d5] px-5 py-3 text-[14px] font-bold text-white shadow-md transition-colors hover:bg-[#003cb3] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fc922b]';
 const btnLight =
   'inline-flex items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/10 px-5 py-3 text-[14px] font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fc922b]';
+const btnOnDark =
+  'inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-[14px] font-bold text-[#00236f] shadow-md transition-colors hover:bg-[#dce1ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fc922b]';
 const btnGhost =
   'inline-flex items-center justify-center gap-2 rounded-lg border border-[#c5c5d3] bg-white px-5 py-3 text-[14px] font-bold text-[#00236f] transition-colors hover:border-[#0051d5] hover:bg-[#f2f3ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0051d5]';
 
@@ -286,7 +288,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
           id="accueil"
           ref={heroRef}
           aria-labelledby="titre-accueil"
-          className="relative isolate overflow-hidden bg-[#00236f] text-white"
+          className="relative isolate flex overflow-hidden bg-[#00236f] text-white lg:min-h-[calc(100svh-4rem)]"
         >
           <div className="absolute inset-0 -z-10" aria-hidden="true">
             <Suspense fallback={null}>
@@ -303,7 +305,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
             aria-hidden="true"
           />
 
-          <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:pb-28 lg:pt-24">
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-12 self-center px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:pb-24 lg:pt-20">
             <div data-parallax-slow>
               <span
                 data-hero
@@ -497,7 +499,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
-                  <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={`${btnPrimary} bg-white text-[#00236f] hover:bg-[#dce1ff]`} magnetic>
+                  <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={btnOnDark} magnetic>
                     <span className="material-symbols-outlined text-lg">domain_add</span>
                     <span>Créer le compte</span>
                   </RouteLink>
