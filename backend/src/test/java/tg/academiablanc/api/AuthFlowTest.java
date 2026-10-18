@@ -24,6 +24,14 @@ class AuthFlowTest {
   }
 
   @Test
+  void laSanteRefuseLaMethodePostAvecUn405EtNonUn500() throws Exception {
+    mvc.perform(get("/actuator/health")).andExpect(status().isOk());
+    mvc.perform(post("/actuator/health"))
+        .andExpect(status().isMethodNotAllowed())
+        .andExpect(jsonPath("$.message").value(ApiExceptionHandler.MESSAGE_METHODE_NON_AUTORISEE));
+  }
+
+  @Test
   void inscriptionPuisLectureCloisonnee() throws Exception {
     String raw = mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
