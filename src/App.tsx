@@ -15,6 +15,7 @@ import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
 import { apiDelete, apiSend, clearToken, getSession, getToken, isForbidden, isPlatformAccount, refreshSession, roleLabel } from './api/client';
+import type { AuthSession } from './api/client';
 import { usePermissions } from './api/permissions';
 import { confirmAction, showError } from './utils/alerts';
 import { loadSchoolWorkspace, ExamOption } from './api/workspace';
@@ -173,14 +174,29 @@ export default function App() {
       : workspace.candidates[0]?.id || '');
   };
 
+  /**
+   * Compte de niveau plateforme sans établissement (propriétaire créé au démarrage, gestionnaire) :
+   * aucun espace de travail à charger, mais la session API doit être marquée active pour que la barre
+   * latérale affiche le compte et la déconnexion au lieu des données de démonstration.
+   */
+  const appliquerSessionPlateforme = (session: AuthSession | null) => {
+    setUsingApi(true);
+    setApiUser(session ? { name: session.nomUtilisateur || session.email, role: roleLabel(session.role) } : null);
+    setSettings((prev) => ({ ...prev, institutionName: session?.nomEtablissement || 'Plateforme AcademiaBlanc' }));
+    setCurrentView('plateforme');
+  };
+
   const handleApiReady = () => {
     const session = getSession();
     const role = session?.role ?? '';
     setAccountRole(role);
     if (isPlatformAccount(session)) {
       setIsAuthModalOpen(false);
+      if (!session?.etablissementId) {
+        appliquerSessionPlateforme(session);
+        return;
+      }
       setCurrentView('plateforme');
-      if (!session?.etablissementId) return;
     }
     applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
   };
@@ -230,7 +246,10 @@ export default function App() {
     refreshSession()
       .then((session) => {
         if (session) setAccountRole(session.role);
-        if (isPlatformAccount(session) && !session?.etablissementId) return undefined;
+        if (isPlatformAccount(session) && !session?.etablissementId) {
+          appliquerSessionPlateforme(session);
+          return undefined;
+        }
         return applyWorkspace();
       })
       .catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
