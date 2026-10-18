@@ -364,14 +364,14 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
               {/* Deliberation Decision & Metrics */}
               {stats && (
                 <div className="bulletin-summary relative z-10">
-                  <div className="bulletin-decision bg-[#f2f3ff] rounded-xs p-3 flex flex-col justify-between border border-[#eaedff]">
-                    <div className="flex items-center justify-between pb-1.5">
+                  <div className="bulletin-decision bg-[#f2f3ff] rounded-xs p-2 flex flex-col justify-between border border-[#eaedff]">
+                    <div className="bulletin-decision-head flex items-center justify-between pb-0.5">
                       <div>
                         <span className="text-[10px] text-[#444651] uppercase font-semibold block">
                           Décision Officielle du Conseil de Délibération
                         </span>
-                        <span className="text-[15px] font-bold text-[#0051d5] flex items-center gap-1.5 mt-0.5">
-                          <span className="material-symbols-outlined text-lg">check_circle</span>
+                        <span className="text-[15px] font-bold text-[#0051d5] flex items-center gap-1 mt-0.5">
+                          <span className="material-symbols-outlined text-base">check_circle</span>
                           {stats.decision}
                         </span>
                       </div>
@@ -379,13 +379,13 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                         <span className="text-[10px] text-[#444651] uppercase font-semibold block">
                           Mention
                         </span>
-                        <span className="inline-block px-2.5 py-0.5 rounded bg-[#0051d5] text-white text-[13px] font-bold">
+                        <span className="inline-block px-2 py-0.5 rounded bg-[#0051d5] text-white text-[13px] font-bold">
                           {stats.mention}
                         </span>
                       </div>
                     </div>
 
-                    <div className="bg-white p-2 rounded-xs mt-1 border border-[#eaedff]">
+                    <div className="bulletin-observation bg-white px-2 py-1 rounded-xs mt-0.5 border border-[#eaedff]">
                       <span className="text-[9.5px] text-[#444651] uppercase font-semibold block">
                         Observation Générale du Conseil
                       </span>
@@ -396,17 +396,17 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                   </div>
 
                   <div className="bulletin-metrics">
-                    <div className="bulletin-metric bg-white rounded-xs p-2 text-center border border-[#eaedff] flex flex-col justify-center">
+                    <div className="bulletin-metric bg-white rounded-xs px-1.5 py-1 text-center border border-[#eaedff] flex flex-col justify-center">
                       <span className="text-[10px] text-[#444651] uppercase font-semibold">Moyenne</span>
-                      <span className="text-[22px] text-[#00236f] font-bold leading-none my-0.5">
+                      <span className="text-[18px] text-[#00236f] font-bold leading-none my-0">
                         {stats.average.toFixed(2)}
                       </span>
                       <span className="text-[10px] text-[#444651]">/ 20.00</span>
                     </div>
 
-                    <div className="bulletin-metric bg-white rounded-xs p-2 text-center border border-[#eaedff] flex flex-col justify-center">
+                    <div className="bulletin-metric bg-white rounded-xs px-1.5 py-1 text-center border border-[#eaedff] flex flex-col justify-center">
                       <span className="text-[10px] text-[#444651] uppercase font-semibold">Rang</span>
-                      <span className="text-[22px] text-[#0051d5] font-bold leading-none my-0.5">
+                      <span className="text-[18px] text-[#0051d5] font-bold leading-none my-0">
                         {stats.rank === 1 ? '1er' : `${stats.rank < 10 ? `0${stats.rank}` : stats.rank}e`}
                       </span>
                       <span className="text-[10px] text-[#444651]">sur {stats.totalCandidates}</span>
@@ -416,9 +416,9 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
               )}
 
               {/* Signatures Section: Le Titulaire et Le Proviseur */}
-              <div className="relative z-10 pt-1 grid grid-cols-2 gap-2 max-w-xl mx-auto text-center">
+              <div className="bulletin-signatures relative z-10 pt-0.5 grid grid-cols-2 gap-1.5 max-w-xl mx-auto text-center">
                 {/* Le Titulaire */}
-                <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[60px] bg-[#f2f3ff]/50 px-2 py-1 rounded-xs border border-[#eaedff]">
+                <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[46px] bg-[#f2f3ff]/50 px-2 py-0.5 rounded-xs border border-[#eaedff]">
                   <div>
                     <span className="text-[10px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
                       {settings.principalTeacherTitle || 'Le Titulaire'}
@@ -427,7 +427,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       {settings.principalTeacherName}
                     </span>
                   </div>
-                  <div className="bulletin-signature-stroke w-20 h-5 flex items-center justify-center my-0.5">
+                  <div className="bulletin-signature-stroke w-16 h-4 flex items-center justify-center my-0">
                     <svg className="w-full h-full text-[#00236f]" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" viewBox="0 0 160 50">
                       <path d="M10 35 C 30 15, 45 45, 60 25 C 75 5, 80 40, 110 30 C 130 22, 140 10, 150 20 M70 20 L 130 20" />
                     </svg>
@@ -436,7 +436,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                 </div>
 
                 {/* Le Proviseur / Le Directeur / Le Principal */}
-                <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[60px] bg-[#f2f3ff]/50 px-2 py-1 rounded-xs relative border border-[#eaedff]">
+                <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[46px] bg-[#f2f3ff]/50 px-2 py-0.5 rounded-xs relative border border-[#eaedff]">
                   <div>
                     <span className="text-[10px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
                       {settings.jurySignerTitle || 'Le Proviseur'}
@@ -445,9 +445,9 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       {candidate.digitalSignature?.signer || settings.jurySignerName}
                     </span>
                   </div>
-                  <div className="bulletin-signature-stamp relative w-14 h-14 my-0 flex items-center justify-center">
+                  <div className="bulletin-signature-stamp relative w-11 h-11 my-0 flex items-center justify-center">
                     <div className="absolute inset-0 rounded-full border border-dashed border-[#0051d5]/40 flex items-center justify-center">
-                      <div className="bulletin-signature-stamp-inner w-12 h-12 rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none">
+                      <div className="bulletin-signature-stamp-inner w-9 h-9 rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none">
                         <span className="text-[6px] font-bold uppercase text-center leading-none">
                           MEPST • TOGO<br />LOMÉ
                         </span>
@@ -456,7 +456,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                         </span>
                       </div>
                     </div>
-                    <svg className="bulletin-signature-stroke relative z-10 w-14 h-5 text-[#0051d5]" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 140 60">
+                    <svg className="bulletin-signature-stroke relative z-10 w-11 h-4 text-[#0051d5]" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 140 60">
                       <path d="M15 45 Q 40 5, 70 30 T 120 20 Q 90 55, 60 40" />
                     </svg>
                   </div>
