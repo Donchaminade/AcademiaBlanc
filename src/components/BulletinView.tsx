@@ -607,16 +607,6 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               </span>
             </div>
           </div>
-
-          {/* Legal Warning Footer Note */}
-          <div className="relative z-10 mt-6 pt-3 text-center space-y-0.5 border-t border-[#eaedff]">
-            <p className="text-[10px] text-[#444651] tracking-wider uppercase font-semibold">
-              Ce relevé d'examen blanc a valeur d'entraînement officiel sous le contrôle académique régional • Tout faux ou falsification expose à des sanctions disciplinaires et pénales.
-            </p>
-            <p className="font-mono text-[10px] text-[#757682]">
-              Système National AcademiaBlanc • Généré en local PWA sans transmission non-chiffrée • Page 1 / 1
-            </p>
-          </div>
         </div>
       </div>
     </div>
