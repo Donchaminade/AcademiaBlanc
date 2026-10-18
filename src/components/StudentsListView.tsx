@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Candidate, Subject, AppSettings } from '../types';
 import { printDocument } from '../utils/printDocument';
+import { confirmDelete } from '../utils/alerts';
 
 interface StudentsListViewProps {
   candidates: Candidate[];
@@ -521,9 +522,9 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
                       <button
                         type="button"
                         onClick={() => {
-                          if (confirm(`Supprimer l'élève ${cand.fullName} (Table ${cand.tableNumber}) ?`)) {
-                            onDeleteCandidate(cand.id);
-                          }
+                          void confirmDelete(`${cand.fullName} (Table ${cand.tableNumber})`, 'L’élève sera retiré de la liste des candidats.').then((ok) => {
+                            if (ok) onDeleteCandidate(cand.id);
+                          });
                         }}
                         className="p-1.5 rounded hover:bg-[#ffdad6] text-[#ba1a1a] transition-colors"
                         title="Supprimer"

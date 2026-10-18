@@ -6,6 +6,7 @@ import {
   getCurrentSchoolId,
 } from '../data/schoolsData';
 import { printDocument } from '../utils/printDocument';
+import { confirmDelete } from '../utils/alerts';
 
 interface ArchivedSessionsSectionProps {
   settings: AppSettings;
@@ -233,8 +234,8 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
   };
 
   // Delete an archived session
-  const handleDeleteSession = (id: string, year: string) => {
-    if (confirm(`Confirmez-vous la suppression de l'archive de la session ${year} ?`)) {
+  const handleDeleteSession = async (id: string, year: string) => {
+    if (await confirmDelete(`archive de la session ${year}`, 'Les statistiques archivées de cette session seront perdues.')) {
       const updated = sessions.filter((s) => s.id !== id);
       updateAndPersistSessions(updated);
       if (selectedSessionForDetail?.id === id) {
@@ -625,7 +626,7 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDeleteSession(session.id, session.academicYear)}
+                        onClick={() => void handleDeleteSession(session.id, session.academicYear)}
                         className="p-1 rounded text-red-500 hover:bg-red-50 transition-colors"
                         title="Supprimer cette archive"
                       >
