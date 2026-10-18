@@ -405,51 +405,51 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
               )}
 
               {/* Signatures Section: Le Titulaire et Le Proviseur */}
-              <div className="relative z-10 pt-2 grid grid-cols-2 gap-4 max-w-xl mx-auto text-center">
+              <div className="relative z-10 pt-1 grid grid-cols-2 gap-2 max-w-xl mx-auto text-center">
                 {/* Le Titulaire */}
-                <div className="flex flex-col items-center justify-between min-h-[105px] bg-[#f2f3ff]/50 p-2.5 rounded-xs border border-[#eaedff]">
+                <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[60px] bg-[#f2f3ff]/50 px-2 py-1 rounded-xs border border-[#eaedff]">
                   <div>
-                    <span className="text-[10px] text-[#444651] uppercase tracking-wider font-bold block">
+                    <span className="text-[10px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
                       {settings.principalTeacherTitle || 'Le Titulaire'}
                     </span>
-                    <span className="text-[12px] text-[#131b2e] font-semibold mt-0.5 block">
+                    <span className="text-[12px] text-[#131b2e] font-semibold mt-0.5 block leading-tight">
                       {settings.principalTeacherName}
                     </span>
                   </div>
-                  <div className="w-24 h-8 flex items-center justify-center my-1">
+                  <div className="bulletin-signature-stroke w-20 h-5 flex items-center justify-center my-0.5">
                     <svg className="w-full h-full text-[#00236f]" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" viewBox="0 0 160 50">
                       <path d="M10 35 C 30 15, 45 45, 60 25 C 75 5, 80 40, 110 30 C 130 22, 140 10, 150 20 M70 20 L 130 20" />
                     </svg>
                   </div>
-                  <span className="text-[9px] text-[#444651] italic">Visa certifié</span>
+                  <span className="text-[9px] text-[#444651] italic leading-tight">Visa certifié</span>
                 </div>
 
                 {/* Le Proviseur / Le Directeur / Le Principal */}
-                <div className="flex flex-col items-center justify-between min-h-[105px] bg-[#f2f3ff]/50 p-2.5 rounded-xs relative border border-[#eaedff]">
+                <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[60px] bg-[#f2f3ff]/50 px-2 py-1 rounded-xs relative border border-[#eaedff]">
                   <div>
-                    <span className="text-[10px] text-[#444651] uppercase tracking-wider font-bold block">
+                    <span className="text-[10px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
                       {settings.jurySignerTitle || 'Le Proviseur'}
                     </span>
-                    <span className="text-[12px] text-[#00236f] font-bold mt-0.5 block">
+                    <span className="text-[12px] text-[#00236f] font-bold mt-0.5 block leading-tight">
                       {candidate.digitalSignature?.signer || settings.jurySignerName}
                     </span>
                   </div>
-                  <div className="relative w-20 h-16 my-0.5 flex items-center justify-center">
+                  <div className="bulletin-signature-stamp relative w-14 h-14 my-0 flex items-center justify-center">
                     <div className="absolute inset-0 rounded-full border border-dashed border-[#0051d5]/40 flex items-center justify-center">
-                      <div className="w-16 h-16 rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none">
-                        <span className="text-[6.5px] font-bold uppercase text-center leading-tight">
+                      <div className="bulletin-signature-stamp-inner w-12 h-12 rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none">
+                        <span className="text-[6px] font-bold uppercase text-center leading-none">
                           MEPST • TOGO<br />LOMÉ
                         </span>
-                        <span className="text-[7px] font-bold uppercase">
+                        <span className="text-[6.5px] font-bold uppercase leading-none">
                           CERTIFIÉ
                         </span>
                       </div>
                     </div>
-                    <svg className="relative z-10 w-20 h-8 text-[#0051d5]" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 140 60">
+                    <svg className="bulletin-signature-stroke relative z-10 w-14 h-5 text-[#0051d5]" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 140 60">
                       <path d="M15 45 Q 40 5, 70 30 T 120 20 Q 90 55, 60 40" />
                     </svg>
                   </div>
-                  <span className="text-[9px] text-[#444651] italic">Sceau officiel</span>
+                  <span className="text-[9px] text-[#444651] italic leading-tight">Sceau officiel</span>
                 </div>
               </div>
 

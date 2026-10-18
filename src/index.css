@@ -109,10 +109,31 @@
     overflow: visible !important;
   }
 
-  #bulletinSheet .min-h-\[125px\],
-  .bulletin-sheet .min-h-\[125px\] {
-    min-height: 68px !important;
-    padding: 6px !important;
+  #bulletinSheet .bulletin-signature-card,
+  .bulletin-sheet .bulletin-signature-card {
+    min-height: 40px !important;
+    padding: 2px 6px !important;
+  }
+
+  #bulletinSheet .bulletin-signature-stamp,
+  .bulletin-sheet .bulletin-signature-stamp {
+    width: 48px !important;
+    height: 48px !important;
+    margin-top: 1px !important;
+    margin-bottom: 1px !important;
+  }
+
+  #bulletinSheet .bulletin-signature-stamp-inner,
+  .bulletin-sheet .bulletin-signature-stamp-inner {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  #bulletinSheet .bulletin-signature-stroke,
+  .bulletin-sheet .bulletin-signature-stroke {
+    height: 14px !important;
+    margin-top: 1px !important;
+    margin-bottom: 1px !important;
   }
 
   .print\:break-after-page {
