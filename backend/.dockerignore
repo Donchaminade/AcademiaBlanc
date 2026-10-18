@@ -1,0 +1,10 @@
+target/
+node_modules/
+.idea/
+*.iml
+.env
+.env.*
+!.env.example
+docker-compose.yml
+README.md
+*.log

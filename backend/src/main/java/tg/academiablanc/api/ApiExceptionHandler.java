@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -35,6 +37,7 @@ public class ApiExceptionHandler {
   public static final String MESSAGE_AUTH_REQUISE = "Authentification requise.";
   public static final String MESSAGE_INTEGRITE = "Suppression impossible : des données y sont encore rattachées.";
   public static final String MESSAGE_DOUBLON = "Cette donnée existe déjà : un enregistrement identique est présent.";
+  public static final String MESSAGE_METHODE_NON_AUTORISEE = "Méthode non autorisée pour cette adresse.";
 
   /** État SQL standard d'une violation de clé étrangère. */
   private static final String SQLSTATE_CLE_ETRANGERE = "23503";
@@ -83,8 +86,18 @@ public class ApiExceptionHandler {
     return corps(HttpStatus.NOT_FOUND, "Élément introuvable.");
   }
 
+  @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+  public ResponseEntity<Map<String, String>> methodeNonSupportee(HttpRequestMethodNotSupportedException ex) {
+    return corps(HttpStatus.METHOD_NOT_ALLOWED, MESSAGE_METHODE_NON_AUTORISEE);
+  }
+
   @ExceptionHandler(Exception.class)
   public ResponseEntity<Map<String, String>> inattendue(Exception ex) {
+    // Les erreurs client que Spring MVC sait déjà qualifier (415, 400 sur paramètre manquant…)
+    // gardent leur statut au lieu de devenir un 500 journalisé comme une panne.
+    if (ex instanceof ErrorResponse reponse && reponse.getStatusCode().is4xxClientError()) {
+      return corps(reponse.getStatusCode(), messageParDefaut(reponse.getStatusCode()));
+    }
     log.error("Erreur inattendue sur l'API", ex);
     return corps(HttpStatus.INTERNAL_SERVER_ERROR, "Erreur du serveur.");
   }
@@ -93,6 +106,7 @@ public class ApiExceptionHandler {
     if (statut.equals(HttpStatus.UNAUTHORIZED)) return MESSAGE_AUTH_REQUISE;
     if (statut.equals(HttpStatus.FORBIDDEN)) return MESSAGE_NON_AUTORISE;
     if (statut.equals(HttpStatus.NOT_FOUND)) return "Élément introuvable.";
+    if (statut.equals(HttpStatus.METHOD_NOT_ALLOWED)) return MESSAGE_METHODE_NON_AUTORISEE;
     if (statut.equals(HttpStatus.CONFLICT)) return MESSAGE_INTEGRITE;
     if (statut.is4xxClientError()) return "Requête invalide.";
     return "Erreur du serveur.";
