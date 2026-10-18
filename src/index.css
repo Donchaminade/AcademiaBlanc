@@ -334,23 +334,17 @@
     padding: 1px 4px !important;
   }
 
-  #bulletinSheet .bulletin-signature-stroke,
-  .bulletin-sheet .bulletin-signature-stroke {
-    height: 11px !important;
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-  }
-
-  .bulletin-sheet .bulletin-signature-stamp {
-    width: 12mm !important;
+  /* Zone cachet / signature : même hauteur (12 mm) avec ou sans image téléversée,
+     pour laisser la place au cachet humide et aux signatures à la main. */
+  #bulletinSheet .bulletin-signature-zone,
+  .bulletin-sheet .bulletin-signature-zone {
     height: 12mm !important;
     margin-top: 0 !important;
     margin-bottom: 0 !important;
   }
 
-  .bulletin-sheet .bulletin-signature-stamp-inner {
-    width: 10mm !important;
-    height: 10mm !important;
+  .bulletin-sheet .bulletin-signature-zone img {
+    max-height: 12mm !important;
   }
 
   .bulletin-sheet .bulletin-signatures {
