@@ -1,0 +1,6 @@
+{
+  "name": "AcademiaBlanc",
+  "description": "Plateforme officielle de gestion des examens d'État, saisie des notes, délibération du jury et édition des bulletins certifiés ISO 216.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
