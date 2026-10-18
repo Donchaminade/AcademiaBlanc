@@ -20,7 +20,10 @@ export const ROLE_LABELS: Record<string, string> = {
   GESTIONNAIRE_PLATEFORME: 'Gestionnaire de la plateforme',
 };
 
-/** Erreur HTTP de l’API : le message vient du serveur (`{ "message": "Action non autorisée : …" }`). */
+/**
+ * Erreur HTTP de l’API : le message vient du serveur (`{ "message": "Action non autorisée : …" }`).
+ * `status` vaut 0 quand aucune réponse n’a été reçue (réseau coupé, CORS refusé, délai dépassé).
+ */
 export class ApiError extends Error {
   readonly status: number;
 
@@ -32,6 +35,19 @@ export class ApiError extends Error {
 }
 
 export const isForbidden = (err: unknown): err is ApiError => err instanceof ApiError && err.status === 403;
+
+/**
+ * Serveur injoignable ou pas encore prêt : aucune réponse, délai dépassé, ou passerelle en 502/503/504
+ * (cas typique d’un hébergement gratuit qui redémarre après une période d’inactivité).
+ */
+export const isUnavailable = (err: unknown): err is ApiError =>
+  err instanceof ApiError && (err.status === 0 || (err.status >= 502 && err.status <= 504));
+
+export const MESSAGE_SERVEUR_INDISPONIBLE =
+  'Le serveur est en cours de démarrage ou injoignable. Réessayez dans une minute.';
+
+/** Délai maximal d’une requête : laisse le temps à un serveur endormi de redémarrer (~50 s). */
+export const DELAI_REQUETE_MS = 60_000;
 
 export function roleLabel(role?: string | null): string {
   if (!role) return 'Compte établissement';
@@ -154,8 +170,9 @@ const STATUS_MESSAGES: Record<number, string> = {
   404: 'Élément introuvable.',
   409: 'Suppression impossible : des données y sont encore rattachées.',
   500: 'Erreur du serveur.',
-  502: 'Serveur indisponible. Réessayez dans un instant.',
-  503: 'Serveur indisponible. Réessayez dans un instant.',
+  502: MESSAGE_SERVEUR_INDISPONIBLE,
+  503: MESSAGE_SERVEUR_INDISPONIBLE,
+  504: MESSAGE_SERVEUR_INDISPONIBLE,
 };
 
 /** Message d’un statut HTTP quand le serveur ne fournit aucun détail. */
@@ -163,19 +180,31 @@ export function messagePourStatut(status: number): string {
   return STATUS_MESSAGES[status] ?? (status >= 500 ? 'Erreur du serveur.' : `Erreur ${status}`);
 }
 
-/** Privilégie le `message` renvoyé par le serveur, sinon une phrase française selon le statut. */
+/**
+ * Privilégie le `message` renvoyé par le serveur (`ApiExceptionHandler` : `{ "message": "…" }`),
+ * sinon une phrase française selon le statut. Une passerelle en 502/503/504 renvoie souvent du HTML :
+ * son texte n’est jamais repris.
+ */
 async function messageErreur(response: Response): Promise<string> {
-  try {
-    const data = await response.json() as { message?: string; error?: string } | null;
-    if (data?.message && data.message.trim()) return data.message.trim();
-    // Le champ `error` de Spring (« Forbidden », « Not Found »…) est en anglais : on lui préfère notre phrase.
-  } catch {
-    // corps vide ou non JSON
+  if (response.status < 502 || response.status > 504) {
+    try {
+      const data = await response.json() as { message?: string; erreur?: string; error?: string } | null;
+      const detail = data?.message ?? data?.erreur;
+      if (detail && detail.trim()) return detail.trim();
+      // Le champ `error` de Spring (« Forbidden », « Not Found »…) est en anglais : on lui préfère notre phrase.
+    } catch {
+      // corps vide ou non JSON
+    }
   }
   return messagePourStatut(response.status);
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+interface RequestOptions extends RequestInit {
+  /** Délai maximal avant abandon (défaut : `DELAI_REQUETE_MS`). */
+  timeoutMs?: number;
+}
+
+async function request<T>(path: string, { timeoutMs = DELAI_REQUETE_MS, ...options }: RequestOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
   if (options.body && !headers.has('Content-Type')) {
@@ -184,11 +213,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
   try {
-    response = await fetch(`${apiBaseUrl()}${path}`, { ...options, headers });
+    response = await fetch(`${apiBaseUrl()}${path}`, { ...options, headers, signal: controller.signal });
   } catch {
-    throw new Error(`API injoignable (${apiBaseUrl()}). Démarrez le backend puis réessayez.`);
+    // Réseau coupé, CORS refusé, serveur arrêté ou délai dépassé : aucune réponse HTTP n’a été reçue.
+    throw new ApiError(0, MESSAGE_SERVEUR_INDISPONIBLE);
+  } finally {
+    clearTimeout(timer);
   }
 
   if (!response.ok) {

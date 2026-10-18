@@ -1,8 +1,68 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SchoolAccount } from '../types';
 import { getRegisteredSchools, createSchoolAccount } from '../data/schoolsData';
-import { PLATFORM_ROLE, getSession, getToken, login as apiLogin, setSession, signup as apiSignup } from '../api/client';
+import {
+  ApiError,
+  MESSAGE_SERVEUR_INDISPONIBLE,
+  PLATFORM_ROLE,
+  getSession,
+  getToken,
+  isUnavailable,
+  login as apiLogin,
+  setSession,
+  signup as apiSignup,
+} from '../api/client';
 import { isPlausibleEmail } from '../utils/safeUrl';
+
+/** Au-delà de ce délai sans réponse, l’écran prévient que le serveur gratuit est sans doute en train de redémarrer. */
+const DELAI_NOTE_REVEIL_MS = 3_000;
+
+/**
+ * Suit un appel réseau : `enCours` pendant l’appel, `attenteLongue` après `DELAI_NOTE_REVEIL_MS` sans réponse.
+ * Les minuteries sont annulées à la fin de l’appel et au démontage du composant.
+ */
+function useAppelServeur() {
+  const [enCours, setEnCours] = useState(false);
+  const [attenteLongue, setAttenteLongue] = useState(false);
+  const minuterie = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const arreter = useCallback(() => {
+    if (minuterie.current) clearTimeout(minuterie.current);
+    minuterie.current = null;
+    setEnCours(false);
+    setAttenteLongue(false);
+  }, []);
+
+  useEffect(() => () => { if (minuterie.current) clearTimeout(minuterie.current); }, []);
+
+  const executer = useCallback(async <T,>(appel: () => Promise<T>): Promise<T> => {
+    setEnCours(true);
+    setAttenteLongue(false);
+    minuterie.current = setTimeout(() => setAttenteLongue(true), DELAI_NOTE_REVEIL_MS);
+    try {
+      return await appel();
+    } finally {
+      arreter();
+    }
+  }, [arreter]);
+
+  return { enCours, attenteLongue, executer };
+}
+
+/** Phrase française pour une erreur de connexion : jamais le texte brut d’une exception. */
+function messageErreurConnexion(error: unknown): string {
+  if (isUnavailable(error)) return MESSAGE_SERVEUR_INDISPONIBLE;
+  if (error instanceof ApiError && error.status === 401) return 'Email ou mot de passe incorrect.';
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return 'Connexion impossible. Réessayez dans un instant.';
+}
+
+/** Phrase française pour une erreur de création de compte. */
+function messageErreurInscription(error: unknown): string {
+  if (isUnavailable(error)) return MESSAGE_SERVEUR_INDISPONIBLE;
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return 'Une erreur est survenue lors de la création du compte.';
+}
 
 interface AuthViewProps {
   onSelectSchool: (schoolId: string) => void;
@@ -65,9 +125,12 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [regError, setRegError] = useState('');
+  const connexion = useAppelServeur();
+  const inscription = useAppelServeur();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (inscription.enCours) return;
     setRegError('');
 
     if (!formData.name.trim()) {
@@ -92,7 +155,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
     }
 
     try {
-      const session = await apiSignup({
+      const session = await inscription.executer(() => apiSignup({
         nom: formData.name.trim(),
         ville: formData.city.trim(),
         email: formData.email.trim(),
@@ -101,7 +164,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         telephone: formData.phone.trim(),
         region: formData.region.trim(),
         typeEtablissement: formData.type.trim(),
-      });
+      }));
       setSession(session);
       const newSchool = createSchoolAccount({
         name: formData.name.trim(),
@@ -119,12 +182,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
       onAccountCreated(newSchool);
       onApiReady?.();
     } catch (error) {
-      setRegError(error instanceof Error ? error.message : 'Une erreur est survenue lors de la création du compte.');
+      setRegError(messageErreurInscription(error));
     }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (connexion.enCours) return;
     setLoginError('');
     const email = loginEmail.trim().toLowerCase();
     if (!isPlausibleEmail(email) || !loginPassword) {
@@ -133,7 +197,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
     }
 
     try {
-      const session = await apiLogin(email, loginPassword);
+      const session = await connexion.executer(() => apiLogin(email, loginPassword));
       setSession(session);
       onApiReady?.();
       if (session.role === PLATFORM_ROLE) {
@@ -146,9 +210,25 @@ export const AuthView: React.FC<AuthViewProps> = ({
       }
       if (onClose) onClose();
     } catch (error) {
-      setLoginError(error instanceof Error ? error.message : 'Connexion impossible.');
+      setLoginError(messageErreurConnexion(error));
     }
   };
+
+  /** Bloc d’erreur sous l’onglet actif, annoncé aux lecteurs d’écran. */
+  const blocErreur = (message: string) => (
+    <div role="alert" className="p-2.5 rounded-lg bg-red-50 text-red-700 text-[12px] font-semibold border border-red-200 flex items-center gap-2">
+      <span className="material-symbols-outlined text-base" aria-hidden="true">error</span>
+      <span>{message}</span>
+    </div>
+  );
+
+  /** Note affichée quand le serveur tarde à répondre (hébergement gratuit qui redémarre). */
+  const noteReveil = (
+    <p role="status" className="flex items-center gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+      <span className="material-symbols-outlined text-base animate-spin" aria-hidden="true">progress_activity</span>
+      <span>Le serveur se réveille, cela peut prendre jusqu’à une minute…</span>
+    </p>
+  );
 
   const labelBase = 'block text-[11px] font-bold uppercase tracking-wider text-[#444651] mb-1';
   const labelStrong = 'block text-[11px] font-bold uppercase tracking-wider text-[#00236f] mb-1';
@@ -238,13 +318,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
       {/* Corps (défile en interne si trop haut) */}
       <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5">
         {mode === 'register' ? (
-          <form onSubmit={handleRegister} className="space-y-3">
-            {regError && (
-              <div className="p-2.5 rounded-lg bg-red-50 text-red-700 text-[12px] font-semibold border border-red-200 flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">error</span>
-                <span>{regError}</span>
-              </div>
-            )}
+          <form onSubmit={handleRegister} className="space-y-3" aria-busy={inscription.enCours}>
+            {regError && blocErreur(regError)}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Nom de l'établissement */}
@@ -398,27 +473,27 @@ export const AuthView: React.FC<AuthViewProps> = ({
               </div>
             </div>
 
+            {inscription.attenteLongue && noteReveil}
+
             <div className="pt-1 flex justify-end">
               <button
                 type="submit"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#00236f] text-white text-[13px] font-bold hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95"
+                disabled={inscription.enCours}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#00236f] text-white text-[13px] font-bold hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95 disabled:opacity-60 disabled:cursor-wait disabled:active:scale-100"
               >
-                <span className="material-symbols-outlined text-lg">check_circle</span>
-                <span>Créer le compte</span>
+                <span className={`material-symbols-outlined text-lg ${inscription.enCours ? 'animate-spin' : ''}`} aria-hidden="true">
+                  {inscription.enCours ? 'progress_activity' : 'check_circle'}
+                </span>
+                <span>{inscription.enCours ? 'Création en cours…' : 'Créer le compte'}</span>
               </button>
             </div>
           </form>
         ) : (
           <div className="space-y-4">
-            {loginError && (
-              <div className="p-2.5 rounded-lg bg-red-50 text-red-700 text-[12px] font-semibold border border-red-200 flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">error</span>
-                <span>{loginError}</span>
-              </div>
-            )}
+            {loginError && blocErreur(loginError)}
 
             {/* Connexion par email et mot de passe uniquement */}
-            <form onSubmit={handleLogin} className="space-y-3">
+            <form onSubmit={handleLogin} className="space-y-3" aria-busy={connexion.enCours}>
               <p className="text-[12px] text-[#444651]">
                 Connectez-vous avec l'adresse email et le mot de passe de votre établissement.
               </p>
@@ -448,13 +523,18 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 </div>
               </div>
 
+              {connexion.attenteLongue && noteReveil}
+
               <div className="flex justify-end">
                 <button
                   type="submit"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#00236f] text-white text-[13px] font-bold hover:bg-[#1e3a8a] transition-all shadow-md"
+                  disabled={connexion.enCours}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#00236f] text-white text-[13px] font-bold hover:bg-[#1e3a8a] transition-all shadow-md disabled:opacity-60 disabled:cursor-wait"
                 >
-                  <span className="material-symbols-outlined text-base">login</span>
-                  <span>Se connecter</span>
+                  <span className={`material-symbols-outlined text-base ${connexion.enCours ? 'animate-spin' : ''}`} aria-hidden="true">
+                    {connexion.enCours ? 'progress_activity' : 'login'}
+                  </span>
+                  <span>{connexion.enCours ? 'Connexion…' : 'Se connecter'}</span>
                 </button>
               </div>
             </form>
