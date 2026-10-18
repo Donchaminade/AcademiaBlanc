@@ -212,12 +212,12 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
       </div>
 
       {/* Sheet Canvas Wrapper (A4 Center View) */}
-      <div className="w-full bg-[#d2d9f4] py-8 px-4 flex justify-center items-start overflow-x-auto min-h-[calc(100vh-8rem)]">
+      <div className="bulletin-canvas w-full bg-[#d2d9f4] py-8 px-4 flex justify-center items-start overflow-x-auto min-h-[calc(100vh-8rem)]">
         {/* Virtual ISO 216 / A4 Canvas: 210mm x 297mm */}
         <div
           id="bulletinSheet"
           style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top center' }}
-          className="bulletin-sheet w-full max-w-[860px] bg-white text-[#131b2e] rounded-xs shadow-xl p-8 sm:p-10 relative transition-transform duration-200 border border-[#eaedff]"
+          className="bulletin-sheet w-full max-w-[860px] min-w-[800px] bg-white text-[#131b2e] rounded-xs shadow-xl p-8 sm:p-10 relative transition-transform duration-200 border border-[#eaedff]"
         >
           {/* Watermark Background Emblem (only if seal uploaded) */}
           {settings.sealUrl && settings.sealUrl.trim() !== '' && (
@@ -231,25 +231,25 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           )}
 
           {/* Bilateral Official Header */}
-          <div className="relative z-10 flex items-start justify-between gap-4 pb-4">
+          <div className="bulletin-header relative z-10">
             {/* Republic / Left Banner */}
-            <div className="flex-1 text-center sm:text-left space-y-0.5">
+            <div className="bulletin-header-left space-y-0.5">
               <p className="text-[11px] uppercase tracking-widest text-[#00236f] font-bold">
                 {settings.countryName}
               </p>
               <p className="text-[12px] italic text-[#444651] font-medium">
                 {settings.motto}
               </p>
-              <div className="w-12 h-0.5 bg-[#0051d5] my-1 sm:mx-0 mx-auto"></div>
+              <div className="bulletin-rule w-12 h-0.5 bg-[#0051d5] my-1"></div>
               <p className="text-[14px] text-[#00236f] font-bold leading-tight uppercase">
                 {settings.ministryName}
               </p>
             </div>
 
             {/* Central Academic Seal */}
-            <div className="flex flex-col items-center justify-center px-2 shrink-0">
+            <div className="bulletin-seal">
               {settings.sealUrl && settings.sealUrl.trim() !== '' ? (
-                <div className="w-20 h-20 rounded-full bg-[#f2f3ff] flex items-center justify-center p-1.5 shadow-sm border border-[#eaedff] overflow-hidden">
+                <div className="bulletin-seal-mark w-20 h-20 rounded-full bg-[#f2f3ff] flex items-center justify-center p-1.5 shadow-sm border border-[#eaedff] overflow-hidden">
                   <img
                     alt="Sceau Académique Officiel"
                     className="w-full h-full object-contain"
@@ -258,7 +258,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 </div>
               ) : (
                 /* Zone laissée vide pour tampon physique manuel à l'encre */
-                <div className="w-20 h-20 rounded-full border border-dashed border-[#b0b7cb] print:border-[#cbd5e1] flex flex-col items-center justify-center p-1 bg-transparent text-center">
+                <div className="bulletin-seal-mark w-20 h-20 rounded-full border border-dashed border-[#b0b7cb] print:border-[#cbd5e1] flex flex-col items-center justify-center p-1 bg-transparent text-center">
                   <span className="text-[9px] text-[#6b7280] uppercase font-semibold leading-tight print:hidden">
                     Emplacement Sceau
                   </span>
@@ -273,14 +273,14 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             </div>
 
             {/* Academic Year / Right Banner */}
-            <div className="flex-1 text-center sm:text-right space-y-0.5">
+            <div className="bulletin-header-right space-y-0.5">
               <p className="text-[11px] uppercase tracking-widest text-[#444651]">
                 {selectedSession || settings.sessionName}
               </p>
               <p className="text-[15px] text-[#00236f] font-bold">
                 {settings.academicYear}
               </p>
-              <div className="w-12 h-0.5 bg-[#0051d5] my-1 sm:ml-auto mx-auto"></div>
+              <div className="bulletin-rule w-12 h-0.5 bg-[#0051d5] my-1"></div>
               <p className="text-[11px] uppercase font-semibold text-[#131b2e]">
                 {headerInfo.examBadge}
               </p>
@@ -294,18 +294,18 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           </div>
 
           {/* Establishment Ribbon */}
-          <div className="relative z-10 mt-2 mb-3 py-1.5 px-3 bg-[#eaedff] rounded text-center border border-[#dce1ff] flex items-center justify-between">
-            <span className="text-[11.5px] font-bold text-[#00236f] uppercase tracking-wider flex items-center gap-1.5">
+          <div className="bulletin-ribbon relative z-10 py-1.5 px-3 bg-[#eaedff] rounded border border-[#dce1ff]">
+            <span className="bulletin-ribbon-left text-[11.5px] font-bold text-[#00236f] uppercase tracking-wider flex items-center gap-1.5">
               <span className="material-symbols-outlined text-sm text-[#0051d5]">school</span>
               <span>ÉTABLISSEMENT : {settings.institutionName.toUpperCase()}</span>
             </span>
-            <span className="text-[11px] font-semibold text-[#0051d5]">
+            <span className="bulletin-ribbon-right text-[11px] font-semibold text-[#0051d5]">
               Centre d'Examen : {selectedCandidate.examCenterName}
             </span>
           </div>
 
           {/* Institutional Title Badge - Dynamic according to exam session (BEPC, BAC, etc.) */}
-          <div className="relative z-10 mb-4 bg-[#00236f] text-white py-2.5 px-4 text-center rounded-xs shadow-xs">
+          <div className="bulletin-title relative z-10 mb-4 bg-[#00236f] text-white py-2.5 px-4 text-center rounded-xs shadow-xs">
             <h1 className="text-[15px] font-bold uppercase tracking-wide">
               {headerInfo.mainTitle}
             </h1>
@@ -315,14 +315,14 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           </div>
 
           {/* Candidate Identity Card */}
-          <div className="relative z-10 bg-[#f2f3ff] rounded-xs p-4 mb-4 border border-[#eaedff]">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3 text-left">
-              <div className="sm:col-span-2 md:col-span-3 pb-1.5 border-b border-[#eaedff]">
-                <span className="text-[10px] text-[#444651] uppercase font-bold tracking-wider block">
+          <div className="bulletin-identity relative z-10 bg-[#f2f3ff] rounded-xs p-4 mb-4 border border-[#eaedff]">
+            <div className="bulletin-identity-grid text-left">
+              <div className="bulletin-identity-name pb-1.5 border-b border-[#eaedff]">
+                <span className="bulletin-field-label text-[10px] text-[#444651] uppercase font-bold tracking-wider">
                   Nom et Prénoms du Candidat
                 </span>
-                <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                  <span className="font-mono text-[12px] font-bold text-[#0051d5] bg-white px-2.5 py-0.5 rounded border border-[#eaedff]">
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="font-mono text-[12px] font-bold text-[#0051d5] bg-white px-2.5 py-0.5 rounded border border-[#eaedff] whitespace-nowrap">
                     TABLE {selectedCandidate.tableNumber}
                   </span>
                   <span className="text-[17px] text-[#00236f] font-bold tracking-tight">
@@ -331,56 +331,54 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 </div>
               </div>
 
-              <div>
-                <span className="text-[10px] text-[#444651] uppercase font-bold tracking-wider block">
-                  Matricule National
-                </span>
-                <span className="font-mono text-[13px] font-bold text-[#131b2e] block mt-0.5">
-                  {selectedCandidate.matricule}
-                </span>
-              </div>
+              <span className="bulletin-field-label text-[10px] text-[#444651] uppercase font-bold tracking-wider">
+                Matricule National
+              </span>
+              <span className="bulletin-field-label text-[10px] text-[#444651] uppercase font-bold tracking-wider">
+                Date &amp; Lieu de Naissance
+              </span>
+              <span className="bulletin-field-label text-[10px] text-[#444651] uppercase font-bold tracking-wider">
+                Genre / Série
+              </span>
 
-              <div>
-                <span className="text-[10px] text-[#444651] uppercase font-bold tracking-wider block">
-                  Date &amp; Lieu de Naissance
-                </span>
-                <span className="text-[13px] text-[#131b2e] font-medium block mt-0.5">
-                  {selectedCandidate.dob} à {selectedCandidate.birthPlace}
-                </span>
-              </div>
+              <span className="bulletin-field-value font-mono text-[13px] font-bold text-[#131b2e]">
+                {selectedCandidate.matricule}
+              </span>
+              <span className="bulletin-field-value text-[13px] text-[#131b2e] font-medium">
+                {selectedCandidate.dob} à {selectedCandidate.birthPlace}
+              </span>
+              <span className="bulletin-field-value bulletin-field-genre text-[13px] text-[#131b2e] font-medium">
+                {selectedCandidate.gender === 'M' ? 'Masculin (M)' : 'Féminin (F)'} • {selectedCandidate.serie}
+              </span>
 
-              <div>
-                <span className="text-[10px] text-[#444651] uppercase font-bold tracking-wider block">
-                  Genre / Série
-                </span>
-                <span className="text-[13px] text-[#131b2e] font-medium block mt-0.5">
-                  {selectedCandidate.gender === 'M' ? 'Masculin (M)' : 'Féminin (F)'} • {selectedCandidate.serie}
-                </span>
-              </div>
+              <span className="bulletin-field-label bulletin-field-school text-[10px] text-[#444651] uppercase font-bold tracking-wider">
+                Établissement d'Origine
+              </span>
+              <span className="bulletin-field-label bulletin-field-center text-[10px] text-[#444651] uppercase font-bold tracking-wider">
+                Centre d'Examen
+              </span>
 
-              <div className="sm:col-span-2">
-                <span className="text-[10px] text-[#444651] uppercase font-bold tracking-wider block">
-                  Établissement d'Origine
-                </span>
-                <span className="text-[13px] text-[#131b2e] font-medium block mt-0.5">
-                  {selectedCandidate.originSchool}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-[10px] text-[#444651] uppercase font-bold tracking-wider block">
-                  Centre d'Examen
-                </span>
-                <span className="text-[13px] text-[#00236f] font-semibold block mt-0.5">
-                  {selectedCandidate.examCenterName}
-                </span>
-              </div>
+              <span className="bulletin-field-value bulletin-field-school text-[13px] text-[#131b2e] font-medium">
+                {selectedCandidate.originSchool}
+              </span>
+              <span className="bulletin-field-value bulletin-field-center text-[13px] text-[#00236f] font-semibold">
+                {selectedCandidate.examCenterName}
+              </span>
             </div>
           </div>
 
           {/* Official Dense Score Table */}
-          <div className="relative z-10 overflow-hidden rounded-xs bg-white shadow-xs mb-4 border border-[#eaedff]">
-            <table className="w-full text-left border-collapse">
+          <div className="bulletin-table-wrap relative z-10 overflow-hidden rounded-xs bg-white shadow-xs mb-4 border border-[#eaedff]">
+            <table className="bulletin-grades w-full text-left border-collapse">
+              <colgroup>
+                <col className="col-subject" />
+                <col className="col-teacher" />
+                <col className="col-coef" />
+                <col className="col-note" />
+                <col className="col-total" />
+                <col className="col-rank" />
+                <col className="col-appreciation" />
+              </colgroup>
               <thead>
                 <tr className="bg-[#00236f] text-white text-[12px]">
                   <th className="py-2 px-3 font-semibold text-left">Matières &amp; Disciplines</th>
@@ -456,9 +454,9 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           </div>
 
           {/* Deliberation Decision & Statistical Synthesis (Bento Grid) */}
-          <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
+          <div className="bulletin-summary relative z-10">
             {/* Main Decision Card */}
-            <div className="md:col-span-8 bg-[#f2f3ff] rounded-xs p-3.5 flex flex-col justify-between shadow-xs border border-[#eaedff]">
+            <div className="bulletin-decision bg-[#f2f3ff] rounded-xs p-3.5 flex flex-col justify-between shadow-xs border border-[#eaedff]">
               <div className="flex items-center justify-between pb-2">
                 <div>
                   <span className="text-[11px] text-[#444651] uppercase font-semibold block">
@@ -490,8 +488,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             </div>
 
             {/* Metrics Summary Mini Cards */}
-            <div className="md:col-span-4 grid grid-cols-2 gap-2">
-              <div className="bg-white rounded-xs p-3 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
+            <div className="bulletin-metrics">
+              <div className="bulletin-metric bg-white rounded-xs p-3 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
                 <span className="text-[11px] text-[#444651] uppercase font-semibold">
                   Moyenne Générale
                 </span>
@@ -501,7 +499,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 <span className="font-mono text-[11px] text-[#444651]">sur 20.00</span>
               </div>
 
-              <div className="bg-white rounded-xs p-3 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
+              <div className="bulletin-metric bg-white rounded-xs p-3 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
                 <span className="text-[11px] text-[#444651] uppercase font-semibold">
                   Rang de Promotion
                 </span>
@@ -523,7 +521,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           </div>
 
           {/* Signatures & Endorsement Section: Le Titulaire et Le Proviseur */}
-          <div className="relative z-10 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto text-center">
+          <div className="relative z-10 pt-4 grid grid-cols-2 gap-6 max-w-2xl mx-auto text-center">
             {/* Signature 1: Le Titulaire */}
             <div className="flex flex-col items-center justify-between min-h-[125px] bg-[#f2f3ff]/50 p-4 rounded-xs border border-[#eaedff]">
               <div>
@@ -609,7 +607,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           </div>
 
           {/* Legal Warning Footer Note */}
-          <div className="relative z-10 mt-6 pt-3 text-center space-y-0.5 border-t border-[#eaedff]">
+          <div className="bulletin-footer relative z-10 mt-6 pt-3 text-center space-y-0.5 border-t border-[#eaedff]">
             <p className="text-[10px] text-[#444651] tracking-wider uppercase font-semibold">
               Ce relevé d'examen blanc a valeur d'entraînement officiel sous le contrôle académique régional • Tout faux ou falsification expose à des sanctions disciplinaires et pénales.
             </p>
