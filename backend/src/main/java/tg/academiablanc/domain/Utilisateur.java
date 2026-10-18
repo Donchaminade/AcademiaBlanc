@@ -22,7 +22,8 @@ public class Utilisateur {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(name = "etablissement_id", nullable = false)
+  /** Null pour un gestionnaire de la plateforme. */
+  @Column(name = "etablissement_id")
   private Long etablissementId;
 
   @Column(nullable = false)
@@ -37,4 +38,11 @@ public class Utilisateur {
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
   private Role role;
+
+  @Column(nullable = false)
+  private boolean actif = true;
+
+  /** Utilisateur qui a créé ce compte (null pour une inscription). */
+  @Column(name = "cree_par")
+  private Long creePar;
 }

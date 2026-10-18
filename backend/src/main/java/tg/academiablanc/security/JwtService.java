@@ -30,11 +30,15 @@ public class JwtService {
 
   public String create(Utilisateur user) {
     Instant now = Instant.now();
-    return Jwts.builder()
+    var builder = Jwts.builder()
         .subject(user.getEmail())
         .claim("uid", user.getId())
-        .claim("eid", user.getEtablissementId())
-        .claim("role", user.getRole().name())
+        .claim("role", user.getRole().name());
+    // Un gestionnaire de la plateforme n'a pas d'établissement : pas de claim eid.
+    if (user.getEtablissementId() != null) {
+      builder.claim("eid", user.getEtablissementId());
+    }
+    return builder
         .issuedAt(Date.from(now))
         .expiration(Date.from(now.plusSeconds(expirationHours * 3600)))
         .signWith(key)
@@ -43,9 +47,10 @@ public class JwtService {
 
   public CurrentUser parse(String token) {
     Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+    Number eid = claims.get("eid", Number.class);
     return new CurrentUser(
         claims.get("uid", Number.class).longValue(),
-        claims.get("eid", Number.class).longValue(),
+        eid == null ? null : eid.longValue(),
         claims.getSubject(),
         Role.valueOf(claims.get("role", String.class))
     );

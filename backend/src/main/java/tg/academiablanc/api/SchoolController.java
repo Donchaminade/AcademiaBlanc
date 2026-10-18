@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import tg.academiablanc.domain.Action;
 import tg.academiablanc.domain.Affectation;
 import tg.academiablanc.domain.AnneeScolaire;
 import tg.academiablanc.domain.CentreExamen;
@@ -33,6 +34,7 @@ import tg.academiablanc.domain.Eleve;
 import tg.academiablanc.domain.Matiere;
 import tg.academiablanc.domain.Note;
 import tg.academiablanc.domain.Professeur;
+import tg.academiablanc.domain.Ressource;
 import tg.academiablanc.domain.Role;
 import tg.academiablanc.domain.SessionExamen;
 import tg.academiablanc.repo.AffectationRepository;
@@ -45,6 +47,7 @@ import tg.academiablanc.repo.MatiereRepository;
 import tg.academiablanc.repo.NoteRepository;
 import tg.academiablanc.repo.ProfesseurRepository;
 import tg.academiablanc.repo.SessionExamenRepository;
+import tg.academiablanc.security.PermissionService;
 import tg.academiablanc.security.Tenant;
 
 @RestController
@@ -62,6 +65,7 @@ public class SchoolController {
   private final NoteRepository notes;
   private final BulletinService bulletins;
   private final EleveImportService importEleves;
+  private final PermissionService droits;
 
   public SchoolController(
       AnneeScolaireRepository annees,
@@ -75,7 +79,8 @@ public class SchoolController {
       EleveRepository eleves,
       NoteRepository notes,
       BulletinService bulletins,
-      EleveImportService importEleves
+      EleveImportService importEleves,
+      PermissionService droits
   ) {
     this.annees = annees;
     this.centres = centres;
@@ -89,6 +94,7 @@ public class SchoolController {
     this.notes = notes;
     this.bulletins = bulletins;
     this.importEleves = importEleves;
+    this.droits = droits;
   }
 
   public record AnneeRequest(@NotBlank @Size(max = 40) String libelle, LocalDate dateDebut, LocalDate dateFin, boolean courante) {}
@@ -109,12 +115,13 @@ public class SchoolController {
 
   @GetMapping("/annees-scolaires")
   public List<AnneeScolaire> annees() {
+    droits.exiger(Ressource.ANNEES, Action.VOIR);
     return annees.findByEtablissementIdOrderByLibelleDesc(Tenant.current().etablissementId());
   }
 
   @PostMapping("/annees-scolaires")
   public AnneeScolaire creerAnnee(@Valid @RequestBody AnneeRequest request) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.ANNEES, Action.CREER);
     AnneeScolaire annee = new AnneeScolaire();
     appliquer(annee, request);
     return annees.save(annee);
@@ -122,12 +129,13 @@ public class SchoolController {
 
   @GetMapping("/annees-scolaires/{id}")
   public AnneeScolaire annee(@PathVariable Long id) {
+    droits.exiger(Ressource.ANNEES, Action.DETAILS);
     return lire(annees, id);
   }
 
   @PutMapping("/annees-scolaires/{id}")
   public AnneeScolaire majAnnee(@PathVariable Long id, @Valid @RequestBody AnneeRequest request) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.ANNEES, Action.MODIFIER);
     AnneeScolaire annee = lire(annees, id);
     appliquer(annee, request);
     return annees.save(annee);
@@ -137,19 +145,20 @@ public class SchoolController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional
   public void supprimerAnnee(@PathVariable Long id) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.ANNEES, Action.SUPPRIMER);
     annees.delete(lire(annees, id));
     flush(annees);
   }
 
   @GetMapping("/centres")
   public List<CentreExamen> centres() {
+    droits.exiger(Ressource.CENTRES, Action.VOIR);
     return centres.findByEtablissementIdOrderByNomAsc(Tenant.current().etablissementId());
   }
 
   @PostMapping("/centres")
   public CentreExamen creerCentre(@Valid @RequestBody CentreRequest request) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.CENTRES, Action.CREER);
     CentreExamen centre = new CentreExamen();
     centre.setEtablissementId(Tenant.current().etablissementId());
     centre.setNom(request.nom().trim());
@@ -160,12 +169,13 @@ public class SchoolController {
 
   @GetMapping("/centres/{id}")
   public CentreExamen centre(@PathVariable Long id) {
+    droits.exiger(Ressource.CENTRES, Action.DETAILS);
     return lire(centres, id);
   }
 
   @PutMapping("/centres/{id}")
   public CentreExamen majCentre(@PathVariable Long id, @Valid @RequestBody CentreRequest request) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.CENTRES, Action.MODIFIER);
     CentreExamen centre = lire(centres, id);
     centre.setNom(request.nom().trim());
     centre.setVille(request.ville());
@@ -177,19 +187,20 @@ public class SchoolController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional
   public void supprimerCentre(@PathVariable Long id) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.CENTRES, Action.SUPPRIMER);
     centres.delete(lire(centres, id));
     flush(centres);
   }
 
   @GetMapping("/sessions")
   public List<SessionExamen> sessions() {
+    droits.exiger(Ressource.SESSIONS, Action.VOIR);
     return sessions.findByEtablissementIdOrderByNomAsc(Tenant.current().etablissementId());
   }
 
   @PostMapping("/sessions")
   public SessionExamen creerSession(@Valid @RequestBody SessionRequest request) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.SESSIONS, Action.CREER);
     verifierAnnee(request.anneeScolaireId());
     verifierCentre(request.centreId());
     SessionExamen session = new SessionExamen();
@@ -200,12 +211,13 @@ public class SchoolController {
 
   @GetMapping("/sessions/{id}")
   public SessionExamen session(@PathVariable Long id) {
+    droits.exiger(Ressource.SESSIONS, Action.DETAILS);
     return lire(sessions, id);
   }
 
   @PutMapping("/sessions/{id}")
   public SessionExamen majSession(@PathVariable Long id, @Valid @RequestBody SessionRequest request) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.SESSIONS, Action.MODIFIER);
     SessionExamen session = lire(sessions, id);
     verifierAnnee(request.anneeScolaireId());
     verifierCentre(request.centreId());
@@ -217,19 +229,20 @@ public class SchoolController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional
   public void supprimerSession(@PathVariable Long id) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.SESSIONS, Action.SUPPRIMER);
     sessions.delete(lire(sessions, id));
     flush(sessions);
   }
 
   @GetMapping("/matieres")
   public List<Matiere> matieres() {
+    droits.exiger(Ressource.MATIERES, Action.VOIR);
     return matieres.findByEtablissementIdOrderByNomAsc(Tenant.current().etablissementId());
   }
 
   @PostMapping("/matieres")
   public Matiere creerMatiere(@Valid @RequestBody MatiereRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.MATIERES, Action.CREER);
     Matiere matiere = new Matiere();
     matiere.setEtablissementId(Tenant.current().etablissementId());
     matiere.setNom(request.nom().trim());
@@ -239,12 +252,13 @@ public class SchoolController {
 
   @GetMapping("/matieres/{id}")
   public Matiere matiere(@PathVariable Long id) {
+    droits.exiger(Ressource.MATIERES, Action.DETAILS);
     return lire(matieres, id);
   }
 
   @PutMapping("/matieres/{id}")
   public Matiere majMatiere(@PathVariable Long id, @Valid @RequestBody MatiereRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.MATIERES, Action.MODIFIER);
     Matiere matiere = lire(matieres, id);
     matiere.setNom(request.nom().trim());
     matiere.setCode(request.code().trim().toLowerCase());
@@ -255,19 +269,20 @@ public class SchoolController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional
   public void supprimerMatiere(@PathVariable Long id) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.MATIERES, Action.SUPPRIMER);
     matieres.delete(lire(matieres, id));
     flush(matieres);
   }
 
   @GetMapping("/coefficients")
   public List<Coefficient> coefficients() {
+    droits.exiger(Ressource.COEFFICIENTS, Action.VOIR);
     return coefficients.findByEtablissementId(Tenant.current().etablissementId());
   }
 
   @PostMapping("/coefficients")
   public Coefficient creerCoefficient(@Valid @RequestBody CoefficientRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.COEFFICIENTS, Action.CREER);
     Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
     Tenant.same(matiere.getEtablissementId());
     if (request.classeId() != null) verifierClasse(request.classeId());
@@ -282,12 +297,13 @@ public class SchoolController {
 
   @GetMapping("/coefficients/{id}")
   public Coefficient coefficient(@PathVariable Long id) {
+    droits.exiger(Ressource.COEFFICIENTS, Action.DETAILS);
     return lire(coefficients, id);
   }
 
   @PutMapping("/coefficients/{id}")
   public Coefficient majCoefficient(@PathVariable Long id, @Valid @RequestBody CoefficientRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.COEFFICIENTS, Action.MODIFIER);
     Coefficient coefficient = lire(coefficients, id);
     Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
     Tenant.same(matiere.getEtablissementId());
@@ -303,19 +319,20 @@ public class SchoolController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional
   public void supprimerCoefficient(@PathVariable Long id) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.COEFFICIENTS, Action.SUPPRIMER);
     coefficients.delete(lire(coefficients, id));
     flush(coefficients);
   }
 
   @GetMapping("/professeurs")
   public List<Professeur> professeurs() {
+    droits.exiger(Ressource.ENSEIGNANTS, Action.VOIR);
     return professeurs.findByEtablissementIdOrderByNomAsc(Tenant.current().etablissementId());
   }
 
   @PostMapping("/professeurs")
   public Professeur creerProfesseur(@Valid @RequestBody ProfesseurRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.ENSEIGNANTS, Action.CREER);
     Professeur professeur = new Professeur();
     professeur.setEtablissementId(Tenant.current().etablissementId());
     professeur.setNom(request.nom().trim());
@@ -325,12 +342,13 @@ public class SchoolController {
 
   @GetMapping("/professeurs/{id}")
   public Professeur professeur(@PathVariable Long id) {
+    droits.exiger(Ressource.ENSEIGNANTS, Action.DETAILS);
     return lire(professeurs, id);
   }
 
   @PutMapping("/professeurs/{id}")
   public Professeur majProfesseur(@PathVariable Long id, @Valid @RequestBody ProfesseurRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.ENSEIGNANTS, Action.MODIFIER);
     Professeur professeur = lire(professeurs, id);
     professeur.setNom(request.nom().trim());
     professeur.setEmail(request.email());
@@ -341,19 +359,20 @@ public class SchoolController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional
   public void supprimerProfesseur(@PathVariable Long id) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.ENSEIGNANTS, Action.SUPPRIMER);
     professeurs.delete(lire(professeurs, id));
     flush(professeurs);
   }
 
   @GetMapping("/classes")
   public List<Classe> classes() {
+    droits.exiger(Ressource.CLASSES, Action.VOIR);
     return classes.findByEtablissementIdOrderByNomAsc(Tenant.current().etablissementId());
   }
 
   @PostMapping("/classes")
   public Classe creerClasse(@Valid @RequestBody ClasseRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.CLASSES, Action.CREER);
     verifierAnnee(request.anneeScolaireId());
     if (request.titulaireId() != null) verifierProfesseur(request.titulaireId());
     Classe classe = new Classe();
@@ -364,12 +383,13 @@ public class SchoolController {
 
   @GetMapping("/classes/{id}")
   public Classe classe(@PathVariable Long id) {
+    droits.exiger(Ressource.CLASSES, Action.DETAILS);
     return lire(classes, id);
   }
 
   @PutMapping("/classes/{id}")
   public Classe majClasse(@PathVariable Long id, @Valid @RequestBody ClasseRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.CLASSES, Action.MODIFIER);
     Classe classe = lire(classes, id);
     verifierAnnee(request.anneeScolaireId());
     if (request.titulaireId() != null) verifierProfesseur(request.titulaireId());
@@ -381,14 +401,14 @@ public class SchoolController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional
   public void supprimerClasse(@PathVariable Long id) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.CLASSES, Action.SUPPRIMER);
     classes.delete(lire(classes, id));
     flush(classes);
   }
 
   @PutMapping("/classes/{id}/titulaire")
   public Classe designerTitulaire(@PathVariable Long id, @Valid @RequestBody TitulaireRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.CLASSES, Action.MODIFIER);
     Classe classe = classes.findById(id).orElseThrow(SchoolController::absent);
     Tenant.same(classe.getEtablissementId());
     verifierProfesseur(request.professeurId());
@@ -398,12 +418,13 @@ public class SchoolController {
 
   @GetMapping("/affectations")
   public List<Affectation> affectations() {
+    droits.exiger(Ressource.AFFECTATIONS, Action.VOIR);
     return affectations.findByEtablissementId(Tenant.current().etablissementId());
   }
 
   @PostMapping("/affectations")
   public Affectation affecter(@Valid @RequestBody AffectationRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.AFFECTATIONS, Action.CREER);
     verifierProfesseur(request.professeurId());
     Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
     Tenant.same(matiere.getEtablissementId());
@@ -422,12 +443,13 @@ public class SchoolController {
 
   @GetMapping("/affectations/{id}")
   public Affectation affectation(@PathVariable Long id) {
+    droits.exiger(Ressource.AFFECTATIONS, Action.DETAILS);
     return lire(affectations, id);
   }
 
   @PutMapping("/affectations/{id}")
   public Affectation majAffectation(@PathVariable Long id, @Valid @RequestBody AffectationRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.AFFECTATIONS, Action.MODIFIER);
     Affectation affectation = lire(affectations, id);
     verifierProfesseur(request.professeurId());
     Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
@@ -451,19 +473,20 @@ public class SchoolController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional
   public void supprimerAffectation(@PathVariable Long id) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.AFFECTATIONS, Action.SUPPRIMER);
     affectations.delete(lire(affectations, id));
     flush(affectations);
   }
 
   @GetMapping("/eleves")
   public List<Eleve> eleves() {
+    droits.exiger(Ressource.ELEVES, Action.VOIR);
     return eleves.findByEtablissementIdOrderByNomCompletAsc(Tenant.current().etablissementId());
   }
 
   @PostMapping("/eleves")
   public Eleve creerEleve(@Valid @RequestBody EleveRequest request) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.ELEVES, Action.CREER);
     verifierClasse(request.classeId());
     if (request.sessionId() != null) verifierSession(request.sessionId());
     Eleve eleve = new Eleve();
@@ -475,17 +498,19 @@ public class SchoolController {
   /** Import d'une liste d'élèves (classe créée au besoin, matricules générés, doublons ignorés). */
   @PostMapping("/eleves/import")
   public EleveImportService.Resultat importerEleves(@Valid @RequestBody EleveImportService.Demande request) {
+    droits.exiger(Ressource.ELEVES, Action.CREER);
     return importEleves.importer(request);
   }
 
   @GetMapping("/eleves/{id}")
   public Eleve eleve(@PathVariable Long id) {
+    droits.exiger(Ressource.ELEVES, Action.DETAILS);
     return lire(eleves, id);
   }
 
   @PutMapping("/eleves/{id}")
   public Eleve majEleve(@PathVariable Long id, @Valid @RequestBody EleveRequest request) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.ELEVES, Action.MODIFIER);
     Eleve eleve = lire(eleves, id);
     verifierClasse(request.classeId());
     if (request.sessionId() != null) verifierSession(request.sessionId());
@@ -497,25 +522,28 @@ public class SchoolController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional
   public void supprimerEleve(@PathVariable Long id) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.ELEVES, Action.SUPPRIMER);
     eleves.delete(lire(eleves, id));
     flush(eleves);
   }
 
   @GetMapping("/notes")
   public List<Note> notes(@RequestParam Long sessionId) {
+    droits.exiger(Ressource.NOTES, Action.VOIR);
     verifierSession(sessionId);
     return notes.findByEtablissementIdAndSessionId(Tenant.current().etablissementId(), sessionId);
   }
 
   @GetMapping("/notes/{id}")
   public Note note(@PathVariable Long id) {
+    droits.exiger(Ressource.NOTES, Action.DETAILS);
     return lire(notes, id);
   }
 
   @PostMapping("/notes")
   @Transactional
   public Note saisirNote(@Valid @RequestBody NoteRequest request) {
+    droits.exiger(Ressource.NOTES, Action.CREER);
     Eleve eleve = controlerNote(request);
     Note note = notes.findByEleveIdAndMatiereIdAndSessionId(request.eleveId(), request.matiereId(), request.sessionId())
         .orElseGet(Note::new);
@@ -526,6 +554,7 @@ public class SchoolController {
   @PutMapping("/notes/{id}")
   @Transactional
   public Note majNote(@PathVariable Long id, @Valid @RequestBody NoteRequest request) {
+    droits.exiger(Ressource.NOTES, Action.MODIFIER);
     Note note = lire(notes, id);
     Eleve eleve = controlerNote(request);
     notes.findByEleveIdAndMatiereIdAndSessionId(request.eleveId(), request.matiereId(), request.sessionId())
@@ -541,22 +570,20 @@ public class SchoolController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional
   public void supprimerNote(@PathVariable Long id) {
-    Tenant.requireStaff();
-    if (Tenant.current().role() == Role.ENSEIGNANT) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Droit insuffisant.");
-    }
+    droits.exiger(Ressource.NOTES, Action.SUPPRIMER);
     notes.delete(lire(notes, id));
     flush(notes);
   }
 
   @GetMapping("/bulletins")
   public List<BulletinService.BulletinVue> bulletins(@RequestParam Long sessionId) {
+    droits.exiger(Ressource.BULLETINS, Action.VOIR);
     return bulletins.generer(sessionId);
   }
 
   @PostMapping("/bulletins/generer")
   public List<BulletinService.BulletinVue> generer(@RequestParam Long sessionId) {
-    Tenant.requireStaff();
+    droits.exiger(Ressource.BULLETINS, Action.CREER);
     return bulletins.generer(sessionId);
   }
 
@@ -652,6 +679,7 @@ public class SchoolController {
     Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
     Tenant.same(matiere.getEtablissementId());
     verifierSession(request.sessionId());
+    // Le droit NOTES:CREER / MODIFIER est déjà vérifié ; un enseignant reste limité à ses propres affectations.
     var user = Tenant.current();
     if (user.role() == Role.ENSEIGNANT) {
       boolean autorise = affectations.findByEtablissementId(user.etablissementId()).stream().anyMatch(item ->
@@ -663,8 +691,6 @@ public class SchoolController {
       if (!autorise) {
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Matière non affectée à cet enseignant.");
       }
-    } else {
-      Tenant.requireStaff();
     }
     return eleve;
   }

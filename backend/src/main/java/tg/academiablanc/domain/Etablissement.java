@@ -41,4 +41,8 @@ public class Etablissement {
 
   @Column(name = "nom_responsable", nullable = false)
   private String nomResponsable;
+
+  /** Faux quand la plateforme a désactivé l’établissement : plus aucune connexion possible. */
+  @Column(nullable = false)
+  private boolean actif = true;
 }
