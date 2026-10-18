@@ -141,6 +141,9 @@ export default function App() {
     if (role === PLATFORM_ROLE) {
       setIsAuthModalOpen(false);
       setCurrentView('plateforme');
+    } else if (currentView === 'plateforme') {
+      setIsAuthModalOpen(false);
+      setCurrentView('bulletin');
     }
     applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
   };
