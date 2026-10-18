@@ -4,7 +4,24 @@ export interface AuthSession {
   role: string;
   nomEtablissement: string;
   email: string;
+  nomUtilisateur?: string;
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: 'Responsable de l’établissement',
+  ADMIN: 'Administrateur',
+  SECRETAIRE: 'Secrétariat',
+  ENSEIGNANT: 'Enseignant',
+  SUPER_ADMIN: 'Propriétaire de la plateforme',
+};
+
+export function roleLabel(role?: string | null): string {
+  if (!role) return 'Compte établissement';
+  return ROLE_LABELS[role.toUpperCase()] || role;
+}
+
+/** Rôle du propriétaire du logiciel, distinct de OWNER / ADMIN / SECRETAIRE. */
+export const PLATFORM_ROLE = 'SUPER_ADMIN';
 
 const TOKEN_KEY = 'academiablanc_token';
 
@@ -39,6 +56,10 @@ export function getSession(): AuthSession | null {
   } catch {
     return null;
   }
+}
+
+export function isPlatformOwner(session: AuthSession | null = getSession()): boolean {
+  return session?.role === PLATFORM_ROLE;
 }
 
 export function clearToken(): void {

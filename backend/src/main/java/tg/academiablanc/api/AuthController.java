@@ -22,6 +22,7 @@ import tg.academiablanc.repo.AnneeScolaireRepository;
 import tg.academiablanc.repo.EtablissementRepository;
 import tg.academiablanc.repo.UtilisateurRepository;
 import tg.academiablanc.security.JwtService;
+import tg.academiablanc.security.PlatformOwnerService;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -31,19 +32,22 @@ public class AuthController {
   private final AnneeScolaireRepository annees;
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
+  private final PlatformOwnerService platformOwners;
 
   public AuthController(
       EtablissementRepository etablissements,
       UtilisateurRepository utilisateurs,
       AnneeScolaireRepository annees,
       PasswordEncoder passwordEncoder,
-      JwtService jwtService
+      JwtService jwtService,
+      PlatformOwnerService platformOwners
   ) {
     this.etablissements = etablissements;
     this.utilisateurs = utilisateurs;
     this.annees = annees;
     this.passwordEncoder = passwordEncoder;
     this.jwtService = jwtService;
+    this.platformOwners = platformOwners;
   }
 
   public record SignupRequest(
@@ -62,7 +66,14 @@ public class AuthController {
       @NotBlank @Size(max = 80) String motDePasse
   ) {}
 
-  public record AuthResponse(String token, Long etablissementId, String role, String nomEtablissement, String email) {}
+  public record AuthResponse(
+      String token,
+      Long etablissementId,
+      String role,
+      String nomEtablissement,
+      String email,
+      String nomUtilisateur
+  ) {}
 
   @PostMapping("/signup")
   @Transactional
@@ -95,6 +106,7 @@ public class AuthController {
     owner.setEmail(email);
     owner.setMotDePasseHash(passwordEncoder.encode(request.motDePasse()));
     owner.setNom(request.nomResponsable().trim());
+    // L'inscription crée toujours un compte d'établissement. SUPER_ADMIN ne s'obtient pas ici.
     owner.setRole(Role.OWNER);
     owner = utilisateurs.save(owner);
 
@@ -106,7 +118,8 @@ public class AuthController {
     annee.setCourante(true);
     annees.save(annee);
 
-    return new AuthResponse(jwtService.create(owner), school.getId(), owner.getRole().name(), school.getNom(), owner.getEmail());
+    return new AuthResponse(
+        jwtService.create(owner), school.getId(), owner.getRole().name(), school.getNom(), owner.getEmail(), owner.getNom());
   }
 
   @PostMapping("/login")
@@ -116,9 +129,11 @@ public class AuthController {
     if (!passwordEncoder.matches(request.motDePasse(), user.getMotDePasseHash())) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email ou mot de passe incorrect.");
     }
+    user = platformOwners.alignOnLogin(user);
     Etablissement school = etablissements.findById(user.getEtablissementId())
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Établissement introuvable."));
-    return new AuthResponse(jwtService.create(user), school.getId(), user.getRole().name(), school.getNom(), user.getEmail());
+    return new AuthResponse(
+        jwtService.create(user), school.getId(), user.getRole().name(), school.getNom(), user.getEmail(), user.getNom());
   }
 
   private static String codeFrom(String nom, String ville) {

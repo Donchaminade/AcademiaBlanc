@@ -38,6 +38,8 @@ management:
 app:
   seed:
     enabled: true
+  platform:
+    super-admin-email: ${SUPER_ADMIN_EMAIL:}
   jwt:
     secret: ${JWT_SECRET:dev-only-local-secret-change-me-32}
     expiration-hours: 12

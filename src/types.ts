@@ -3,6 +3,8 @@ export interface Subject {
   name: string;
   teacher: string;
   coef: number;
+  /** Vrai quand aucun coefficient n'a été saisi sur l'API : la valeur 1 est appliquée par défaut. */
+  coefDefault?: boolean;
 }
 
 export type MentionType = 'TRÈS BIEN' | 'BIEN' | 'ASSEZ BIEN' | 'PASSABLE' | 'RATTRAPAGE' | 'AJOURNÉ';
@@ -54,7 +56,19 @@ export interface CandidateComputedStats {
   differenceToPromo: number;
 }
 
-export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'auth';
+export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth' | 'plateforme';
+
+export type AdminSection =
+  | 'annees'
+  | 'centres'
+  | 'sessions'
+  | 'matieres'
+  | 'coefficients'
+  | 'enseignants'
+  | 'classes'
+  | 'affectations'
+  | 'eleves'
+  | 'notes';
 
 export interface AppSettings {
   logoUrl: string;

@@ -8,4 +8,6 @@ public interface EleveRepository extends JpaRepository<Eleve, Long> {
   List<Eleve> findByEtablissementIdOrderByNomCompletAsc(Long etablissementId);
 
   List<Eleve> findByEtablissementIdAndSessionId(Long etablissementId, Long sessionId);
+
+  long countByEtablissementId(Long etablissementId);
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiSend, getSession, getToken } from '../api/client';
 import { confirmDelete, showError, toastError, toastSuccess } from '../utils/alerts';
+import { AdminSection } from '../types';
 
 interface Annee { id: number; libelle: string; courante: boolean; dateDebut?: string; dateFin?: string; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
@@ -13,15 +14,43 @@ interface Coefficient { id: number; matiereId: number; classeId?: number; serie?
 interface Eleve { id: number; nomComplet: string; matricule: string; genre: string; classeId: number; sessionId?: number; numeroTable?: number; lieuNaissance?: string; }
 interface Note { id: number; eleveId: number; matiereId: number; sessionId: number; valeur?: number; absent: boolean; }
 
-export type AdminSection = 'annees' | 'matieres' | 'enseignants' | 'eleves' | 'notes';
-
-const SECTIONS: { key: AdminSection; label: string; icon: string }[] = [
-  { key: 'annees', label: 'Année & Sessions', icon: 'calendar_month' },
-  { key: 'matieres', label: 'Matières & Coefficients', icon: 'menu_book' },
-  { key: 'enseignants', label: 'Enseignants & Classes', icon: 'groups' },
-  { key: 'eleves', label: 'Élèves', icon: 'school' },
-  { key: 'notes', label: 'Notes', icon: 'grading' },
+/** Ordre conseillé de saisie : chaque étape dépend des précédentes. */
+export const ADMIN_STEPS: { section: AdminSection; label: string }[] = [
+  { section: 'annees', label: 'Année scolaire' },
+  { section: 'centres', label: 'Centre' },
+  { section: 'sessions', label: 'Session' },
+  { section: 'matieres', label: 'Matières & coefficients' },
+  { section: 'enseignants', label: 'Enseignants' },
+  { section: 'classes', label: 'Classes' },
+  { section: 'affectations', label: 'Affectations' },
+  { section: 'eleves', label: 'Élèves' },
+  { section: 'notes', label: 'Notes' },
 ];
+
+export const adminSectionAnchor = (section: AdminSection) => `admin-section-${section}`;
+
+/** Onglets de l’écran : chaque onglet regroupe plusieurs sections fines. */
+type AdminGroup = 'annees' | 'matieres' | 'enseignants' | 'eleves' | 'notes';
+
+const GROUPS: { key: AdminGroup; label: string; icon: string; sections: AdminSection[] }[] = [
+  { key: 'annees', label: 'Année & Sessions', icon: 'calendar_month', sections: ['annees', 'centres', 'sessions'] },
+  { key: 'matieres', label: 'Matières & Coefficients', icon: 'menu_book', sections: ['matieres', 'coefficients'] },
+  { key: 'enseignants', label: 'Enseignants & Classes', icon: 'groups', sections: ['enseignants', 'classes', 'affectations'] },
+  { key: 'eleves', label: 'Élèves', icon: 'school', sections: ['eleves'] },
+  { key: 'notes', label: 'Notes', icon: 'grading', sections: ['notes'] },
+];
+
+const groupOf = (section: AdminSection): AdminGroup =>
+  GROUPS.find((g) => g.sections.includes(section))?.key ?? 'annees';
+
+interface AdminParametresProps {
+  /** Section à afficher et vers laquelle défiler à l’ouverture (ou quand elle change). */
+  section?: AdminSection | null;
+  /** Change à chaque demande de défilement, même vers la même section. */
+  scrollKey?: number;
+  /** Appelé après chaque création / modification / suppression réussie. */
+  onDataChanged?: () => void;
+}
 
 const field = 'w-full bg-[#f2f3ff] text-[13px] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5] disabled:opacity-60 disabled:cursor-not-allowed';
 const primary = 'inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 rounded bg-[#00236f] text-white text-[12px] font-bold hover:bg-[#1e3a8a] transition-colors shadow-xs';
@@ -43,8 +72,8 @@ const EMPTY = {
 /* Briques d’interface                                                 */
 /* ------------------------------------------------------------------ */
 
-const SectionCard: React.FC<{ icon: string; title: string; description: string; count?: number; children: React.ReactNode }> = ({ icon, title, description, count, children }) => (
-  <section className="bg-white p-5 rounded border border-[#eaedff] shadow-xs space-y-4">
+const SectionCard: React.FC<{ id: AdminSection; icon: string; title: string; description: string; count?: number; children: React.ReactNode }> = ({ id, icon, title, description, count, children }) => (
+  <section id={adminSectionAnchor(id)} className="bg-white p-5 rounded border border-[#eaedff] shadow-xs space-y-4 scroll-mt-6">
     <header className="flex flex-wrap items-start justify-between gap-2 border-b border-[#eaedff] pb-3">
       <div className="flex items-start gap-3 min-w-0">
         <span className="shrink-0 w-9 h-9 rounded bg-[#eaedff] text-[#0051d5] flex items-center justify-center">
@@ -175,11 +204,11 @@ const Badge: React.FC<{ tone?: 'blue' | 'green' | 'grey' | 'red'; children: Reac
 
 const sectionFromHash = (): AdminSection | null => {
   const hash = typeof window !== 'undefined' ? window.location.hash.replace(/^#admin-/, '') : '';
-  return SECTIONS.some((s) => s.key === hash) ? (hash as AdminSection) : null;
+  return ADMIN_STEPS.some((s) => s.section === hash) || hash === 'coefficients' ? (hash as AdminSection) : null;
 };
 
-export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ initialSection }) => {
-  const [section, setSection] = useState<AdminSection>(() => initialSection ?? sectionFromHash() ?? 'annees');
+export const AdminParametres: React.FC<AdminParametresProps> = ({ section: requestedSection, scrollKey = 0, onDataChanged }) => {
+  const [group, setGroup] = useState<AdminGroup>(() => groupOf(requestedSection ?? sectionFromHash() ?? 'annees'));
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [annees, setAnnees] = useState<Annee[]>([]);
@@ -278,11 +307,24 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
     reload();
   }, []);
 
+  useEffect(() => {
+    if (scrollKey === 0 && !requestedSection) return;
+    if (requestedSection) setGroup(groupOf(requestedSection));
+    // Attendre le rendu de l’onglet (il dépend du token) avant de défiler.
+    const timer = window.setTimeout(() => {
+      const node = requestedSection ? document.getElementById(adminSectionAnchor(requestedSection)) : null;
+      if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      else window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [requestedSection, scrollKey]);
+
   const run = async (action: () => Promise<void>, ok = 'Enregistré.', afterSuccess?: () => void) => {
     try {
       await action();
       await load();
       afterSuccess?.();
+      onDataChanged?.();
       toastSuccess(ok);
     } catch (err) {
       await showError('Échec de l’enregistrement', err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
@@ -304,6 +346,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
     try {
       await apiDelete(path);
       await load();
+      onDataChanged?.();
       toastSuccess(`« ${label} » supprimé.`);
     } catch (err) {
       await showError('Suppression impossible', err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
@@ -327,7 +370,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
   }
 
   const etablissement = getSession()?.nomEtablissement;
-  const counts: Record<AdminSection, number> = {
+  const counts: Record<AdminGroup, number> = {
     annees: annees.length + centres.length + sessions.length,
     matieres: matieres.length + coefficients.length,
     enseignants: profs.length + classes.length + affectations.length,
@@ -368,13 +411,13 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
 
       {/* Sous-navigation */}
       <nav aria-label="Sections d’administration" className="bg-white rounded border border-[#eaedff] shadow-xs p-1.5 flex gap-1 overflow-x-auto">
-        {SECTIONS.map((item) => {
-          const active = section === item.key;
+        {GROUPS.map((item) => {
+          const active = group === item.key;
           return (
             <button
               key={item.key}
               type="button"
-              onClick={() => setSection(item.key)}
+              onClick={() => setGroup(item.key)}
               aria-current={active ? 'page' : undefined}
               className={`inline-flex shrink-0 items-center gap-2 px-3.5 py-2 rounded text-[12px] font-bold whitespace-nowrap transition-colors ${
                 active ? 'bg-[#00236f] text-white shadow-xs' : 'text-[#444651] hover:bg-[#f2f3ff] hover:text-[#00236f]'
@@ -389,9 +432,9 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
       </nav>
 
       {/* ---------------------------------------------------------- */}
-      {section === 'annees' && (
+      {group === 'annees' && (
         <div className="space-y-5">
-          <SectionCard icon="calendar_month" title="Années scolaires" description="Définissez les années académiques et l’année courante utilisée par défaut." count={annees.length}>
+          <SectionCard id="annees" icon="calendar_month" title="Années scolaires" description="Définissez les années académiques et l’année courante utilisée par défaut." count={annees.length}>
             <DataTable<Annee>
               rows={annees}
               editingId={anneeEdit?.id}
@@ -419,7 +462,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
             </form>
           </SectionCard>
 
-          <SectionCard icon="location_city" title="Centres d’examen" description="Lieux de composition rattachés à l’établissement, identifiés par un code court." count={centres.length}>
+          <SectionCard id="centres" icon="location_city" title="Centres d’examen" description="Lieux de composition rattachés à l’établissement, identifiés par un code court." count={centres.length}>
             <DataTable<Centre>
               rows={centres}
               editingId={centreEdit?.id}
@@ -453,7 +496,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
             </form>
           </SectionCard>
 
-          <SectionCard icon="event_note" title="Sessions d’examen" description="Une session relie un examen à une année scolaire et à un centre." count={sessions.length}>
+          <SectionCard id="sessions" icon="event_note" title="Sessions d’examen" description="Une session relie un examen à une année scolaire et à un centre." count={sessions.length}>
             <DataTable<Session>
               rows={sessions}
               editingId={sessionEdit?.id}
@@ -505,9 +548,9 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
       )}
 
       {/* ---------------------------------------------------------- */}
-      {section === 'matieres' && (
+      {group === 'matieres' && (
         <div className="space-y-5">
-          <SectionCard icon="menu_book" title="Matières" description="Catalogue des disciplines évaluées, avec un code court pour les bulletins." count={matieres.length}>
+          <SectionCard id="matieres" icon="menu_book" title="Matières" description="Catalogue des disciplines évaluées, avec un code court pour les bulletins." count={matieres.length}>
             <DataTable<Matiere>
               rows={matieres}
               editingId={matiereEdit?.id}
@@ -541,7 +584,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
             </form>
           </SectionCard>
 
-          <SectionCard icon="functions" title="Coefficients" description="Pondération d’une matière, pour toutes les classes ou pour une classe précise." count={coefficients.length}>
+          <SectionCard id="coefficients" icon="functions" title="Coefficients" description="Pondération d’une matière, pour toutes les classes ou pour une classe précise." count={coefficients.length}>
             <DataTable<Coefficient>
               rows={coefficients}
               editingId={coefficientEdit?.id}
@@ -591,9 +634,9 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
       )}
 
       {/* ---------------------------------------------------------- */}
-      {section === 'enseignants' && (
+      {group === 'enseignants' && (
         <div className="space-y-5">
-          <SectionCard icon="person" title="Enseignants" description="Corps professoral de l’établissement, désignable comme titulaire d’une classe." count={profs.length}>
+          <SectionCard id="enseignants" icon="person" title="Enseignants" description="Corps professoral de l’établissement, désignable comme titulaire d’une classe." count={profs.length}>
             <DataTable<Professeur>
               rows={profs}
               editingId={profEdit?.id}
@@ -627,7 +670,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
             </form>
           </SectionCard>
 
-          <SectionCard icon="meeting_room" title="Classes & titulaires" description="Classes de l’année scolaire et enseignant titulaire de chacune." count={classes.length}>
+          <SectionCard id="classes" icon="meeting_room" title="Classes & titulaires" description="Classes de l’année scolaire et enseignant titulaire de chacune." count={classes.length}>
             <DataTable<Classe>
               rows={classes}
               editingId={classeEdit?.id}
@@ -668,7 +711,7 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
             </form>
           </SectionCard>
 
-          <SectionCard icon="assignment_ind" title="Affectations" description="Qui enseigne quelle matière dans quelle classe." count={affectations.length}>
+          <SectionCard id="affectations" icon="assignment_ind" title="Affectations" description="Qui enseigne quelle matière dans quelle classe." count={affectations.length}>
             <DataTable<Affectation>
               rows={affectations}
               editingId={affectationEdit?.id}
@@ -718,8 +761,8 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
       )}
 
       {/* ---------------------------------------------------------- */}
-      {section === 'eleves' && (
-        <SectionCard icon="school" title="Élèves" description="Inscriptions des candidats avec matricule, classe et session d’examen." count={eleves.length}>
+      {group === 'eleves' && (
+        <SectionCard id="eleves" icon="school" title="Élèves" description="Inscriptions des candidats avec matricule, classe et session d’examen." count={eleves.length}>
           <DataTable<Eleve>
             rows={eleves}
             editingId={eleveEdit?.id}
@@ -785,8 +828,8 @@ export const AdminParametres: React.FC<{ initialSection?: AdminSection }> = ({ i
       )}
 
       {/* ---------------------------------------------------------- */}
-      {section === 'notes' && (
-        <SectionCard icon="grading" title="Notes" description="Notes sur 20 par élève, matière et session ; une absence remplace la note." count={notes.length}>
+      {group === 'notes' && (
+        <SectionCard id="notes" icon="grading" title="Notes" description="Notes sur 20 par élève, matière et session ; une absence remplace la note." count={notes.length}>
           <div className="flex flex-col sm:flex-row sm:items-end gap-3 rounded border border-[#eaedff] bg-[#faf8ff] p-3">
             <Field label="Session affichée" className="sm:w-72">
               <select

@@ -13,6 +13,8 @@ Santé : http://localhost:8080/actuator/health
 
 Compte de démonstration (jeu chargé au premier démarrage) : `direction@lycee-tokoin.tg` / `password123`.
 
+Le propriétaire du logiciel n’est pas ce compte. Après une inscription normale, poser `SUPER_ADMIN_EMAIL` sur l’email choisi, puis se reconnecter. Aucun mot de passe n’est fourni par l’API pour ce rôle. Voir `docs/DEPLOIEMENT.md`.
+
 ## Démarrage avec Postgres
 
 ```bash

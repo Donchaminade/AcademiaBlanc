@@ -35,4 +35,11 @@ public final class Tenant {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Droit insuffisant.");
     }
   }
+
+  /** Rôle plateforme, indépendant de l'établissement porté par le jeton. */
+  public static void requirePlatform() {
+    if (current().role() != Role.SUPER_ADMIN) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Réservé au propriétaire du logiciel.");
+    }
+  }
 }

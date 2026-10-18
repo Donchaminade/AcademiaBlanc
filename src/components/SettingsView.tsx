@@ -13,6 +13,8 @@ interface SettingsViewProps {
   onOpenAuth?: () => void;
   candidates?: Candidate[];
   allStats?: Record<string, CandidateComputedStats>;
+  /** Recharge l'espace de travail (matières, élèves…) après une saisie dans l'onglet Administration (API). */
+  onAdminDataChanged?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -22,6 +24,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onOpenAuth,
   candidates = [],
   allStats = {},
+  onAdminDataChanged,
 }) => {
   const [activeTab, setActiveTab] = useState<'branding' | 'archives' | 'admin'>('branding');
   const [formData, setFormData] = useState<AppSettings>(settings);
@@ -198,7 +201,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {activeTab === 'admin' ? (
-        <AdminParametres />
+        <AdminParametres onDataChanged={onAdminDataChanged} />
       ) : activeTab === 'archives' ? (
         <ArchivedSessionsSection
           settings={settings}

@@ -17,7 +17,36 @@ interface SidebarProps {
   onOpenSearch?: () => void;
   sessionOptions?: string[];
   centerOptions?: string[];
+  platformOwner?: boolean;
+  /** Vrai quand l'établissement est connecté à l'API : plus aucune valeur de démonstration n'est affichée. */
+  usingApi?: boolean;
+  /** Utilisateur connecté à l'API (nom et rôle) pour le pied de la barre latérale. */
+  apiUser?: { name: string; role: string } | null;
+  /** Ouvre l'écran d'administration (matières, enseignants, classes, élèves…). */
+  onOpenAdmin?: () => void;
 }
+
+const DEMO_SESSIONS = [
+  'BAC II Blanc 2025 - Série D',
+  'BAC II Blanc 2025 - Série C',
+  'BAC I Blanc 2025 - Série A4',
+  'BEPC Blanc National 2025',
+];
+
+const DEMO_CENTERS = [
+  'Lycée Moderne de Tokoin (Centre 01)',
+  'Lycée 2 Février (Centre 04)',
+  'Collège Protestant Lomé',
+  'Lycée Scientifique de Lomé',
+];
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('') || '?';
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentView,
@@ -35,7 +64,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSearch,
   sessionOptions,
   centerOptions,
+  platformOwner = false,
+  usingApi = false,
+  apiUser,
+  onOpenAdmin,
 }) => {
+  const sessionChoices = usingApi ? (sessionOptions || []) : (sessionOptions && sessionOptions.length > 0 ? sessionOptions : DEMO_SESSIONS);
+  const centerChoices = usingApi ? (centerOptions || []) : (centerOptions && centerOptions.length > 0 ? centerOptions : DEMO_CENTERS);
+  const footerName = apiUser?.name || settings.jurySignerName;
+  const footerRole = apiUser ? apiUser.role : 'Proviseure & Jury';
+
+  const renderEmptyChoice = (label: string, action: string) => (
+    <div className="flex items-center justify-between gap-2 bg-[#f2f3ff] text-[12px] py-2 px-3 rounded">
+      <span className="text-[#444651] italic">{label}</span>
+      {onOpenAdmin && (
+        <button
+          type="button"
+          onClick={onOpenAdmin}
+          className="text-[#0051d5] font-semibold whitespace-nowrap hover:underline"
+        >
+          {action}
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <aside className="fixed left-0 top-0 h-full w-80 bg-[#ffffff] z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-[#eaedff]">
       <div className="flex flex-col">
@@ -80,46 +133,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <label className="block text-[11px] font-semibold text-[#444651] uppercase tracking-wider">
               Session d'Examen Blanc
             </label>
-            <div className="relative">
-              <select
-                value={selectedSession}
-                onChange={(e) => onSessionChange(e.target.value)}
-                className="w-full appearance-none bg-[#f2f3ff] text-[#131b2e] text-[12px] py-2 px-3 pr-8 rounded outline-none cursor-pointer font-medium hover:bg-[#e2e7ff] transition-colors"
-              >
-                {(sessionOptions && sessionOptions.length > 0 ? sessionOptions : [
-                  'BAC II Blanc 2025 - Série D',
-                  'BAC II Blanc 2025 - Série C',
-                  'BAC I Blanc 2025 - Série A4',
-                  'BEPC Blanc National 2025',
-                ]).map((label) => <option key={label} value={label}>{label}</option>)}
-              </select>
-              <span className="material-symbols-outlined absolute right-2 top-2.5 pointer-events-none text-[#444651] text-base">
-                expand_more
-              </span>
-            </div>
+            {sessionChoices.length === 0 ? (
+              renderEmptyChoice('Aucune session', 'Créer une session')
+            ) : (
+              <div className="relative">
+                <select
+                  value={selectedSession}
+                  onChange={(e) => onSessionChange(e.target.value)}
+                  className="w-full appearance-none bg-[#f2f3ff] text-[#131b2e] text-[12px] py-2 px-3 pr-8 rounded outline-none cursor-pointer font-medium hover:bg-[#e2e7ff] transition-colors"
+                >
+                  {sessionChoices.map((label) => <option key={label} value={label}>{label}</option>)}
+                </select>
+                <span className="material-symbols-outlined absolute right-2 top-2.5 pointer-events-none text-[#444651] text-base">
+                  expand_more
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1">
             <label className="block text-[11px] font-semibold text-[#444651] uppercase tracking-wider">
               Centre d'Examen / Lycée
             </label>
-            <div className="relative">
-              <select
-                value={selectedCenter}
-                onChange={(e) => onCenterChange(e.target.value)}
-                className="w-full appearance-none bg-[#f2f3ff] text-[#131b2e] text-[12px] py-2 px-3 pr-8 rounded outline-none cursor-pointer font-medium hover:bg-[#e2e7ff] transition-colors"
-              >
-                {(centerOptions && centerOptions.length > 0 ? centerOptions : [
-                  'Lycée Moderne de Tokoin (Centre 01)',
-                  'Lycée 2 Février (Centre 04)',
-                  'Collège Protestant Lomé',
-                  'Lycée Scientifique de Lomé',
-                ]).map((label) => <option key={label} value={label}>{label}</option>)}
-              </select>
-              <span className="material-symbols-outlined absolute right-2 top-2.5 pointer-events-none text-[#444651] text-base">
-                location_city
-              </span>
-            </div>
+            {centerChoices.length === 0 ? (
+              renderEmptyChoice('Aucun centre', 'Créer un centre')
+            ) : (
+              <div className="relative">
+                <select
+                  value={selectedCenter}
+                  onChange={(e) => onCenterChange(e.target.value)}
+                  className="w-full appearance-none bg-[#f2f3ff] text-[#131b2e] text-[12px] py-2 px-3 pr-8 rounded outline-none cursor-pointer font-medium hover:bg-[#e2e7ff] transition-colors"
+                >
+                  {centerChoices.map((label) => <option key={label} value={label}>{label}</option>)}
+                </select>
+                <span className="material-symbols-outlined absolute right-2 top-2.5 pointer-events-none text-[#444651] text-base">
+                  location_city
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -145,6 +196,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           )}
 
+          {platformOwner && (
+            <button
+              type="button"
+              onClick={() => onViewChange('plateforme')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium ${
+                currentView === 'plateforme'
+                  ? 'bg-[#1e3a8a] text-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
+                  : 'text-[#00236f] bg-[#f2f3ff] hover:bg-[#eaedff]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-lg">domain</span>
+              <span>Surveillance des établissements</span>
+            </button>
+          )}
+
           {/* Dashboard */}
           <button
             type="button"
@@ -158,6 +224,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="material-symbols-outlined text-lg">analytics</span>
             <span>Tableau de bord &amp; Statistiques</span>
           </button>
+
+          {/* Administration des données de l'établissement (API) */}
+          {onOpenAdmin && (
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium border ${
+                currentView === 'admin'
+                  ? 'bg-[#1e3a8a] text-white border-[#1e3a8a] shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
+                  : 'text-[#00236f] bg-[#eaedff]/60 border-[#dce1ff] hover:bg-[#eaedff]'
+              }`}
+              title="Saisir les années, centres, sessions, matières, coefficients, enseignants, classes et élèves"
+            >
+              <span className={`material-symbols-outlined text-lg ${currentView === 'admin' ? '' : 'text-[#0051d5]'}`}>admin_panel_settings</span>
+              <span className="flex flex-col min-w-0">
+                <span className="font-semibold">Administration</span>
+                <span className={`text-[10.5px] leading-tight truncate ${currentView === 'admin' ? 'text-white/80' : 'text-[#444651]'}`}>
+                  Matières · Enseignants · Classes · Élèves
+                </span>
+              </span>
+            </button>
+          )}
 
           {/* Students List (Étape 1) */}
           <button
@@ -277,28 +365,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#131b2e]">
               <span className="material-symbols-outlined text-sm text-[#0051d5]">cloud_done</span>
-              <span>Sync Locale</span>
+              <span>{usingApi ? 'Base de l’établissement' : 'Sync Locale'}</span>
             </span>
-            <span className="font-mono text-[11px] text-[#0051d5] font-semibold">100% OK</span>
+            <span className="font-mono text-[11px] text-[#0051d5] font-semibold">{usingApi ? 'API' : '100% OK'}</span>
           </div>
           <p className="text-[12px] text-[#444651] leading-tight">
-            Toutes les notes synchronisées en local (IndexedDB)
+            {usingApi
+              ? 'Données enregistrées sur le serveur de l’établissement'
+              : 'Toutes les notes synchronisées en local (IndexedDB)'}
           </p>
         </div>
 
         <div className="flex items-center justify-between gap-3 pt-1">
           <div className="flex items-center gap-2.5 min-w-0">
-            <img
-              alt="Profile"
-              className="w-8 h-8 rounded-full object-cover ring-2 ring-[#0051d5]/20"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfMWADhnssFAqE2_oiXq8p3ziGlR17RS02-06FWHwjbMygfyusLAV36M1EG2uCbGXuWNCGEPd8C6nGTKb3fW-U8Apqss4V5P64HFdCLMzMEmlqzvmXBzNqlVL54U47x1K1ehLyuJf1wQeV4My4oFYO9TadSpl9izIImu_z6xQGAPGbIf5QnrjI9WiRC-uaJpFrn5VzJZH7kRYei1Q2hQ3VyeGg-M-Q6lxyewt1Xt3LK6L-OucXQU9hew"
-            />
+            {apiUser ? (
+              <span
+                aria-hidden="true"
+                className="w-8 h-8 shrink-0 rounded-full bg-[#00236f] text-white text-[11px] font-bold flex items-center justify-center ring-2 ring-[#0051d5]/20"
+              >
+                {initials(apiUser.name)}
+              </span>
+            ) : (
+              <img
+                alt="Profile"
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-[#0051d5]/20"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfMWADhnssFAqE2_oiXq8p3ziGlR17RS02-06FWHwjbMygfyusLAV36M1EG2uCbGXuWNCGEPd8C6nGTKb3fW-U8Apqss4V5P64HFdCLMzMEmlqzvmXBzNqlVL54U47x1K1ehLyuJf1wQeV4My4oFYO9TadSpl9izIImu_z6xQGAPGbIf5QnrjI9WiRC-uaJpFrn5VzJZH7kRYei1Q2hQ3VyeGg-M-Q6lxyewt1Xt3LK6L-OucXQU9hew"
+              />
+            )}
             <div className="min-w-0">
-              <p className="text-[12px] text-[#131b2e] font-semibold truncate leading-tight">
-                {settings.jurySignerName}
+              <p className="text-[12px] text-[#131b2e] font-semibold truncate leading-tight" title={footerName}>
+                {footerName}
               </p>
-              <p className="text-[11px] text-[#444651] truncate leading-tight">
-                Proviseure &amp; Jury
+              <p className="text-[11px] text-[#444651] truncate leading-tight" title={footerRole}>
+                {footerRole}
               </p>
             </div>
           </div>

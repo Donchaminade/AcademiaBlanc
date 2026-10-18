@@ -6,4 +6,6 @@ import tg.academiablanc.domain.SessionExamen;
 
 public interface SessionExamenRepository extends JpaRepository<SessionExamen, Long> {
   List<SessionExamen> findByEtablissementIdOrderByNomAsc(Long etablissementId);
+
+  long countByEtablissementId(Long etablissementId);
 }
