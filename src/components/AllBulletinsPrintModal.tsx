@@ -468,13 +468,6 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                   <span className="text-[9px] text-[#444651] italic leading-tight">Sceau officiel</span>
                 </div>
               </div>
-
-              {/* Legal Note */}
-              <div className="bulletin-footer relative z-10 mt-3 pt-2 text-center border-t border-[#eaedff]">
-                <p className="font-mono text-[9px] text-[#757682]">
-                  Système AcademiaBlanc • Établissement : {settings.institutionName} • Candidat {idx + 1} / {filteredCandidates.length}
-                </p>
-              </div>
             </div>
           );
         })}
