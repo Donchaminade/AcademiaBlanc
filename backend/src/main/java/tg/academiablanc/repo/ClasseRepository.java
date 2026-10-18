@@ -12,4 +12,6 @@ public interface ClasseRepository extends JpaRepository<Classe, Long> {
   long countByAnneeScolaireId(Long anneeScolaireId);
 
   Optional<Classe> findFirstByEtablissementIdAndNomIgnoreCase(Long etablissementId, String nom);
+
+  boolean existsByEtablissementIdAndSerieIgnoreCase(Long etablissementId, String serie);
 }

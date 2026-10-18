@@ -47,8 +47,8 @@ class SuppressionAnneeTest {
     long centre = id(envoyer(token, post("/api/centres"), "{\"nom\":\"Centre Lome\",\"code\":\"C01\",\"ville\":\"Lome\"}"));
     envoyer(token, post("/api/sessions"),
         "{\"anneeScolaireId\":" + annee + ",\"centreId\":" + centre + ",\"nom\":\"BAC 2026\",\"typeExamen\":\"BAC II\",\"statut\":\"OUVERTE\"}");
-    envoyer(token, post("/api/classes"), "{\"anneeScolaireId\":" + annee + ",\"nom\":\"Tle D1\",\"niveau\":\"Terminale\"}");
-    envoyer(token, post("/api/classes"), "{\"anneeScolaireId\":" + annee + ",\"nom\":\"Tle D2\",\"niveau\":\"Terminale\"}");
+    envoyer(token, post("/api/classes"), "{\"anneeScolaireId\":" + annee + ",\"nom\":\"Tle D1\",\"niveau\":\"Terminale\",\"serie\":\"D\"}");
+    envoyer(token, post("/api/classes"), "{\"anneeScolaireId\":" + annee + ",\"nom\":\"Tle D2\",\"niveau\":\"Terminale\",\"serie\":\"D\"}");
 
     envoyer(token, delete("/api/annees-scolaires/" + annee))
         .andExpect(status().isConflict())

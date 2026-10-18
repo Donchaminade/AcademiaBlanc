@@ -62,6 +62,7 @@ public class SchoolController {
   private final NoteRepository notes;
   private final BulletinService bulletins;
   private final EleveImportService importEleves;
+  private final SerieService series;
   private final AnneeDependances dependancesAnnee;
 
   public SchoolController(
@@ -77,6 +78,7 @@ public class SchoolController {
       NoteRepository notes,
       BulletinService bulletins,
       EleveImportService importEleves,
+      SerieService series,
       AnneeDependances dependancesAnnee
   ) {
     this.annees = annees;
@@ -91,6 +93,7 @@ public class SchoolController {
     this.notes = notes;
     this.bulletins = bulletins;
     this.importEleves = importEleves;
+    this.series = series;
     this.dependancesAnnee = dependancesAnnee;
   }
 
@@ -608,8 +611,26 @@ public class SchoolController {
     classe.setAnneeScolaireId(request.anneeScolaireId());
     classe.setNom(request.nom().trim());
     classe.setNiveau(request.niveau().trim());
-    classe.setSerie(request.serie());
+    classe.setSerie(controlerSerie(request.niveau(), request.serie()));
     classe.setTitulaireId(request.titulaireId());
+  }
+
+  /**
+   * Collège (6e–3e) : aucune série. Lycée (2nde–Tle) : série obligatoire et présente dans le
+   * référentiel de l'établissement. Niveau non reconnu : série facultative mais, si fournie,
+   * elle doit exister. Retourne le code normalisé (« f5 » → « F5 ») ou {@code null}.
+   */
+  private String controlerSerie(String niveau, String serie) {
+    boolean vide = serie == null || serie.isBlank();
+    var cycle = ClasseNiveauUtil.cycleDe(niveau).orElse(null);
+    if (cycle == ClasseNiveauUtil.Cycle.COLLEGE) {
+      if (!vide) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Une classe du collège (6e à 3e) n'a pas de série.");
+      }
+      return null;
+    }
+    if (cycle == null && vide) return null;
+    return series.exiger(Tenant.current().etablissementId(), serie).getCode();
   }
 
   private void remplir(Eleve eleve, EleveRequest request) {
