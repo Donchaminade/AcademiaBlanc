@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
 import { PROMO_AVERAGES } from '../data/mockData';
 import { getBulletinHeaderInfo } from '../utils/bulletinHeader';
+import {
+  appreciationFromAverage,
+  computeSubjectRank,
+  decisionBucket,
+  formatSubjectRank,
+} from '../utils/bulletinMetrics';
+import { printDocument } from '../utils/printDocument';
 
 interface AllBulletinsPrintModalProps {
   candidates: Candidate[];
@@ -24,21 +31,24 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
 
   const filteredCandidates = candidates.filter((c) => {
     const stats = allStats[c.id];
-    if (filterType === 'admis') {
-      return stats && stats.decision.includes('ADMIS');
-    }
+    if (filterType === 'admis') return decisionBucket(stats?.decision) === 'admis';
     if (filterType === 'rattrapage') {
-      return stats && (stats.decision.includes('RATTRAPAGE') || stats.decision.includes('AJOURNÉ'));
+      const bucket = decisionBucket(stats?.decision);
+      return bucket === 'rattrapage' || bucket === 'ajourne';
     }
     return true;
   });
 
   const handlePrintAll = () => {
-    window.print();
+    if (filteredCandidates.length === 0) return;
+    printDocument(
+      'all-bulletins',
+      `Bulletins_${settings.institutionName}_${filteredCandidates.length}`,
+    );
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex flex-col items-center">
+    <div className="batch-print-overlay fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex flex-col items-center">
       {/* Floating Control Toolbar (Hidden in Print) */}
       <div className="w-full bg-[#00236f] text-white px-6 py-4 shadow-xl sticky top-0 z-50 flex flex-wrap items-center justify-between gap-4 no-print border-b border-[#90a8ff]/30">
         <div className="flex items-center gap-3">
@@ -97,10 +107,11 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
           <button
             type="button"
             onClick={handlePrintAll}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] shadow-lg hover:shadow-xl transition-all active:scale-95"
+            disabled={filteredCandidates.length === 0}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] shadow-lg hover:shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-xl">print</span>
-            <span>Lancer l'Impression de TOUS les Bulletins ({filteredCandidates.length})</span>
+            <span>Télécharger tous les bulletins ({filteredCandidates.length})</span>
           </button>
 
           {/* Close button */}
@@ -124,7 +135,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
           return (
             <div
               key={candidate.id}
-              className={`bg-white text-[#131b2e] rounded-xs shadow-xl p-8 sm:p-10 relative border border-[#eaedff] print:border-none print:shadow-none print:p-6 print:m-0 print:w-full print:min-h-screen ${
+              className={`bulletin-sheet bg-white text-[#131b2e] rounded-xs shadow-xl p-8 sm:p-10 relative border border-[#eaedff] print:border-none print:shadow-none print:m-0 ${
                 !isLast ? 'print:break-after-page' : ''
               }`}
               style={{ pageBreakAfter: isLast ? 'auto' : 'always', breakAfter: isLast ? 'auto' : 'page' }}
@@ -195,7 +206,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                     {headerInfo.examBadge}
                   </p>
                   <p className="font-mono text-[11px] text-[#0051d5] font-semibold">
-                    TABLE N° {candidate.tableNumber} • BORDEREAU 2025-BL-{candidate.tableNumber}
+                    TABLE N° {candidate.tableNumber} • BORDEREAU {candidate.matricule}
                   </p>
                 </div>
               </div>
@@ -260,7 +271,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       Genre / Série
                     </span>
                     <span className="text-[12px] text-[#131b2e] font-medium block">
-                      {candidate.gender === 'M' ? 'Masculin (M)' : 'Féminin (F)'} • Série D
+                      {candidate.gender === 'M' ? 'Masculin (M)' : 'Féminin (F)'} • {candidate.serie}
                     </span>
                   </div>
                 </div>
@@ -277,15 +288,18 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       <th className="py-1.5 px-2 font-semibold text-right">Note /20</th>
                       <th className="py-1.5 px-2 font-semibold text-right">Total Coef</th>
                       <th className="py-1.5 px-2 font-semibold text-right">Moy. Promo</th>
+                      <th className="py-1.5 px-2 font-semibold text-center">Rang</th>
                       <th className="py-1.5 px-3 font-semibold text-left">Appréciation du professeur</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y-0 text-[#131b2e]">
                     {subjects.map((subj, sIdx) => {
-                      const gradeData = candidate.grades[subj.id] || { score: 0, appreciation: '—' };
-                      const scoreTotal = (gradeData.score * subj.coef).toFixed(2);
+                      const gradeData = candidate.grades[subj.id];
+                      const scoreTotal = gradeData ? (gradeData.score * subj.coef).toFixed(2) : '—';
                       const promoInfo = PROMO_AVERAGES[subj.id] || { avg: 10.0, rankRatio: '138' };
                       const isEven = sIdx % 2 === 0;
+                      const subjectRankValue = computeSubjectRank(candidate.id, subj.id, candidates);
+                      const professorAppreciation = appreciationFromAverage(stats?.average ?? 0);
 
                       return (
                         <tr
@@ -302,7 +316,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                             {subj.coef}
                           </td>
                           <td className="py-1 px-2 font-mono text-right font-bold text-[#00236f]">
-                            {gradeData.score.toFixed(2)}
+                            {gradeData ? gradeData.score.toFixed(2) : '—'}
                           </td>
                           <td className="py-1 px-2 font-mono text-right font-bold text-[#131b2e]">
                             {scoreTotal}
@@ -310,8 +324,11 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                           <td className="py-1 px-2 font-mono text-right text-[#444651]">
                             {promoInfo.avg.toFixed(2)}
                           </td>
+                          <td className="py-1 px-2 font-mono text-center font-semibold text-[#0051d5]">
+                            {subjectRankValue === null ? '—' : formatSubjectRank(subjectRankValue)}
+                          </td>
                           <td className="py-1 px-3 italic text-[#131b2e] leading-tight">
-                            {gradeData.appreciation}
+                            {professorAppreciation}
                           </td>
                         </tr>
                       );
@@ -331,7 +348,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       <td className="py-1.5 px-2 font-mono text-[13px] text-right font-bold text-[#0051d5]">
                         {stats?.totalPoints.toFixed(2) || '0.00'}
                       </td>
-                      <td className="py-1.5 px-3 text-right uppercase font-semibold text-[#444651]" colSpan={2}>
+                      <td className="py-1.5 px-3 text-right uppercase font-semibold text-[#444651]" colSpan={3}>
                         Barème Total : {((stats?.totalCoef || 29) * 20).toFixed(2)} PTS
                       </td>
                     </tr>

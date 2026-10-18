@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Candidate, Subject, CandidateComputedStats } from '../types';
+import { decisionBucket } from '../utils/bulletinMetrics';
 
 interface GradingViewProps {
   candidates: Candidate[];
@@ -10,6 +11,7 @@ interface GradingViewProps {
   onSelectCandidate: (candidate: Candidate) => void;
   onNavigateToBulletin: (candidate: Candidate) => void;
   onAddNewCandidate: (candidate: Candidate) => void;
+  juryLocked?: boolean;
 }
 
 export const GradingView: React.FC<GradingViewProps> = ({
@@ -20,6 +22,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
   onApplyJuryBonus,
   onNavigateToBulletin,
   onAddNewCandidate,
+  juryLocked = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'admis' | 'rattrapage' | 'ajourne'>('all');
@@ -66,7 +69,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
     if (!matchesSearch) return false;
 
     if (filterStatus === 'admis') {
-      return stats && (stats.decision.includes('ADMIS') || stats.average >= 10);
+      return decisionBucket(stats?.decision) === 'admis';
     }
     if (filterStatus === 'rattrapage') {
       return stats && stats.average >= 8 && stats.average < 10;
@@ -78,6 +81,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
   });
 
   const handleScoreChange = (candidateId: string, subjectId: string, valStr: string) => {
+    if (juryLocked) return;
     const val = parseFloat(valStr);
     if (!isNaN(val) && val >= 0 && val <= 20) {
       onUpdateGrade(candidateId, subjectId, Math.round(val * 100) / 100);
@@ -444,6 +448,8 @@ export const GradingView: React.FC<GradingViewProps> = ({
                             max="20"
                             step="0.5"
                             value={grade}
+                            disabled={juryLocked}
+                            title={juryLocked ? 'PV verrouillé : déverrouillez le registre pour modifier les notes' : 'Note sur 20'}
                             onChange={(e) => handleScoreChange(cand.id, s.id, e.target.value)}
                             className={`w-14 text-center font-mono text-[12px] py-1 px-1 rounded border outline-none font-semibold transition-colors ${
                               grade >= 14
@@ -522,9 +528,12 @@ export const GradingView: React.FC<GradingViewProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setSelectedCandidateForBonus(cand)}
-                        className="p-1 rounded bg-[#eaedff] text-[#0051d5] hover:bg-[#dce1ff] transition-colors"
-                        title="Arbitrage / Rachat du jury"
+                        onClick={() => {
+                          if (!juryLocked) setSelectedCandidateForBonus(cand);
+                        }}
+                        disabled={juryLocked}
+                        className="p-1 rounded bg-[#eaedff] text-[#0051d5] hover:bg-[#dce1ff] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={juryLocked ? 'PV verrouillé' : 'Arbitrage / Rachat du jury'}
                       >
                         <span className="material-symbols-outlined text-base">gavel</span>
                       </button>

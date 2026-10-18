@@ -3,6 +3,7 @@ import { AppSettings, Candidate, CandidateComputedStats } from '../types';
 import { DEFAULT_SETTINGS, TOGO_SETTINGS, CI_SETTINGS } from '../data/mockData';
 import { ArchivedSessionsSection } from './ArchivedSessionsSection';
 import { AdminParametres } from './AdminParametres';
+import { isSafeImageUrl } from '../utils/safeUrl';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -45,9 +46,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith('image/') || file.size > 1_500_000) {
+      setToastMessage('Choisissez une image (PNG, JPG, WEBP, GIF) de moins de 1,5 Mo.');
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 3000);
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
+      if (typeof reader.result === 'string' && isSafeImageUrl(reader.result)) {
         const updated = { ...formData, [field]: reader.result };
         setFormData(updated);
         onUpdateSettings(updated);
@@ -58,7 +65,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const applyLogoUrl = () => {
-    if (!logoInputUrl.trim()) return;
+    if (!isSafeImageUrl(logoInputUrl)) {
+      setToastMessage('URL de logo refusée : utilisez une adresse http(s).');
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 3000);
+      return;
+    }
     const updated = { ...formData, logoUrl: logoInputUrl.trim() };
     setFormData(updated);
     onUpdateSettings(updated);
@@ -67,7 +79,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const applySealUrl = () => {
-    if (!sealInputUrl.trim()) return;
+    if (!isSafeImageUrl(sealInputUrl)) {
+      setToastMessage('URL de sceau refusée : utilisez une adresse http(s).');
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 3000);
+      return;
+    }
     const updated = { ...formData, sealUrl: sealInputUrl.trim() };
     setFormData(updated);
     onUpdateSettings(updated);
@@ -97,7 +114,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="bg-white rounded p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
+      <div className="settings-chrome bg-white rounded p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5] bg-[#eaedff] px-2.5 py-1 rounded">
             Configuration &amp; Charte Graphique
@@ -130,7 +147,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* Navigation Tabs between Configuration & Session Archives */}
-      <div className="flex border-b border-[#eaedff] gap-2">
+      <div className="settings-chrome flex border-b border-[#eaedff] gap-2">
         <button
           type="button"
           onClick={() => setActiveTab('branding')}

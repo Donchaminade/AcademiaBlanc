@@ -21,12 +21,29 @@ export function getToken(): string | null {
   }
 }
 
+const SESSION_KEY = 'academiablanc_session';
+
 export function setToken(token: string): void {
   sessionStorage.setItem(TOKEN_KEY, token);
 }
 
+export function setSession(session: AuthSession): void {
+  sessionStorage.setItem(TOKEN_KEY, session.token);
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
+
+export function getSession(): AuthSession | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) as AuthSession : null;
+  } catch {
+    return null;
+  }
+}
+
 export function clearToken(): void {
   sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {

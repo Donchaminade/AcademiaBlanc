@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Candidate, CandidateComputedStats } from '../types';
+import { formatSubjectRank } from '../utils/bulletinMetrics';
+import { digitsOnly, isPlausibleEmail } from '../utils/safeUrl';
 
 interface SmsModalProps {
   candidate: Candidate;
   stats: CandidateComputedStats;
   onClose: () => void;
   onSent: (msg: string) => void;
+  isOffline?: boolean;
 }
 
 export const SmsModal: React.FC<SmsModalProps> = ({
@@ -13,23 +16,53 @@ export const SmsModal: React.FC<SmsModalProps> = ({
   stats,
   onClose,
   onSent,
+  isOffline = false,
 }) => {
   const [phone, setPhone] = useState(candidate.parentPhone);
   const [email, setEmail] = useState(candidate.parentEmail);
   const [includeDetails, setIncludeDetails] = useState(true);
+  const [error, setError] = useState('');
   const [isSending, setIsSending] = useState(false);
 
-  const defaultMessage = `[ACADEMIABLANCS DEXCO] Relevé officiel de ${candidate.fullName} (Table ${candidate.tableNumber}): Moyenne ${stats.average.toFixed(2)}/20, Rang ${stats.rank}e/138, Décision: ${stats.decision}. Mention: ${stats.mention}. Téléchargez le bulletin officiel certifié sur: https://academiablanc.gouv.ci/v/${candidate.matricule}`;
+  const defaultMessage = useMemo(() => {
+    const rank = formatSubjectRank(stats.rank);
+    const base = `Relevé de ${candidate.fullName} (table ${candidate.tableNumber}, matricule ${candidate.matricule}) : moyenne ${stats.average.toFixed(2)}/20, rang ${rank}. Décision : ${stats.decision}. Mention : ${stats.mention}.`;
+    return includeDetails ? `${base} Document établi localement par l'établissement.` : base;
+  }, [candidate, stats, includeDetails]);
 
   const [message, setMessage] = useState(defaultMessage);
 
   const handleSend = () => {
-    setIsSending(true);
-    setTimeout(() => {
-      setIsSending(false);
-      onSent(`SMS & Notification transmis avec succès au numéro ${phone} et à ${email}`);
+    setError('');
+    const phoneDigits = digitsOnly(phone);
+    if (phoneDigits.length < 8) {
+      setError('Indiquez un numéro mobile d’au moins 8 chiffres.');
+      return;
+    }
+    if (!isPlausibleEmail(email)) {
+      setError('Indiquez une adresse email valide.');
+      return;
+    }
+    if (!message.trim() || message.length > 1000) {
+      setError('Le message doit contenir entre 1 et 1000 caractères.');
+      return;
+    }
+
+    if (isOffline) {
+      void navigator.clipboard?.writeText(message).catch(() => undefined);
+      onSent('Mode hors-ligne : message copié dans le presse-papiers, aucun envoi réseau.');
       onClose();
-    }, 800);
+      return;
+    }
+
+    setIsSending(true);
+    const smsUrl = `sms:${phoneDigits}?body=${encodeURIComponent(message)}`;
+    const mailUrl = `mailto:${encodeURIComponent(email.trim())}?subject=${encodeURIComponent(`Bulletin ${candidate.fullName}`)}&body=${encodeURIComponent(message)}`;
+    window.open(smsUrl, '_blank', 'noopener,noreferrer');
+    window.open(mailUrl, '_blank', 'noopener,noreferrer');
+    setIsSending(false);
+    onSent(`Application SMS et messagerie ouvertes pour ${phone} et ${email}.`);
+    onClose();
   };
 
   return (
@@ -85,8 +118,23 @@ export const SmsModal: React.FC<SmsModalProps> = ({
                 onChange={(e) => setMessage(e.target.value)}
                 className="w-full bg-[#f2f3ff] text-[12px] p-2 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5] resize-none leading-relaxed"
               ></textarea>
+              <label className="mt-2 flex items-center gap-2 text-[11px] text-[#444651]">
+                <input
+                  type="checkbox"
+                  checked={includeDetails}
+                  onChange={(e) => {
+                    const next = e.target.checked;
+                    setIncludeDetails(next);
+                    const rank = formatSubjectRank(stats.rank);
+                    const base = `Relevé de ${candidate.fullName} (table ${candidate.tableNumber}, matricule ${candidate.matricule}) : moyenne ${stats.average.toFixed(2)}/20, rang ${rank}. Décision : ${stats.decision}. Mention : ${stats.mention}.`;
+                    setMessage(next ? `${base} Document établi localement par l'établissement.` : base);
+                  }}
+                />
+                Inclure la mention de document local
+              </label>
+              {error && <p className="text-[11px] text-[#ba1a1a] mt-1">{error}</p>}
               <span className="text-[10px] text-[#444651] block text-right mt-1 font-mono">
-                {message.length} caractères (1 SMS GSM-7)
+                {message.length} caractères
               </span>
             </div>
           </div>

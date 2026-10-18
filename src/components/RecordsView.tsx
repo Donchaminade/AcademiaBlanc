@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Candidate, CandidateComputedStats } from '../types';
+import { decisionBucket } from '../utils/bulletinMetrics';
+import { printDocument } from '../utils/printDocument';
 
 interface RecordsViewProps {
   candidates: Candidate[];
@@ -8,6 +10,8 @@ interface RecordsViewProps {
   onNavigateToBulletin: (candidate: Candidate) => void;
   selectedSession: string;
   selectedCenter: string;
+  juryLocked: boolean;
+  onToggleJuryLock: () => void;
 }
 
 export const RecordsView: React.FC<RecordsViewProps> = ({
@@ -16,9 +20,10 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   onNavigateToBulletin,
   selectedSession,
   selectedCenter,
+  juryLocked,
+  onToggleJuryLock,
 }) => {
   const [filterDecision, setFilterDecision] = useState<'all' | 'admis' | 'rattrapage' | 'ajourne'>('all');
-  const [isJuryLocked, setIsJuryLocked] = useState(true);
 
   // Sort candidates by rank
   const sorted = [...candidates].sort((a, b) => {
@@ -29,40 +34,44 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
 
   const filtered = sorted.filter((c) => {
     const stats = allStats[c.id];
-    if (filterDecision === 'admis') return stats && stats.decision.includes('ADMIS');
-    if (filterDecision === 'rattrapage') return stats && stats.decision.includes('SECOND TOUR');
-    if (filterDecision === 'ajourne') return stats && stats.decision.includes('AJOURNÉ');
+    if (filterDecision === 'admis') return decisionBucket(stats?.decision) === 'admis';
+    if (filterDecision === 'rattrapage') return decisionBucket(stats?.decision) === 'rattrapage';
+    if (filterDecision === 'ajourne') return decisionBucket(stats?.decision) === 'ajourne';
     return true;
   });
 
-  const exportCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += 'Rang,Table,Matricule,Nom et Prenoms,Genre,Etablissement,Total Points,Moyenne,Mention,Decision\n';
+  const csvCell = (value: string | number) => {
+    const raw = String(value ?? '');
+    const guarded = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+    return `"${guarded.replace(/"/g, '""')}"`;
+  };
 
+  const exportCSV = () => {
+    const lines = ['Rang,Table,Matricule,Nom et Prenoms,Genre,Etablissement,Total Points,Moyenne,Mention,Decision'];
     sorted.forEach((c) => {
       const s = allStats[c.id];
-      const row = [
-        s?.rank ?? '—',
-        c.tableNumber,
-        `"${c.matricule}"`,
-        `"${c.fullName}"`,
-        c.gender,
-        `"${c.originSchool}"`,
-        s?.totalPoints ?? 0,
-        s?.average ?? 0,
-        `"${s?.mention ?? ''}"`,
-        `"${s?.decision ?? ''}"`,
-      ].join(',');
-      csvContent += row + '\n';
+      lines.push([
+        csvCell(s?.rank ?? '—'),
+        csvCell(c.tableNumber),
+        csvCell(c.matricule),
+        csvCell(c.fullName),
+        csvCell(c.gender),
+        csvCell(c.originSchool),
+        csvCell(s?.totalPoints ?? 0),
+        csvCell(s?.average ?? 0),
+        csvCell(s?.mention ?? ''),
+        csvCell(s?.decision ?? ''),
+      ].join(','));
     });
-
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `PV_DELIBERATION_${selectedSession.replace(/\s+/g, '_')}.csv`);
+    link.href = url;
+    link.download = `PV_DELIBERATION_${selectedSession.replace(/[^\p{L}\p{N}._-]+/gu, '_')}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -93,7 +102,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
 
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={() => printDocument('registre', `PV_${selectedSession}`)}
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#eaedff] text-[#00236f] text-[12px] font-semibold hover:bg-[#dce1ff] transition-colors"
           >
             <span className="material-symbols-outlined text-base">print</span>
@@ -102,15 +111,15 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
 
           <button
             type="button"
-            onClick={() => setIsJuryLocked(!isJuryLocked)}
+            onClick={onToggleJuryLock}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded text-white text-[12px] font-semibold transition-all shadow-xs ${
-              isJuryLocked ? 'bg-[#00236f] hover:bg-[#1e3a8a]' : 'bg-[#ba1a1a] hover:bg-[#93000a]'
+              juryLocked ? 'bg-[#00236f] hover:bg-[#1e3a8a]' : 'bg-[#ba1a1a] hover:bg-[#93000a]'
             }`}
           >
             <span className="material-symbols-outlined text-base">
-              {isJuryLocked ? 'verified_user' : 'lock_open'}
+              {juryLocked ? 'lock' : 'lock_open'}
             </span>
-            <span>{isJuryLocked ? 'PV Verrouillé (SHA-256)' : 'Déverrouiller le PV'}</span>
+            <span>{juryLocked ? 'PV verrouillé — cliquer pour déverrouiller' : 'Verrouiller le PV'}</span>
           </button>
         </div>
       </div>

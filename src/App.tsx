@@ -12,6 +12,8 @@ import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
+import { apiDelete, apiSend, getSession, getToken } from './api/client';
+import { loadSchoolWorkspace, ExamOption } from './api/workspace';
 import {
   getRegisteredSchools,
   getCurrentSchoolId,
@@ -20,6 +22,7 @@ import {
   saveSchoolData,
 } from './data/schoolsData';
 import { Candidate, Subject, ViewMode, AppSettings, SchoolAccount } from './types';
+import { printDocument } from './utils/printDocument';
 
 export default function App() {
   // Establishment Multi-Tenant State
@@ -32,6 +35,7 @@ export default function App() {
 
   // Isolated data state for the currently logged-in establishment
   const [candidates, setCandidates] = useState<Candidate[]>(() => {
+    if (getToken()) return [];
     const data = getSchoolData(getCurrentSchoolId());
     return data.candidates;
   });
@@ -41,18 +45,36 @@ export default function App() {
     return data.settings;
   });
 
-  const [subjects] = useState<Subject[]>(INITIAL_SUBJECTS);
+  const [subjects, setSubjects] = useState<Subject[]>(INITIAL_SUBJECTS);
+  const [apiSessions, setApiSessions] = useState<ExamOption[]>([]);
+  const [apiCenters, setApiCenters] = useState<string[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [activeClasseId, setActiveClasseId] = useState<number | null>(null);
+  const [usingApi, setUsingApi] = useState<boolean>(() => Boolean(getToken()));
   const [selectedCandidateId, setSelectedCandidateId] = useState<string>(() => {
     const data = getSchoolData(getCurrentSchoolId());
     return data.candidates[0]?.id || '';
   });
 
-  const [currentView, setCurrentView] = useState<ViewMode>('bulletin');
+  const [currentView, setCurrentView] = useState<ViewMode>(() => (getToken() ? 'bulletin' : 'auth'));
   const [selectedSession, setSelectedSession] = useState<string>('BAC II Blanc 2025 - Série D');
   const [selectedCenter, setSelectedCenter] = useState<string>(() => {
     return `${currentSchool?.name || 'Lycée Moderne de Tokoin'} (Centre 01)`;
   });
-  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('academiablanc_offline') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [juryLocked, setJuryLocked] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(`academiablanc_jury_lock_${getCurrentSchoolId()}`) === '1';
+    } catch {
+      return false;
+    }
+  });
 
   // Modals state
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
@@ -80,8 +102,37 @@ export default function App() {
 
   const handleUpdateCandidates = (newCandidates: Candidate[]) => {
     setCandidates(newCandidates);
-    saveSchoolData(currentSchoolId, settings, newCandidates);
+    if (!getToken()) saveSchoolData(currentSchoolId, settings, newCandidates);
   };
+
+  const applyWorkspace = async (sessionId?: number) => {
+    const workspace = await loadSchoolWorkspace(sessionId);
+    const session = getSession();
+    setUsingApi(true);
+    setSubjects(workspace.subjects);
+    setCandidates(workspace.candidates);
+    setApiSessions(workspace.sessions);
+    setApiCenters(workspace.centers.map((item) => item.label));
+    setActiveSessionId(workspace.sessionId);
+    setActiveClasseId(workspace.classeId);
+    setSettings((prev) => ({
+      ...prev,
+      institutionName: session?.nomEtablissement || prev.institutionName,
+      academicYear: workspace.academicYear || prev.academicYear,
+      sessionName: workspace.sessionName || prev.sessionName,
+      examType: workspace.examType || prev.examType,
+    }));
+    if (workspace.sessionName) setSelectedSession(workspace.sessionName);
+    if (workspace.centerLabel) setSelectedCenter(workspace.centerLabel);
+    setSelectedCandidateId((current) => workspace.candidates.some((item) => item.id === current)
+      ? current
+      : workspace.candidates[0]?.id || '');
+  };
+
+  useEffect(() => {
+    if (!getToken()) return;
+    applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
+  }, []);
 
   // Switch active establishment
   const handleSelectSchool = (schoolId: string) => {
@@ -91,11 +142,23 @@ export default function App() {
     setCurrentSchoolIdState(schoolId);
     setCurrentSchoolId(schoolId);
 
+    if (getToken()) {
+      setIsAuthModalOpen(false);
+      if (currentView === 'auth') setCurrentView('bulletin');
+      applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
+      return;
+    }
+
     const schoolData = getSchoolData(schoolId);
     setCandidates(schoolData.candidates);
     setSettings(schoolData.settings);
     setSelectedCandidateId(schoolData.candidates[0]?.id || '');
     setSelectedCenter(`${target.name} (Centre d'Examen)`);
+    try {
+      setJuryLocked(localStorage.getItem(`academiablanc_jury_lock_${schoolId}`) === '1');
+    } catch {
+      setJuryLocked(false);
+    }
 
     setIsAuthModalOpen(false);
     if (currentView === 'auth') {
@@ -170,6 +233,15 @@ export default function App() {
       };
     });
     handleUpdateCandidates(updated);
+    if (getToken() && activeSessionId && Number.isFinite(Number(candidateId)) && Number.isFinite(Number(subjectId))) {
+      void apiSend('/api/notes', 'POST', {
+        eleveId: Number(candidateId),
+        matiereId: Number(subjectId),
+        sessionId: activeSessionId,
+        valeur: newScore,
+        absent: false,
+      }).catch((err: Error) => showToast(err.message || 'Note non enregistrée.'));
+    }
   };
 
   // Apply jury bonus (repêchage)
@@ -206,6 +278,26 @@ export default function App() {
 
   // Add new candidate with automatic alphabetical table assignment
   const handleAddNewCandidate = (newCand: Candidate) => {
+    if (getToken()) {
+      if (!activeClasseId) {
+        showToast('Créez d’abord une classe dans Paramètres → Administration (API).');
+        return;
+      }
+      void apiSend('/api/eleves', 'POST', {
+        classeId: activeClasseId,
+        sessionId: activeSessionId,
+        nomComplet: newCand.fullName,
+        matricule: newCand.matricule,
+        genre: newCand.gender,
+        numeroTable: newCand.tableNumber || null,
+        dateNaissance: newCand.dob || null,
+        lieuNaissance: newCand.birthPlace || null,
+        etablissementOrigine: newCand.originSchool || null,
+      }).then(() => applyWorkspace(activeSessionId ?? undefined))
+        .then(() => showToast(`${newCand.fullName} est enregistré dans la base.`))
+        .catch((err: Error) => showToast(err.message || 'Inscription impossible.'));
+      return;
+    }
     const updatedList = [...candidates, newCand];
     const finalList = settings.autoAssignTables !== false
       ? autoAssignTableNumbers(updatedList, settings.startTableNumber || 101)
@@ -240,6 +332,13 @@ export default function App() {
 
   // Delete candidate and re-index table numbers
   const handleDeleteCandidate = (candidateId: string) => {
+    if (getToken() && Number.isFinite(Number(candidateId))) {
+      void apiDelete(`/api/eleves/${candidateId}`)
+        .then(() => applyWorkspace(activeSessionId ?? undefined))
+        .then(() => showToast('Élève retiré de la base.'))
+        .catch((err: Error) => showToast(err.message || 'Suppression impossible.'));
+      return;
+    }
     const remaining = candidates.filter((c) => c.id !== candidateId);
     if (selectedCandidateId === candidateId && remaining.length > 0) {
       setSelectedCandidateId(remaining[0].id);
@@ -260,12 +359,34 @@ export default function App() {
     showToast(`Tables générées automatiquement de ${base} à ${base + candidates.length - 1} selon l'ordre alphabétique des noms (A → Z) !`);
   };
 
-  // PDF download simulation
   const handleDownloadPdf = () => {
-    showToast('Génération du PDF vectoriel A4 (Haute Résolution 300 DPI) en cours...');
-    setTimeout(() => {
-      window.print();
-    }, 600);
+    if (!selectedCandidate) return;
+    printDocument(
+      'single-bulletin',
+      `Bulletin_${selectedCandidate.tableNumber}_${selectedCandidate.fullName}`,
+    );
+  };
+
+  const handleToggleOffline = () => {
+    const next = !isOfflineMode;
+    setIsOfflineMode(next);
+    try {
+      localStorage.setItem('academiablanc_offline', next ? '1' : '0');
+    } catch {
+      // quota ignore
+    }
+    showToast(next ? 'Mode hors-ligne actif : les envois externes sont suspendus.' : 'Connexion rétablie.');
+  };
+
+  const handleToggleJuryLock = () => {
+    const next = !juryLocked;
+    setJuryLocked(next);
+    try {
+      localStorage.setItem(`academiablanc_jury_lock_${currentSchoolId}`, next ? '1' : '0');
+    } catch {
+      // quota ignore
+    }
+    showToast(next ? 'Procès-verbal verrouillé : la saisie des notes est bloquée.' : 'Procès-verbal déverrouillé : la saisie est de nouveau possible.');
   };
 
   // Keyboard navigation
@@ -282,7 +403,20 @@ export default function App() {
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault();
-        window.print();
+        if (isBatchPrintModalOpen) {
+          printDocument('all-bulletins', `Bulletins_${settings.institutionName}`);
+        } else if (currentView === 'bulletin' && selectedCandidate) {
+          printDocument(
+            'single-bulletin',
+            `Bulletin_${selectedCandidate.tableNumber}_${selectedCandidate.fullName}`,
+          );
+        } else if (currentView === 'records') {
+          printDocument('registre', `PV_${selectedSession}`);
+        } else if (currentView === 'students') {
+          printDocument('emargement', `Emargement_${selectedSession}`);
+        } else {
+          printDocument('page', document.title);
+        }
       }
 
       if (currentView === 'bulletin') {
@@ -297,7 +431,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [candidates, selectedCandidateId, currentView]);
+  }, [candidates, selectedCandidateId, currentView, isBatchPrintModalOpen, selectedCandidate, settings.institutionName, selectedSession]);
 
   // If in auth view mode full-screen
   if (currentView === 'auth') {
@@ -306,6 +440,7 @@ export default function App() {
         currentSchool={currentSchool}
         onSelectSchool={handleSelectSchool}
         onAccountCreated={handleAccountCreated}
+        onApiReady={() => { applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.')); }}
         onClose={() => setCurrentView('bulletin')}
       />
     );
@@ -318,25 +453,38 @@ export default function App() {
         currentView={currentView}
         onViewChange={setCurrentView}
         selectedSession={selectedSession}
-        onSessionChange={setSelectedSession}
+        onSessionChange={(label) => {
+          setSelectedSession(label);
+          const match = apiSessions.find((item) => item.label === label);
+          if (match) {
+            applyWorkspace(match.id).catch((err: Error) => showToast(err.message || 'Session introuvable.'));
+          }
+        }}
         selectedCenter={selectedCenter}
         onCenterChange={setSelectedCenter}
         isOfflineMode={isOfflineMode}
-        onToggleOffline={() => {
-          setIsOfflineMode(!isOfflineMode);
-          showToast(!isOfflineMode ? 'Passage en mode hors-ligne simulé.' : 'Connexion rétablie.');
-        }}
+        onToggleOffline={handleToggleOffline}
         settings={settings}
         candidatesCount={candidates.length}
         onOpenBatchPrint={() => setIsBatchPrintModalOpen(true)}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onOpenSearch={() => setIsSearchModalOpen(true)}
+        sessionOptions={usingApi ? apiSessions.map((item) => item.label) : undefined}
+        centerOptions={usingApi ? apiCenters : undefined}
       />
 
       {/* Main Content Area - Navigated strictly via Sidebar */}
-      <div className="pl-80 w-full min-h-screen flex flex-col">
+      <div className="app-chrome pl-80 w-full min-h-screen flex flex-col">
         {/* View Routing */}
         <main className="relative bg-[#faf8ff] flex-1">
+          {currentView === 'bulletin' && !selectedCandidate && (
+            <div className="p-10 text-[14px] text-[#444651]">
+              {usingApi
+                ? 'Aucun élève dans la base de cet établissement. Créez une classe et un élève dans Paramètres → Administration (API), ou depuis la liste des élèves.'
+                : 'Connectez l’établissement pour afficher les élèves enregistrés.'}
+            </div>
+          )}
+
           {currentView === 'bulletin' && selectedCandidate && (
             <BulletinView
               candidates={candidates}
@@ -349,6 +497,7 @@ export default function App() {
               onDownloadPdf={handleDownloadPdf}
               onPrintAll={() => setIsBatchPrintModalOpen(true)}
               settings={settings}
+              selectedSession={selectedSession}
             />
           )}
 
@@ -402,6 +551,7 @@ export default function App() {
                 setCurrentView('bulletin');
               }}
               onAddNewCandidate={handleAddNewCandidate}
+              juryLocked={juryLocked}
             />
           )}
 
@@ -416,6 +566,8 @@ export default function App() {
               }}
               selectedSession={selectedSession}
               selectedCenter={selectedCenter}
+              juryLocked={juryLocked}
+              onToggleJuryLock={handleToggleJuryLock}
             />
           )}
 
@@ -448,6 +600,7 @@ export default function App() {
           stats={computedStats}
           onClose={() => setIsSmsModalOpen(false)}
           onSent={(msg) => showToast(msg)}
+          isOffline={isOfflineMode}
         />
       )}
 
@@ -471,6 +624,7 @@ export default function App() {
           subjects={subjects}
           allStats={allStats}
           settings={settings}
+          selectedSession={selectedSession}
           onClose={() => setIsBatchPrintModalOpen(false)}
         />
       )}
@@ -483,6 +637,7 @@ export default function App() {
               currentSchool={currentSchool}
               onSelectSchool={handleSelectSchool}
               onAccountCreated={handleAccountCreated}
+              onApiReady={() => { applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.')); }}
               onClose={() => setIsAuthModalOpen(false)}
             />
           </div>

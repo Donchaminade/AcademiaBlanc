@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Candidate, Subject, AppSettings } from '../types';
+import { printDocument } from '../utils/printDocument';
 
 interface StudentsListViewProps {
   candidates: Candidate[];
@@ -203,7 +204,8 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
   };
 
   return (
-    <div className="p-8 max-w-[1440px] mx-auto space-y-6">
+    <>
+    <div className="students-ui p-8 max-w-[1440px] mx-auto space-y-6">
       {/* Workflow Navigation Banner */}
       <div className="bg-[#00236f] text-white p-4 rounded-lg shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -254,7 +256,7 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
               {totalStudents}
             </span>
             <span className="text-[11px] text-[#0051d5] font-medium font-mono">
-              Centre d'Examen N° 03
+              {selectedCenter}
             </span>
           </div>
           <div className="w-12 h-12 rounded-full bg-[#eaedff] flex items-center justify-center text-[#00236f]">
@@ -387,18 +389,18 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
               type="button"
               onClick={onOpenBatchPrint}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#0051d5] text-white text-[12px] font-bold hover:bg-[#003cb3] transition-all shadow-xs"
-              title="Imprimer tous les bulletins de notes en 1 clic"
+              title="Ouvrir l'aperçu puis télécharger tous les bulletins en PDF"
             >
               <span className="material-symbols-outlined text-base">print_connect</span>
-              <span>Imprimer Tous les Bulletins ({candidates.length})</span>
+              <span>Télécharger tous les bulletins ({candidates.length})</span>
             </button>
           )}
 
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={() => printDocument('emargement', `Emargement_${selectedSession}`)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#eaedff] transition-colors"
-            title="Imprimer la feuille d'émargement vierge pour les surveillants"
+            title="Imprimer la feuille d'émargement des candidats inscrits"
           >
             <span className="material-symbols-outlined text-base">print</span>
             <span>Feuille d'Émargement</span>
@@ -855,5 +857,32 @@ OUATTARA Fatimata, F, 24/07/2006, Lycée Sainte Marie, +225 05 44 55 66"
         </div>
       )}
     </div>
+    <div className="emargement-sheet p-6 text-[#131b2e]">
+      <h1 className="text-[18px] font-bold text-center">Feuille d'émargement</h1>
+      <p className="text-center text-[12px] mt-1">{selectedSession} • {selectedCenter}</p>
+      <table className="w-full mt-4 border-collapse text-[12px]">
+        <thead>
+          <tr>
+            <th className="border border-black px-2 py-1 text-left">N° table</th>
+            <th className="border border-black px-2 py-1 text-left">Nom et prénoms</th>
+            <th className="border border-black px-2 py-1 text-left">Matricule</th>
+            <th className="border border-black px-2 py-1 text-left">Signature</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...candidates]
+            .sort((a, b) => a.tableNumber - b.tableNumber)
+            .map((cand) => (
+              <tr key={cand.id}>
+                <td className="border border-black px-2 py-2">{cand.tableNumber}</td>
+                <td className="border border-black px-2 py-2">{cand.fullName}</td>
+                <td className="border border-black px-2 py-2">{cand.matricule}</td>
+                <td className="border border-black px-2 py-2 h-8"></td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    </div>
+    </>
   );
 };

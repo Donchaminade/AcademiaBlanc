@@ -15,6 +15,8 @@ interface SidebarProps {
   onOpenBatchPrint?: () => void;
   onOpenAuth?: () => void;
   onOpenSearch?: () => void;
+  sessionOptions?: string[];
+  centerOptions?: string[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -31,6 +33,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenBatchPrint,
   onOpenAuth,
   onOpenSearch,
+  sessionOptions,
+  centerOptions,
 }) => {
   return (
     <aside className="fixed left-0 top-0 h-full w-80 bg-[#ffffff] z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-[#eaedff]">
@@ -56,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             onClick={onToggleOffline}
             className="mt-3 w-full inline-flex items-center justify-between px-2.5 py-1.5 rounded bg-[#eaedff] text-[#00236f] text-[11px] font-semibold tracking-wide hover:bg-[#dce1ff] transition-colors"
-            title="Cliquer pour basculer la simulation de connexion"
+            title="Basculer entre le mode en ligne et le mode hors-ligne local"
           >
             <span className="flex items-center gap-2">
               <span className="material-symbols-outlined text-sm text-[#0051d5] animate-pulse">
@@ -82,10 +86,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onChange={(e) => onSessionChange(e.target.value)}
                 className="w-full appearance-none bg-[#f2f3ff] text-[#131b2e] text-[12px] py-2 px-3 pr-8 rounded outline-none cursor-pointer font-medium hover:bg-[#e2e7ff] transition-colors"
               >
-                <option value="BAC II Blanc 2025 - Série D">BAC II Blanc 2025 - Série D</option>
-                <option value="BAC II Blanc 2025 - Série C">BAC II Blanc 2025 - Série C</option>
-                <option value="BAC I Blanc 2025 - Série A4">BAC I Blanc 2025 - Série A4</option>
-                <option value="BEPC Blanc National 2025">BEPC Blanc National 2025</option>
+                {(sessionOptions && sessionOptions.length > 0 ? sessionOptions : [
+                  'BAC II Blanc 2025 - Série D',
+                  'BAC II Blanc 2025 - Série C',
+                  'BAC I Blanc 2025 - Série A4',
+                  'BEPC Blanc National 2025',
+                ]).map((label) => <option key={label} value={label}>{label}</option>)}
               </select>
               <span className="material-symbols-outlined absolute right-2 top-2.5 pointer-events-none text-[#444651] text-base">
                 expand_more
@@ -103,10 +109,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onChange={(e) => onCenterChange(e.target.value)}
                 className="w-full appearance-none bg-[#f2f3ff] text-[#131b2e] text-[12px] py-2 px-3 pr-8 rounded outline-none cursor-pointer font-medium hover:bg-[#e2e7ff] transition-colors"
               >
-                <option value="Lycée Moderne de Tokoin (Centre 01)">Lycée Moderne de Tokoin (Centre 01)</option>
-                <option value="Lycée 2 Février (Centre 04)">Lycée 2 Février (Centre 04)</option>
-                <option value="Collège Protestant Lomé">Collège Protestant Lomé</option>
-                <option value="Lycée Scientifique de Lomé">Lycée Scientifique de Lomé</option>
+                {(centerOptions && centerOptions.length > 0 ? centerOptions : [
+                  'Lycée Moderne de Tokoin (Centre 01)',
+                  'Lycée 2 Février (Centre 04)',
+                  'Collège Protestant Lomé',
+                  'Lycée Scientifique de Lomé',
+                ]).map((label) => <option key={label} value={label}>{label}</option>)}
               </select>
               <span className="material-symbols-outlined absolute right-2 top-2.5 pointer-events-none text-[#444651] text-base">
                 location_city
@@ -209,7 +217,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <span className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-lg text-[#0051d5]">print_connect</span>
-                <span>Impression Groupée (1 Clic)</span>
+                <span>Télécharger tous les bulletins</span>
               </span>
               <span className="font-mono text-[10px] bg-[#0051d5] text-white px-1.5 py-0.5 rounded">
                 A4

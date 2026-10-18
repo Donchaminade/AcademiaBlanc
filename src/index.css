@@ -93,17 +93,76 @@
     background-color: #ffffff !important;
   }
 
-  #bulletinSheet {
+  #bulletinSheet,
+  .bulletin-sheet {
     box-shadow: none !important;
-    max-width: 100% !important;
-    width: 100% !important;
+    width: 138% !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 4mm !important;
     transform: none !important;
+    zoom: 0.72;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    overflow: visible !important;
+  }
+
+  #bulletinSheet .min-h-\[125px\],
+  .bulletin-sheet .min-h-\[125px\] {
+    min-height: 68px !important;
+    padding: 6px !important;
   }
 
   .print\:break-after-page {
     break-after: page !important;
     page-break-after: always !important;
+  }
+
+  #bulletinSheet,
+  .bulletin-sheet {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+.emargement-sheet {
+  display: none;
+}
+
+@media print {
+  body[data-print-mode='all-bulletins'] .app-chrome {
+    display: none !important;
+  }
+
+  body[data-print-mode='all-bulletins'] .batch-print-overlay {
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+  }
+
+  body[data-print-mode='emargement'] .students-ui,
+  body[data-print-mode='emargement'] aside,
+  body[data-print-mode='emargement'] .no-print {
+    display: none !important;
+  }
+
+  body[data-print-mode='emargement'] .emargement-sheet {
+    display: block !important;
+  }
+
+  body[data-print-mode='emargement'] .pl-80,
+  body[data-print-mode='archives'] .pl-80,
+  body[data-print-mode='registre'] .pl-80 {
+    padding-left: 0 !important;
+  }
+
+  body[data-print-mode='archives'] .settings-chrome {
+    display: none !important;
   }
 }

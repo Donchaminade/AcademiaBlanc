@@ -16,16 +16,28 @@ export const SignatureModal: React.FC<SignatureModalProps> = ({
   const [role, setRole] = useState('Proviseure de l\'Établissement');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    const name = signerName.trim();
+    const title = role.trim();
+    if (name.length < 3 || title.length < 3) return;
     setIsProcessing(true);
-    setTimeout(() => {
-      const now = new Date();
-      const dateStr = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-      const randomHex = Math.random().toString(16).substring(2, 10) + Math.random().toString(16).substring(2, 10);
-      onSign(dateStr, signerName, randomHex);
-      setIsProcessing(false);
-      onClose();
-    }, 600);
+    const now = new Date();
+    const dateStr = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    const payload = JSON.stringify({
+      matricule: candidate.matricule,
+      table: candidate.tableNumber,
+      name: candidate.fullName,
+      signer: name,
+      role: title,
+      signedAt: dateStr,
+    });
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+    const shaHash = Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+    onSign(dateStr, `${name} (${title})`, shaHash);
+    setIsProcessing(false);
+    onClose();
   };
 
   return (
@@ -52,7 +64,7 @@ export const SignatureModal: React.FC<SignatureModalProps> = ({
               Relevé de notes - Table {candidate.tableNumber} : {candidate.fullName}
             </p>
             <p className="font-mono text-[11px] text-[#444651] mt-0.5">
-              Matricule : {candidate.matricule} • Série D
+              Matricule : {candidate.matricule} • {candidate.serie}
             </p>
           </div>
 
