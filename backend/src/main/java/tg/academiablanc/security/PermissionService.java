@@ -24,8 +24,8 @@ import tg.academiablanc.repo.UtilisateurRepository;
  * Résolution et contrôle des permissions fines.
  *
  * <ul>
- *   <li>OWNER détient toujours tous les droits de son établissement ; SUPER_ADMIN détient tout (établissement et plateforme).
- *       Ni l’un ni l’autre ne peut être restreint.</li>
+ *   <li>OWNER détient toujours tous les droits de son établissement ; SUPER_ADMIN détient tout (établissement et plateforme),
+ *       ou seulement la plateforme s’il n’est rattaché à aucun établissement. Ni l’un ni l’autre ne peut être restreint.</li>
  *   <li>Les autres rôles sont des préréglages : à la création d’un compte, la matrice du rôle est copiée dans
  *       {@code permission_utilisateur}, puis librement ajustée case par case.</li>
  *   <li>Un compte sans aucune ligne de permission (créé avant cette fonctionnalité) hérite du préréglage de son rôle.</li>
@@ -126,7 +126,11 @@ public class PermissionService {
   /** Droits effectifs d’un utilisateur. */
   public Set<Droit> droitsDe(Utilisateur user) {
     Role role = user.getRole();
-    if (role == Role.SUPER_ADMIN) return tous(EnumSet.allOf(Ressource.class));
+    if (role == Role.SUPER_ADMIN) {
+      // Propriétaire créé au démarrage : aucun établissement, donc aucune donnée pédagogique à atteindre.
+      if (user.getEtablissementId() == null) return tous(Ressource.plateforme());
+      return tous(EnumSet.allOf(Ressource.class));
+    }
     if (role == Role.OWNER) return tous(Ressource.etablissement());
     List<PermissionUtilisateur> lignes = permissions.findByUtilisateurId(user.getId());
     if (lignes.isEmpty()) return prereglage(role);
