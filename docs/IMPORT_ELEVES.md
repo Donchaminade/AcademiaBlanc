@@ -19,6 +19,24 @@ Administration → section **Élèves** → bloc **Importer une liste** (sous le
 Relancer le même import ne crée pas de doublons : un élève déjà présent dans la même
 classe (même nom, accents et casse ignorés) est ignoré et listé.
 
+### Matricule : automatique, jamais saisi
+
+Le matricule n'apparaît ni dans la liste à coller ni dans le formulaire « Inscrire
+l'élève » : il est **attribué par le serveur** à chaque création d'élève (import ou
+inscription unitaire), puis **figé** (la modification d'une fiche ne peut pas le changer).
+
+Format : `AA-CODE_ETAB-NNNNN`, par exemple `25-LYCE-LOME-01-00001`.
+
+| Partie | Signification |
+|---|---|
+| `AA` | Deux derniers chiffres de l'année de début de l'année scolaire courante (à défaut la plus récente, sinon l'année civile). |
+| `CODE_ETAB` | Code de l'établissement en majuscules, sans espaces ni accents (repli : quatre premières lettres du nom). |
+| `NNNNN` | Numéro d'ordre sur cinq chiffres, continu pour l'établissement et l'année : `00001`, `00002`… quelle que soit la classe ou la voie de création. |
+
+Chaque établissement a sa propre séquence (unicité garantie par la contrainte
+`(etablissement_id, matricule)`). Les matricules déjà enregistrés, y compris ceux d'un
+ancien format, ne sont jamais réécrits.
+
 ### Liste prête à coller — classe 3e
 
 ```text
@@ -94,8 +112,11 @@ Au second appel identique : `"crees":0,"ignores":11` et la liste des élèves ig
 | `eleves[].genre` | `M` / `F` | Obligatoire. |
 | `eleves[].dateNaissance` | texte | Facultatif, stocké tel quel (`JJ/MM/AAAA`). |
 | `eleves[].lieuNaissance` | texte | Facultatif. |
-| `eleves[].matricule` | texte | Facultatif ; sinon généré : `<CODE_ETAB>-<CLASSE>-001`, `-002`… |
 | `eleves[].classeId` / `classeNom` / `sessionId` | | Surcharges par ligne des valeurs globales. |
+
+Le champ `matricule` n'est pas accepté : s'il est envoyé, il est ignoré et un matricule
+`AA-CODE_ETAB-NNNNN` est attribué par le serveur (voir ci-dessus). Il en va de même pour
+`POST /api/eleves` ; `PUT /api/eleves/{id}` ne modifie jamais le matricule.
 
 Réponse : `{ crees, ignores, total, classesCreees[], lignesIgnorees[{ nomComplet, motif }] }`.
 

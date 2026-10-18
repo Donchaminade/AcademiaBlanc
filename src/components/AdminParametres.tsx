@@ -69,7 +69,7 @@ const EMPTY = {
   classe: { nom: '', cycle: 'LYCEE' as Cycle, niveau: 'Tle', serie: '', titulaireId: '', anneeScolaireId: '' },
   affectation: { professeurId: '', matiereId: '', classeId: '' },
   coefficient: { matiereId: '', classeId: '', serie: '', valeur: '2' },
-  eleve: { nomComplet: '', matricule: '', genre: 'F', classeId: '', sessionId: '', numeroTable: '' },
+  eleve: { nomComplet: '', genre: 'F', classeId: '', sessionId: '', numeroTable: '' },
   note: { eleveId: '', matiereId: '', sessionId: '', valeur: '', absent: false },
 };
 
@@ -391,7 +391,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
     return () => window.clearTimeout(timer);
   }, [requestedSection, scrollKey]);
 
-  const run = async (action: () => Promise<void>, ok = 'Enregistré.', afterSuccess?: () => void) => {
+  const run = async (action: () => Promise<void>, ok: string | (() => string) = 'Enregistré.', afterSuccess?: () => void) => {
     try {
       await action();
     } catch (err) {
@@ -403,7 +403,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
     // pour que les champs ne restent pas remplis si l’actualisation échoue.
     afterSuccess?.();
     onDataChanged?.();
-    toastSuccess(ok);
+    toastSuccess(typeof ok === 'function' ? ok() : ok);
     try {
       await load();
     } catch (err) {
@@ -957,7 +957,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
 
       {/* ---------------------------------------------------------- */}
       {group === 'eleves' && (
-        <SectionCard id="eleves" icon="school" title="Élèves" description="Inscriptions des candidats avec matricule, classe et session d’examen." count={eleves.length}>
+        <SectionCard id="eleves" icon="school" title="Élèves" description="Inscriptions des candidats par classe et session d’examen ; le matricule est attribué automatiquement." count={eleves.length}>
           <DataTable<Eleve>
             rows={eleves}
             editingId={eleveEdit?.id}
@@ -965,7 +965,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             emptyText="Aucun élève inscrit pour l’instant"
             columns={[
               { header: 'Nom complet', render: (r) => <span className="font-semibold">{r.nomComplet}</span> },
-              { header: 'Matricule', render: (r) => <span className="font-mono text-[12px]">{r.matricule}</span> },
+              { header: 'Matricule', render: (r) => <Badge tone="blue"><span className="font-mono normal-case">{r.matricule}</span></Badge> },
               { header: 'Genre', render: (r) => <Badge tone={r.genre === 'F' ? 'blue' : 'grey'}>{r.genre}</Badge>, className: 'w-20' },
               { header: 'Classe', render: (r) => nom(classes, r.classeId) },
               { header: 'Session', render: (r) => r.sessionId ? nom(sessions, r.sessionId) : <span className="text-[#757682]">—</span> },
@@ -973,33 +973,37 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             ]}
             onEdit={(r) => void open<Eleve>(`/api/eleves/${r.id}`, (detail) => {
               setEleveEdit(detail);
-              setEleve({ nomComplet: detail.nomComplet, matricule: detail.matricule, genre: detail.genre, classeId: String(detail.classeId), sessionId: detail.sessionId ? String(detail.sessionId) : '', numeroTable: detail.numeroTable ? String(detail.numeroTable) : '' });
+              setEleve({ nomComplet: detail.nomComplet, genre: detail.genre, classeId: String(detail.classeId), sessionId: detail.sessionId ? String(detail.sessionId) : '', numeroTable: detail.numeroTable ? String(detail.numeroTable) : '' });
             })}
             onDelete={(r) => void remove(`/api/eleves/${r.id}`, r.nomComplet, reset.eleve)}
           />
-          {eleveEdit && <EditBanner id={eleveEdit.id} summary={<>{eleveEdit.nomComplet} · {eleveEdit.genre} · table {eleveEdit.numeroTable ?? '—'} · {eleveEdit.lieuNaissance || 'lieu non renseigné'}</>} />}
+          {eleveEdit && <EditBanner id={eleveEdit.id} summary={<>{eleveEdit.nomComplet} · <span className="font-mono">{eleveEdit.matricule}</span> · {eleveEdit.genre} · table {eleveEdit.numeroTable ?? '—'} · {eleveEdit.lieuNaissance || 'lieu non renseigné'}</>} />}
           <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3" onSubmit={(e) => {
             e.preventDefault();
             if (eleve.genre !== 'M' && eleve.genre !== 'F') { toastError('Le genre doit être M ou F.'); return; }
             const body = {
               nomComplet: eleve.nomComplet.trim(),
-              matricule: eleve.matricule.trim(),
               genre: eleve.genre,
               classeId: Number(eleve.classeId),
               sessionId: eleve.sessionId ? Number(eleve.sessionId) : null,
               numeroTable: eleve.numeroTable ? Number(eleve.numeroTable) : null,
             };
+            let matriculeAttribue = '';
             void run(() => eleveEdit
               ? apiSend(`/api/eleves/${eleveEdit.id}`, 'PUT', body).then(() => undefined)
-              : apiSend('/api/eleves', 'POST', body).then(() => undefined), eleveEdit ? 'Élève mis à jour.' : 'Élève inscrit.',
-              // Après une inscription, classe et session restent choisies pour saisir la liste d’une classe ; nom, matricule et genre sont vidés.
+              : apiSend<Eleve>('/api/eleves', 'POST', body).then((cree) => { matriculeAttribue = cree.matricule; }),
+            () => (eleveEdit ? 'Élève mis à jour.' : `Élève inscrit — matricule ${matriculeAttribue}.`),
+              // Après une inscription, classe et session restent choisies pour saisir la liste d’une classe ; nom et genre sont vidés,
+              // le matricule n’étant jamais saisi (attribué par le serveur).
               () => reset.eleve(eleveEdit ? {} : { classeId: eleve.classeId, sessionId: eleve.sessionId }));
           }}>
             <Field label="Nom complet" className="lg:col-span-2">
               <input required placeholder="Nom Prénom" value={eleve.nomComplet} onChange={(e) => setEleve({ ...eleve, nomComplet: e.target.value })} className={field} />
             </Field>
             <Field label="Matricule">
-              <input required placeholder="MAT-0001" value={eleve.matricule} onChange={(e) => setEleve({ ...eleve, matricule: e.target.value })} className={field} />
+              {eleveEdit
+                ? <span className="inline-flex items-center h-[34px]"><Badge tone="blue"><span className="font-mono normal-case">{eleveEdit.matricule}</span></Badge></span>
+                : <span className="w-full text-[13px] py-2 px-3 rounded border border-dashed border-[#dce1ff] bg-[#faf8ff] text-[#757682] italic">Attribué automatiquement</span>}
             </Field>
             <Field label="Genre">
               <select value={eleve.genre} onChange={(e) => setEleve({ ...eleve, genre: e.target.value })} className={field}>

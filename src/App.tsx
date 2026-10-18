@@ -367,18 +367,18 @@ export default function App() {
         openAdmin('classes');
         return;
       }
-      void apiSend('/api/eleves', 'POST', {
+      // Le matricule n'est pas envoyé : il est attribué par le serveur.
+      void apiSend<{ matricule: string }>('/api/eleves', 'POST', {
         classeId: activeClasseId,
         sessionId: activeSessionId,
         nomComplet: newCand.fullName,
-        matricule: newCand.matricule,
         genre: newCand.gender,
         numeroTable: newCand.tableNumber || null,
         dateNaissance: newCand.dob || null,
         lieuNaissance: newCand.birthPlace || null,
         etablissementOrigine: newCand.originSchool || null,
-      }).then(() => applyWorkspace(activeSessionId ?? undefined))
-        .then(() => showToast(`${newCand.fullName} est enregistré dans la base.`))
+      }).then((cree) => applyWorkspace(activeSessionId ?? undefined)
+        .then(() => showToast(`${newCand.fullName} est enregistré dans la base — matricule ${cree.matricule}.`)))
         .catch((err: Error) => showToast(err.message || 'Inscription impossible.'));
       return;
     }

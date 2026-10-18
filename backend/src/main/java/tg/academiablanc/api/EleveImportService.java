@@ -19,17 +19,16 @@ import org.springframework.web.server.ResponseStatusException;
 import tg.academiablanc.domain.AnneeScolaire;
 import tg.academiablanc.domain.Classe;
 import tg.academiablanc.domain.Eleve;
-import tg.academiablanc.domain.Etablissement;
 import tg.academiablanc.repo.AnneeScolaireRepository;
 import tg.academiablanc.repo.ClasseRepository;
 import tg.academiablanc.repo.EleveRepository;
-import tg.academiablanc.repo.EtablissementRepository;
 import tg.academiablanc.repo.SessionExamenRepository;
 import tg.academiablanc.security.Tenant;
 
 /**
  * Import en masse d'élèves pour l'établissement du jeton : crée la classe au besoin,
- * génère les matricules manquants et ignore les doublons (même nom dans la même classe).
+ * attribue un matricule à chaque élève via {@link MatriculeService} et ignore les doublons
+ * (même nom dans la même classe).
  */
 @Service
 public class EleveImportService {
@@ -42,8 +41,9 @@ public class EleveImportService {
       Map.entry("1ERE", "Première"), Map.entry("1RE", "Première"), Map.entry("PREMIERE", "Première"),
       Map.entry("TLE", "Terminale"), Map.entry("TERMINALE", "Terminale"));
 
+  /** Une ligne d'import ; le matricule n'est pas accepté, il est toujours attribué par le serveur. */
   public record Ligne(@NotBlank @Size(max = 180) String nomComplet, @NotBlank @Size(min = 1, max = 1) String genre,
-                      @Size(max = 20) String dateNaissance, @Size(max = 120) String lieuNaissance, @Size(max = 60) String matricule,
+                      @Size(max = 20) String dateNaissance, @Size(max = 120) String lieuNaissance,
                       Long classeId, @Size(max = 120) String classeNom, Long sessionId) {}
 
   /** Classe et session par défaut pour toutes les lignes ; chaque ligne peut les surcharger. */
@@ -57,26 +57,25 @@ public class EleveImportService {
   private final ClasseRepository classes;
   private final AnneeScolaireRepository annees;
   private final SessionExamenRepository sessions;
-  private final EtablissementRepository etablissements;
+  private final MatriculeService matricules;
 
   public EleveImportService(EleveRepository eleves, ClasseRepository classes, AnneeScolaireRepository annees,
-                            SessionExamenRepository sessions, EtablissementRepository etablissements) {
+                            SessionExamenRepository sessions, MatriculeService matricules) {
     this.eleves = eleves;
     this.classes = classes;
     this.annees = annees;
     this.sessions = sessions;
-    this.etablissements = etablissements;
+    this.matricules = matricules;
   }
 
   @Transactional
   public Resultat importer(Demande demande) {
     Tenant.requireStaff();
     Long etab = Tenant.current().etablissementId();
-    String codeEtab = etablissements.findById(etab).map(Etablissement::getCode).orElse("ETAB");
+    MatriculeService.Sequence sequence = matricules.sequence(etab);
 
     Map<String, Classe> classesResolues = new HashMap<>();
     Map<Long, Set<String>> nomsParClasse = new HashMap<>();
-    Map<Long, Integer> compteurs = new HashMap<>();
     List<String> classesCreees = new ArrayList<>();
     List<LigneIgnoree> ignorees = new ArrayList<>();
     int crees = 0;
@@ -107,24 +106,12 @@ public class EleveImportService {
         continue;
       }
 
-      String matricule;
-      if (vide(ligne.matricule())) {
-        matricule = genererMatricule(etab, codeEtab, classe, compteurs);
-      } else {
-        matricule = ligne.matricule().trim();
-        if (eleves.existsByEtablissementIdAndMatricule(etab, matricule)) {
-          noms.remove(cle(nom));
-          ignorees.add(new LigneIgnoree(nom, "matricule " + matricule + " déjà utilisé"));
-          continue;
-        }
-      }
-
       Eleve eleve = new Eleve();
       eleve.setEtablissementId(etab);
       eleve.setClasseId(classe.getId());
       eleve.setSessionId(sessionId);
       eleve.setNomComplet(nom);
-      eleve.setMatricule(matricule);
+      eleve.setMatricule(sequence.suivant());
       eleve.setDateNaissance(vide(ligne.dateNaissance()) ? null : ligne.dateNaissance().trim());
       eleve.setLieuNaissance(vide(ligne.lieuNaissance()) ? null : ligne.lieuNaissance().trim());
       eleve.setGenre(genre);
@@ -172,20 +159,6 @@ public class EleveImportService {
   private void verifierSession(Long id) {
     var session = sessions.findById(id).orElseThrow(EleveImportService::absent);
     Tenant.same(session.getEtablissementId());
-  }
-
-  private String genererMatricule(Long etab, String codeEtab, Classe classe, Map<Long, Integer> compteurs) {
-    String codeClasse = sansAccents(classe.getNom()).toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "");
-    if (codeClasse.isBlank()) codeClasse = "CL";
-    String prefixe = codeEtab + "-" + codeClasse + "-";
-    int suivant = compteurs.computeIfAbsent(classe.getId(), id -> eleves.findByEtablissementIdAndClasseId(etab, id).size() + 1);
-    String matricule = prefixe + String.format("%03d", suivant);
-    while (eleves.existsByEtablissementIdAndMatricule(etab, matricule)) {
-      suivant++;
-      matricule = prefixe + String.format("%03d", suivant);
-    }
-    compteurs.put(classe.getId(), suivant + 1);
-    return matricule;
   }
 
   static String niveauPour(String nomClasse) {
