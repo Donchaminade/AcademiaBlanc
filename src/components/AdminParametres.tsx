@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiSend, getToken } from '../api/client';
+import { ImportElevesPanel } from './ImportElevesPanel';
 
 interface Annee { id: number; libelle: string; courante: boolean; dateDebut?: string; dateFin?: string; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
@@ -434,6 +435,7 @@ export const AdminParametres: React.FC = () => {
           </select>
           <button type="submit" className={primary}>{eleveEdit ? 'Mettre à jour l’élève' : 'Inscrire l’élève'}</button>
         </form>
+        <ImportElevesPanel classes={classes} sessions={sessions} onImported={() => load().catch((err: Error) => setError(err.message))} />
       </section>
 
       <section className="bg-white border border-[#eaedff] rounded p-5 space-y-3">
