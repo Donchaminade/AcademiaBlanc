@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { AppSettings, Candidate, CandidateComputedStats } from '../types';
 import { DEFAULT_SETTINGS, TOGO_SETTINGS, CI_SETTINGS } from '../data/mockData';
 import { ArchivedSessionsSection } from './ArchivedSessionsSection';
+import { AdminParametres } from './AdminParametres';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -20,7 +21,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   candidates = [],
   allStats = {},
 }) => {
-  const [activeTab, setActiveTab] = useState<'branding' | 'archives'>('branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'archives' | 'admin'>('branding');
   const [formData, setFormData] = useState<AppSettings>(settings);
   const [logoInputUrl, setLogoInputUrl] = useState('');
   const [sealInputUrl, setSealInputUrl] = useState('');
@@ -158,9 +159,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             Interannuel
           </span>
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('admin')}
+          className={`flex items-center gap-2 pb-3 px-4 font-bold text-[13px] border-b-2 transition-all ${
+            activeTab === 'admin'
+              ? 'border-[#0051d5] text-[#0051d5]'
+              : 'border-transparent text-[#444651] hover:text-[#131b2e]'
+          }`}
+        >
+          <span className="material-symbols-outlined text-base">admin_panel_settings</span>
+          <span>Administration (API)</span>
+        </button>
       </div>
 
-      {activeTab === 'archives' ? (
+      {activeTab === 'admin' ? (
+        <AdminParametres />
+      ) : activeTab === 'archives' ? (
         <ArchivedSessionsSection
           settings={settings}
           candidates={candidates}

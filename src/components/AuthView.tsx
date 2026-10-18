@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SchoolAccount } from '../types';
 import { getRegisteredSchools, createSchoolAccount } from '../data/schoolsData';
+import { login as apiLogin, setToken, signup as apiSignup } from '../api/client';
 
 interface AuthViewProps {
   currentSchool: SchoolAccount;
@@ -39,7 +40,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [loginError, setLoginError] = useState('');
   const [regError, setRegError] = useState('');
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegError('');
 
@@ -55,12 +56,27 @@ export const AuthView: React.FC<AuthViewProps> = ({
       setRegError('L\'adresse email officielle est requise.');
       return;
     }
+    if (formData.password.trim().length < 6) {
+      setRegError('Le mot de passe doit contenir au moins 6 caractères.');
+      return;
+    }
     if (formData.password && formData.password !== formData.confirmPassword) {
       setRegError('Les deux mots de passe ne correspondent pas.');
       return;
     }
 
     try {
+      const session = await apiSignup({
+        nom: formData.name.trim(),
+        ville: formData.city.trim(),
+        email: formData.email.trim(),
+        motDePasse: formData.password,
+        nomResponsable: formData.principalName.trim(),
+        telephone: formData.phone.trim(),
+        region: formData.region.trim(),
+        typeEtablissement: formData.type.trim(),
+      });
+      setToken(session.token);
       const newSchool = createSchoolAccount({
         name: formData.name.trim(),
         code: formData.code.trim(),
@@ -76,26 +92,31 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
       setSchools(getRegisteredSchools());
       onAccountCreated(newSchool);
-    } catch {
-      setRegError('Une erreur est survenue lors de la création du compte.');
+    } catch (error) {
+      setRegError(error instanceof Error ? error.message : 'Une erreur est survenue lors de la création du compte.');
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
-
-    const found = schools.find(
-      s => s.email.toLowerCase() === loginEmail.toLowerCase().trim() ||
-           s.name.toLowerCase().includes(loginEmail.toLowerCase().trim())
-    );
-
-    if (!found) {
-      setLoginError('Aucun établissement trouvé avec cet email ou ce nom.');
+    if (!loginEmail.trim() || !loginPassword) {
+      setLoginError('Email et mot de passe sont obligatoires.');
       return;
     }
 
-    onSelectSchool(found.id);
+    try {
+      const session = await apiLogin(loginEmail.trim(), loginPassword);
+      setToken(session.token);
+      const found = schools.find((s) => s.email.toLowerCase() === session.email.toLowerCase());
+      if (found) {
+        onSelectSchool(found.id);
+        return;
+      }
+      if (onClose) onClose();
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : 'Connexion impossible.');
+    }
   };
 
   const handleQuickSwitch = (schoolId: string) => {

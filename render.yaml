@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: academiablanc-api
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://VOTRE-PROJET.vercel.app
+      - key: DATABASE_URL
+        fromDatabase:
+          name: academiablanc-db
+          property: connectionString
+
+databases:
+  - name: academiablanc-db
+    region: frankfurt
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+    ipAllowList: []

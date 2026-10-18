@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db:5432/academiablanc}
+    username: ${SPRING_DATASOURCE_USERNAME:academiablanc}
+    password: ${SPRING_DATASOURCE_PASSWORD:academiablanc}
+    driver-class-name: org.postgresql.Driver
+
+app:
+  seed:
+    enabled: true
