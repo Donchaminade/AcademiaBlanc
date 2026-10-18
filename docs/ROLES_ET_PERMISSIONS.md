@@ -77,6 +77,19 @@ Le secrétariat ne supprime rien par défaut. Seul `OWNER` gère les utilisateur
 
 `OWNER` et `SUPER_ADMIN` ont toujours tout : leur matrice n’est pas stockée, ne se modifie pas et leur compte ne peut être ni désactivé ni supprimé par un autre utilisateur.
 
+### Garantie du créateur du compte (OWNER)
+
+Le créateur du compte de son établissement a tous les droits CRUD sur tout son établissement. Cette garantie est **implicite dans le code**, pas un préréglage qui pourrait manquer ou être retiré :
+
+- `PermissionService.droitsDe` renvoie `tous(Ressource.etablissement())` dès que le rôle est `OWNER`, **avant** toute lecture de `permission_utilisateur`. Une ligne absente, ou une ligne parasite « refusée », ne change rien.
+- `EtablissementService.creer` (inscription publique `POST /api/auth/signup` et ajout par la plateforme) crée toujours le compte en `OWNER` sans écrire la moindre ligne de permission.
+- Les comptes `OWNER` existants avant la migration `V10` n’ont donc aucune action à faire : la colonne `actif` est créée à `TRUE` et leurs droits sont complets dès le redémarrage.
+- `Role.estIntouchable()` protège l’`OWNER` partout : `PermissionService.remplacer` refuse (`403`) toute matrice ou préréglage ciblant un `OWNER` ; `UtilisateursService.modifier`, `reinitialiserMotDePasse` et `supprimer` refusent (`403`) de le modifier, de le désactiver, de changer son mot de passe ou de le supprimer, qu’il s’agisse de lui-même ou d’un `ADMIN` qu’il a créé.
+- Personne ne crée ni ne promeut un autre `OWNER` : `POST /api/utilisateurs` et `PUT /api/utilisateurs/{id}` n’acceptent que `ADMIN`, `SECRETAIRE`, `ENSEIGNANT` (`400` sinon).
+- Dans l’onglet **Utilisateurs & droits**, l’`OWNER` apparaît avec `restreignable = false` : « Tous les droits », sans bouton Droits, Désactiver, Mot de passe ni Supprimer.
+
+Le test `OwnerDroitsCompletsTest` vérifie ce contrat de bout en bout (CRUD complet sans aucune ligne de permission, puis refus de toute tentative de restriction par l’OWNER lui-même ou par un ADMIN).
+
 ## Règles de sécurité
 
 - **On ne donne pas ce qu’on n’a pas.** Un utilisateur ne peut accorder qu’un droit qu’il détient lui-même. À la création d’un compte, le préréglage est limité aux droits de l’auteur ; une matrice explicite contenant un droit non détenu est refusée (`403 Vous ne pouvez pas accorder un droit que vous ne détenez pas : …`).
