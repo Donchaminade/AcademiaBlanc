@@ -197,9 +197,22 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
                     key={cand.id}
                     className={`${isEven ? 'bg-white' : 'bg-[#faf8ff]'} hover:bg-[#eaedff]/60 transition-colors`}
                   >
-                    <td className="py-2.5 px-3 font-mono font-bold text-center text-[#00236f]">
-                      {s ? (s.rank < 10 ? `0${s.rank}` : s.rank) : '—'}
-                      <span className="text-[10px] text-[#444651]">e</span>
+                    <td className="py-2.5 px-3 font-mono font-bold text-center">
+                      {s ? (
+                        <span className={`inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded text-[11px] ${
+                          s.rank === 1
+                            ? 'bg-amber-100 text-amber-900 border border-amber-300 font-extrabold shadow-xs'
+                            : s.rank === 2
+                            ? 'bg-slate-100 text-slate-800 border border-slate-300 font-bold'
+                            : s.rank === 3
+                            ? 'bg-orange-100 text-orange-900 border border-orange-300 font-bold'
+                            : 'text-[#00236f]'
+                        }`}>
+                          {s.rank === 1 ? '🥇 1er' : s.rank === 2 ? '🥈 2e' : s.rank === 3 ? '🥉 3e' : `${s.rank < 10 ? `0${s.rank}` : s.rank}e`}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td className="py-2.5 px-2 font-mono font-semibold text-center text-[#0051d5]">
                       {cand.tableNumber}

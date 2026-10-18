@@ -101,4 +101,9 @@
     padding: 0 !important;
     transform: none !important;
   }
+
+  .print\:break-after-page {
+    break-after: page !important;
+    page-break-after: always !important;
+  }
 }

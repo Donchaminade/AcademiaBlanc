@@ -1,18 +1,26 @@
 import React, { useState, useRef } from 'react';
-import { AppSettings } from '../types';
+import { AppSettings, Candidate, CandidateComputedStats } from '../types';
 import { DEFAULT_SETTINGS, TOGO_SETTINGS, CI_SETTINGS } from '../data/mockData';
+import { ArchivedSessionsSection } from './ArchivedSessionsSection';
 
 interface SettingsViewProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: AppSettings) => void;
   onNavigate: (view: 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings') => void;
+  onOpenAuth?: () => void;
+  candidates?: Candidate[];
+  allStats?: Record<string, CandidateComputedStats>;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
   onUpdateSettings,
   onNavigate,
+  onOpenAuth,
+  candidates = [],
+  allStats = {},
 }) => {
+  const [activeTab, setActiveTab] = useState<'branding' | 'archives'>('branding');
   const [formData, setFormData] = useState<AppSettings>(settings);
   const [logoInputUrl, setLogoInputUrl] = useState('');
   const [sealInputUrl, setSealInputUrl] = useState('');
@@ -120,8 +128,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Logo & Seal Management */}
+      {/* Navigation Tabs between Configuration & Session Archives */}
+      <div className="flex border-b border-[#eaedff] gap-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab('branding')}
+          className={`flex items-center gap-2 pb-3 px-4 font-bold text-[13px] border-b-2 transition-all ${
+            activeTab === 'branding'
+              ? 'border-[#0051d5] text-[#0051d5]'
+              : 'border-transparent text-[#444651] hover:text-[#131b2e]'
+          }`}
+        >
+          <span className="material-symbols-outlined text-base">palette</span>
+          <span>Charte Graphique &amp; Établissement</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('archives')}
+          className={`flex items-center gap-2 pb-3 px-4 font-bold text-[13px] border-b-2 transition-all ${
+            activeTab === 'archives'
+              ? 'border-[#0051d5] text-[#0051d5]'
+              : 'border-transparent text-[#444651] hover:text-[#131b2e]'
+          }`}
+        >
+          <span className="material-symbols-outlined text-base">history_edu</span>
+          <span>Archives des Sessions &amp; Comparateur Pluriannuel</span>
+          <span className="ml-1 text-[10px] font-bold uppercase bg-[#eaedff] text-[#00236f] px-2 py-0.5 rounded-full">
+            Interannuel
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'archives' ? (
+        <ArchivedSessionsSection
+          settings={settings}
+          candidates={candidates}
+          allStats={allStats}
+          onNavigateToBulletin={() => onNavigate('bulletin')}
+        />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column: Logo & Seal Management */}
         <div className="lg:col-span-5 space-y-6">
           {/* Logo Card */}
           <div className="bg-white p-5 rounded border border-[#eaedff] shadow-xs space-y-4">
@@ -199,17 +247,66 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             <div className="flex flex-col items-center justify-center p-4 bg-[#f2f3ff] rounded border border-dashed border-[#dce1ff]">
-              <div className="w-20 h-20 rounded-full bg-white p-2 shadow-xs flex items-center justify-center border border-[#eaedff] overflow-hidden">
-                <img
-                  src={formData.sealUrl}
-                  alt="Aperçu Sceau"
-                  className="max-h-full max-w-full object-contain"
-                />
-              </div>
-              <span className="text-[11px] text-[#444651] mt-2 font-medium">
-                Sceau central et filigrane officiel A4
+              {formData.sealUrl && formData.sealUrl.trim() !== '' ? (
+                <div className="w-20 h-20 rounded-full bg-white p-2 shadow-xs flex items-center justify-center border border-[#eaedff] overflow-hidden">
+                  <img
+                    src={formData.sealUrl}
+                    alt="Aperçu Sceau"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-full border-2 border-dashed border-[#a0a5b5] bg-white flex flex-col items-center justify-center p-1 text-center shadow-2xs">
+                  <span className="material-symbols-outlined text-[#6b7280] text-xl">ink_pen</span>
+                  <span className="text-[8.5px] text-[#4b5563] uppercase font-bold leading-tight mt-0.5">
+                    Zone Vierge
+                  </span>
+                  <span className="text-[7.5px] text-[#9ca3af]">
+                    (Tampon manuel)
+                  </span>
+                </div>
+              )}
+              <span className="text-[11px] text-[#444651] mt-2 font-medium text-center">
+                {formData.sealUrl && formData.sealUrl.trim() !== ''
+                  ? 'Sceau numérique actif (imprimé au centre et en filigrane).'
+                  : 'Aucun sceau téléversé : l\'emplacement est laissé totalement vide sur le bulletin pour apposition d\'un cachet physique manuel à l\'encre.'}
               </span>
             </div>
+
+            {/* Clear / Reset Seal Button */}
+            {formData.sealUrl && formData.sealUrl.trim() !== '' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const updated = { ...formData, sealUrl: '' };
+                  setFormData(updated);
+                  onUpdateSettings(updated);
+                  setToastMessage("Sceau supprimé : l'emplacement restera vide sur le bulletin pour apposition manuelle.");
+                  setShowSavedToast(true);
+                  setTimeout(() => setShowSavedToast(false), 3000);
+                }}
+                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11.5px] font-bold border border-amber-200 transition-colors shadow-2xs"
+              >
+                <span className="material-symbols-outlined text-base text-amber-700">ink_eraser</span>
+                <span>Ne rien mettre (laisser vide pour tampon manuel)</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  const updated = { ...formData, sealUrl: TOGO_SETTINGS.sealUrl };
+                  setFormData(updated);
+                  onUpdateSettings(updated);
+                  setToastMessage("Sceau officiel de la République Togolaise réactivé.");
+                  setShowSavedToast(true);
+                  setTimeout(() => setShowSavedToast(false), 3000);
+                }}
+                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-[#eaedff] hover:bg-[#dce1ff] text-[#00236f] text-[11.5px] font-bold border border-[#dce1ff] transition-colors"
+              >
+                <span className="material-symbols-outlined text-base text-[#0051d5]">verified</span>
+                <span>Rétablir le Sceau Officiel de l'État</span>
+              </button>
+            )}
 
             <div>
               <input
@@ -222,21 +319,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <button
                 type="button"
                 onClick={() => sealFileInputRef.current?.click()}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded bg-[#eaedff] text-[#00236f] text-[12px] font-bold hover:bg-[#dce1ff] transition-all"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded bg-[#0051d5] text-white text-[12px] font-bold hover:bg-[#003ea8] transition-all shadow-xs"
               >
                 <span className="material-symbols-outlined text-base">upload_file</span>
-                <span>Téléverser le Sceau du Jury</span>
+                <span>Téléverser un Sceau / Cachet Spécifique</span>
               </button>
             </div>
 
             <div className="space-y-1">
               <label className="block text-[11px] font-bold uppercase text-[#444651]">
-                Ou URL du Sceau
+                Ou URL d'un Sceau
               </label>
               <div className="flex gap-1.5">
                 <input
                   type="url"
-                  placeholder="https://.../sceau-republique.png"
+                  placeholder="https://.../mon-sceau.png"
                   value={sealInputUrl}
                   onChange={(e) => setSealInputUrl(e.target.value)}
                   className="flex-1 bg-[#f2f3ff] text-[12px] py-1.5 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
@@ -314,16 +411,65 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[12px]">
-              <div className="sm:col-span-2">
-                <label className="block font-bold text-[#444651] uppercase text-[11px] mb-1">
-                  Nom du Système / Établissement
-                </label>
+              {/* Shortcut Banner to Archives & Comparison */}
+              <div className="sm:col-span-2 bg-gradient-to-r from-[#eaedff] to-[#f2f3ff] p-3.5 rounded-lg border border-[#dce1ff] flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-md bg-[#0051d5] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <span className="material-symbols-outlined text-lg">history_edu</span>
+                  </div>
+                  <div>
+                    <span className="text-[12px] font-bold text-[#00236f] block">
+                      Archives des Sessions &amp; Comparateur Pluriannuel
+                    </span>
+                    <span className="text-[11px] text-[#444651]">
+                      Consultez l'historique et comparez les résultats de l'établissement sur plusieurs années scolaires.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('archives')}
+                  className="px-3.5 py-1.5 rounded-md bg-[#0051d5] hover:bg-[#003cb3] text-white text-[11.5px] font-bold shrink-0 transition-all shadow-xs flex items-center gap-1 active:scale-95"
+                >
+                  <span>Consulter le Comparateur</span>
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+              </div>
+
+              {/* Highlighted Establishment Name Field */}
+              <div className="sm:col-span-2 bg-[#f2f3ff] p-4 rounded-lg border-2 border-[#0051d5]/30 shadow-xs">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="flex items-center gap-2 font-bold text-[#00236f] uppercase text-[12px] tracking-wide">
+                    <span className="material-symbols-outlined text-lg text-[#0051d5]">apartment</span>
+                    <span>Nom Officiel de l'Établissement Scolaire (Lycée / Collège)</span>
+                  </label>
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-[#0051d5] text-white px-2 py-0.5 rounded">
+                    Obligatoire
+                  </span>
+                </div>
                 <input
                   type="text"
+                  required
+                  placeholder="Ex : Lycée Moderne de Tokoin, Collège Protestant de Lomé"
                   value={formData.institutionName}
                   onChange={(e) => setFormData({ ...formData, institutionName: e.target.value })}
-                  className="w-full bg-[#f2f3ff] text-[13px] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5] font-semibold"
+                  className="w-full bg-white text-[14px] py-2.5 px-3.5 rounded-md border border-[#0051d5]/40 outline-none focus:ring-2 focus:ring-[#0051d5]/30 focus:border-[#0051d5] font-bold text-[#00236f]"
                 />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2 pt-2 border-t border-[#0051d5]/15">
+                  <span className="text-[11px] text-[#444651] block">
+                    Ce nom officiel apparaît sur tous les bulletins, bordereaux et procès-verbaux de votre établissement.
+                  </span>
+                  {onOpenAuth && (
+                    <button
+                      type="button"
+                      onClick={onOpenAuth}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#0051d5] hover:bg-[#003cb3] text-white text-[11px] font-bold shrink-0 shadow-xs transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">manage_accounts</span>
+                      <span>Créer ou changer de compte établissement</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -428,6 +574,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </form>
         </div>
       </div>
+      )}
 
       {/* Floating Save Toast */}
       {showSavedToast && (

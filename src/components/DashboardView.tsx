@@ -305,8 +305,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               >
                 <div>
                   <div className="flex items-center justify-between text-[11px] text-[#444651]">
-                    <span className="font-mono font-bold text-[#0051d5]">N° {cand.tableNumber}</span>
-                    <span className="text-[10px] uppercase font-semibold">{cand.gender === 'M' ? 'Masculin' : 'Féminin'}</span>
+                    <span className="font-mono font-bold text-[#0051d5]">Table {cand.tableNumber}</span>
+                    <span className="font-mono font-bold text-[#00236f] bg-white px-1.5 py-0.2 rounded border border-[#eaedff]">
+                      {stats ? (stats.rank === 1 ? '🥇 1er' : stats.rank === 2 ? '🥈 2e' : stats.rank === 3 ? '🥉 3e' : `${stats.rank}e`) : '—'}
+                    </span>
                   </div>
                   <div className="text-[13px] font-bold text-[#00236f] group-hover:text-[#0051d5] transition-colors mt-1 line-clamp-1">
                     {cand.fullName}

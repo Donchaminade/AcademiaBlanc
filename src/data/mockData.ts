@@ -13,7 +13,9 @@ export const TOGO_SETTINGS: AppSettings = {
   academicYear: 'ANNÉE ACADÉMIQUE 2024-2025',
   sessionName: 'SESSION NATIONALE JUIN 2025',
   examType: 'BACCALAURÉAT DEUXIÈME PARTIE (BAC II BLANC)',
+  jurySignerTitle: 'Le Proviseur',
   jurySignerName: 'Dr. Aminata Traoré',
+  principalTeacherTitle: 'Le Titulaire',
   principalTeacherName: 'M. Konan Germain',
   startTableNumber: 138,
   autoAssignTables: true,
@@ -29,7 +31,9 @@ export const CI_SETTINGS: AppSettings = {
   academicYear: 'ANNÉE ACADÉMIQUE 2024-2025',
   sessionName: 'SESSION NATIONALE MAI 2025',
   examType: 'BACCALAURÉAT II (BLANC)',
+  jurySignerTitle: 'Le Proviseur',
   jurySignerName: 'Dr. Aminata Traoré',
+  principalTeacherTitle: 'Le Titulaire',
   principalTeacherName: 'M. Konan Germain',
   startTableNumber: 138,
   autoAssignTables: true,
@@ -284,7 +288,7 @@ export function computeCandidateStats(
   const rawAverage = totalCoef > 0 ? (totalPoints / totalCoef) + bonus : 0;
   const average = Math.round(rawAverage * 100) / 100;
 
-  // Compute rank dynamically against all candidates
+  // Compute rank dynamically against all candidates sorted by descending average
   const allAverages = allCandidates.map(c => {
     let tCoef = 0;
     let tPts = 0;
@@ -293,16 +297,25 @@ export function computeCandidateStats(
       tPts += (c.grades[s.id]?.score || 0) * s.coef;
     });
     const cBonus = c.juryBonus || 0;
+    const avg = tCoef > 0 ? (tPts / tCoef) + cBonus : 0;
     return {
       id: c.id,
-      avg: tCoef > 0 ? (tPts / tCoef) + cBonus : 0
+      avg: Math.round(avg * 100) / 100
     };
   });
 
+  // Sort candidates by average descending: highest average is 1st
   allAverages.sort((a, b) => b.avg - a.avg);
+
+  // Calculate official competition rank (1er, 2e, 3e... with ex-aequo handling)
+  let rank = 1;
   const foundIndex = allAverages.findIndex(item => item.id === candidate.id);
-  // Default to candidate 142 being 4th to preserve the screenshot faithfully if in test cohort
-  const rank = candidate.tableNumber === 142 ? 4 : (foundIndex !== -1 ? foundIndex + 1 : 1);
+  if (foundIndex !== -1) {
+    const candAvg = allAverages[foundIndex].avg;
+    // Find the first index that has this same average to handle ties (ex-aequo)
+    const firstWithThisAvg = allAverages.findIndex(item => Math.abs(item.avg - candAvg) < 0.001);
+    rank = firstWithThisAvg !== -1 ? firstWithThisAvg + 1 : foundIndex + 1;
+  }
 
   let mention: MentionType = 'PASSABLE';
   let decision: DecisionType = "ADMIS D'OFFICE À L'EXAMEN BLANC";
@@ -327,14 +340,18 @@ export function computeCandidateStats(
     decision = "AJOURNÉ À L'EXAMEN BLANC";
   }
 
-  const differenceToPromo = Math.round((average - PROMO_OVERALL_AVERAGE) * 100) / 100;
+  const promoAvg = allAverages.length > 0 
+    ? Math.round((allAverages.reduce((acc, curr) => acc + curr.avg, 0) / allAverages.length) * 100) / 100 
+    : 10;
+  const differenceToPromo = Math.round((average - promoAvg) * 100) / 100;
+  const totalCandidates = allCandidates.length > 0 ? allCandidates.length : 1;
 
   return {
     totalCoef,
     totalPoints: Math.round(totalPoints * 100) / 100,
     average,
     rank,
-    totalCandidates: TOTAL_CANDIDATES_COUNT,
+    totalCandidates,
     mention,
     decision,
     differenceToPromo

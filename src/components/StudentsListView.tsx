@@ -15,6 +15,7 @@ interface StudentsListViewProps {
   settings?: AppSettings;
   onRenumberAlphabetically?: (startNumber?: number) => void;
   onBatchAddCandidates?: (candidates: Candidate[]) => void;
+  onOpenBatchPrint?: () => void;
 }
 
 export const StudentsListView: React.FC<StudentsListViewProps> = ({
@@ -31,6 +32,7 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
   settings,
   onRenumberAlphabetically,
   onBatchAddCandidates,
+  onOpenBatchPrint,
 }) => {
   const [startTableNum, setStartTableNum] = useState<number>(settings?.startTableNumber || 138);
   const [searchQuery, setSearchQuery] = useState('');
@@ -380,6 +382,18 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
             <span>Import en Masse (CSV)</span>
           </button>
 
+          {onOpenBatchPrint && (
+            <button
+              type="button"
+              onClick={onOpenBatchPrint}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#0051d5] text-white text-[12px] font-bold hover:bg-[#003cb3] transition-all shadow-xs"
+              title="Imprimer tous les bulletins de notes en 1 clic"
+            >
+              <span className="material-symbols-outlined text-base">print_connect</span>
+              <span>Imprimer Tous les Bulletins ({candidates.length})</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => window.print()}
@@ -387,7 +401,7 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
             title="Imprimer la feuille d'émargement vierge pour les surveillants"
           >
             <span className="material-symbols-outlined text-base">print</span>
-            <span>Feuille d'Émargement Vierge</span>
+            <span>Feuille d'Émargement</span>
           </button>
 
           <button

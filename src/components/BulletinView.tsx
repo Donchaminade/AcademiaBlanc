@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
 import { PROMO_AVERAGES } from '../data/mockData';
+import { getBulletinHeaderInfo } from '../utils/bulletinHeader';
 
 interface BulletinViewProps {
   candidates: Candidate[];
@@ -11,7 +12,9 @@ interface BulletinViewProps {
   onOpenSignature: () => void;
   onOpenSms: () => void;
   onDownloadPdf: () => void;
+  onPrintAll?: () => void;
   settings: AppSettings;
+  selectedSession?: string;
 }
 
 export const BulletinView: React.FC<BulletinViewProps> = ({
@@ -23,9 +26,18 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   onOpenSignature,
   onOpenSms,
   onDownloadPdf,
+  onPrintAll,
   settings,
+  selectedSession,
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+
+  const headerInfo = useMemo(() => {
+    return getBulletinHeaderInfo(
+      selectedSession || settings.sessionName,
+      selectedCandidate.serie
+    );
+  }, [selectedSession, settings.sessionName, selectedCandidate.serie]);
 
   const currentIndex = candidates.findIndex((c) => c.id === selectedCandidate.id);
 
@@ -139,15 +151,29 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             </button>
           </div>
 
-          {/* Imprimer */}
+          {/* Imprimer le bulletin actuel */}
           <button
             type="button"
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#eaedff] hover:bg-[#dce1ff] text-[#131b2e] text-[12px] transition-colors shadow-xs font-medium"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-[#eaedff] hover:bg-[#dce1ff] text-[#131b2e] text-[12px] transition-colors shadow-xs font-medium"
+            title="Imprimer ce bulletin individuel"
           >
             <span className="material-symbols-outlined text-base">print</span>
-            <span>Imprimer</span>
+            <span>Ce bulletin</span>
           </button>
+
+          {/* Imprimer TOUS les bulletins en 1 clic */}
+          {onPrintAll && (
+            <button
+              type="button"
+              onClick={onPrintAll}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#0051d5] hover:bg-[#003cb3] text-white text-[12px] transition-all shadow-md active:scale-95 font-bold"
+              title="Imprimer tous les bulletins de notes de la session en 1 clic"
+            >
+              <span className="material-symbols-outlined text-base">print_connect</span>
+              <span>Tous les bulletins ({candidates.length})</span>
+            </button>
+          )}
 
           {/* Signer numériquement */}
           <button
@@ -189,14 +215,16 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top center' }}
           className="w-full max-w-[860px] bg-white text-[#131b2e] rounded-xs shadow-xl p-8 sm:p-10 relative transition-transform duration-200 border border-[#eaedff]"
         >
-          {/* Watermark Background Emblem */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none overflow-hidden">
-            <img
-              alt="Armoiries Officielles"
-              className="w-[480px] h-[480px] object-contain"
-              src={settings.sealUrl}
-            />
-          </div>
+          {/* Watermark Background Emblem (only if seal uploaded) */}
+          {settings.sealUrl && settings.sealUrl.trim() !== '' && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none overflow-hidden">
+              <img
+                alt="Armoiries Officielles"
+                className="w-[480px] h-[480px] object-contain"
+                src={settings.sealUrl}
+              />
+            </div>
+          )}
 
           {/* Bilateral Official Header */}
           <div className="relative z-10 flex items-start justify-between gap-4 pb-4">
@@ -216,13 +244,25 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
 
             {/* Central Academic Seal */}
             <div className="flex flex-col items-center justify-center px-2 shrink-0">
-              <div className="w-20 h-20 rounded-full bg-[#f2f3ff] flex items-center justify-center p-1.5 shadow-sm border border-[#eaedff] overflow-hidden">
-                <img
-                  alt="Sceau Académique Officiel"
-                  className="w-full h-full object-contain"
-                  src={settings.sealUrl}
-                />
-              </div>
+              {settings.sealUrl && settings.sealUrl.trim() !== '' ? (
+                <div className="w-20 h-20 rounded-full bg-[#f2f3ff] flex items-center justify-center p-1.5 shadow-sm border border-[#eaedff] overflow-hidden">
+                  <img
+                    alt="Sceau Académique Officiel"
+                    className="w-full h-full object-contain"
+                    src={settings.sealUrl}
+                  />
+                </div>
+              ) : (
+                /* Zone laissée vide pour tampon physique manuel à l'encre */
+                <div className="w-20 h-20 rounded-full border border-dashed border-[#b0b7cb] print:border-[#cbd5e1] flex flex-col items-center justify-center p-1 bg-transparent text-center">
+                  <span className="text-[9px] text-[#6b7280] uppercase font-semibold leading-tight print:hidden">
+                    Emplacement Sceau
+                  </span>
+                  <span className="text-[8px] text-[#9ca3af] leading-tight print:hidden">
+                    (Cachet manuel)
+                  </span>
+                </div>
+              )}
               <span className="font-mono text-[10px] text-[#444651] mt-1 tracking-wider uppercase font-semibold">
                 SCEAU DU JURY
               </span>
@@ -231,14 +271,14 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             {/* Academic Year / Right Banner */}
             <div className="flex-1 text-center sm:text-right space-y-0.5">
               <p className="text-[11px] uppercase tracking-widest text-[#444651]">
-                {settings.sessionName}
+                {selectedSession || settings.sessionName}
               </p>
               <p className="text-[15px] text-[#00236f] font-bold">
                 {settings.academicYear}
               </p>
               <div className="w-12 h-0.5 bg-[#0051d5] my-1 sm:ml-auto mx-auto"></div>
               <p className="text-[11px] uppercase font-semibold text-[#131b2e]">
-                {settings.examType}
+                {headerInfo.examBadge}
               </p>
               <p className="text-[12px] text-[#444651]">
                 Secrétariat Général du Centre 03
@@ -249,13 +289,24 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             </div>
           </div>
 
-          {/* Institutional Title Badge */}
-          <div className="relative z-10 my-4 bg-[#00236f] text-white py-2.5 px-4 text-center rounded-xs shadow-xs">
+          {/* Establishment Ribbon */}
+          <div className="relative z-10 mt-2 mb-3 py-1.5 px-3 bg-[#eaedff] rounded text-center border border-[#dce1ff] flex items-center justify-between">
+            <span className="text-[11.5px] font-bold text-[#00236f] uppercase tracking-wider flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-sm text-[#0051d5]">school</span>
+              <span>ÉTABLISSEMENT : {settings.institutionName.toUpperCase()}</span>
+            </span>
+            <span className="text-[11px] font-semibold text-[#0051d5]">
+              Centre d'Examen : {selectedCandidate.examCenterName}
+            </span>
+          </div>
+
+          {/* Institutional Title Badge - Dynamic according to exam session (BEPC, BAC, etc.) */}
+          <div className="relative z-10 mb-4 bg-[#00236f] text-white py-2.5 px-4 text-center rounded-xs shadow-xs">
             <h1 className="text-[15px] font-bold uppercase tracking-wide">
-              RELEVÉ DE NOTES &amp; BULLETIN OFFICIEL DE L'EXAMEN BLANC DU BACCALAURÉAT
+              {headerInfo.mainTitle}
             </h1>
             <p className="text-[11px] text-[#90a8ff] tracking-wider uppercase font-semibold mt-0.5">
-              SÉRIE D (SCIENTIFIQUE) • DÉLIBÉRATION OFFICIELLE DU JURY N° 01
+              {headerInfo.subTitle}
             </p>
           </div>
 
@@ -459,8 +510,14 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   Rang de Promotion
                 </span>
                 <span className="font-sans text-[28px] text-[#0051d5] font-bold my-0.5 leading-none">
-                  {computedStats.rank < 10 ? `0${computedStats.rank}` : computedStats.rank}
-                  <span className="text-[15px]">e</span>
+                  {computedStats.rank === 1 ? (
+                    <span className="text-amber-600">1<span className="text-[16px]">er</span></span>
+                  ) : (
+                    <>
+                      {computedStats.rank < 10 ? `0${computedStats.rank}` : computedStats.rank}
+                      <span className="text-[15px]">e</span>
+                    </>
+                  )}
                 </span>
                 <span className="font-mono text-[11px] text-[#444651]">
                   sur {computedStats.totalCandidates} candidats
@@ -491,7 +548,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             <div className="flex flex-col items-center justify-between min-h-[125px] bg-[#f2f3ff]/50 p-4 rounded-xs border border-[#eaedff]">
               <div>
                 <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold block">
-                  Le Titulaire
+                  {settings.principalTeacherTitle || 'Le Titulaire'}
                 </span>
                 <span className="text-[13px] text-[#131b2e] font-semibold mt-0.5 block">
                   {settings.principalTeacherName}
@@ -516,11 +573,11 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               </span>
             </div>
 
-            {/* Signature 2: Le Proviseur */}
+            {/* Signature 2: Le Proviseur / Le Directeur / Le Principal (configurable) */}
             <div className="flex flex-col items-center justify-between min-h-[125px] bg-[#f2f3ff]/50 p-4 rounded-xs relative border border-[#eaedff]">
               <div>
                 <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold block">
-                  Le Proviseur
+                  {settings.jurySignerTitle || 'Le Proviseur'}
                 </span>
                 <span className="text-[13px] text-[#00236f] font-bold mt-0.5 block">
                   {selectedCandidate.digitalSignature?.signer || settings.jurySignerName}

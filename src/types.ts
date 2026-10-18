@@ -54,7 +54,7 @@ export interface CandidateComputedStats {
   differenceToPromo: number;
 }
 
-export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings';
+export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'auth';
 
 export interface AppSettings {
   logoUrl: string;
@@ -66,8 +66,56 @@ export interface AppSettings {
   academicYear: string;
   sessionName: string;
   examType: string;
+  jurySignerTitle?: string;
   jurySignerName: string;
+  principalTeacherTitle?: string;
   principalTeacherName: string;
   startTableNumber: number;
   autoAssignTables: boolean;
+}
+
+export interface ArchivedSession {
+  id: string;
+  schoolId: string;
+  academicYear: string;
+  sessionName: string;
+  examType: string;
+  archivedAt: string;
+  candidatesCount: number;
+  admittedCount: number;
+  admittedRate: number;
+  catchupCount: number;
+  catchupRate: number;
+  failedCount: number;
+  failedRate: number;
+  promoAverage: number;
+  highestAverage: number;
+  lowestAverage: number;
+  mentionsBreakdown: {
+    tresBien: number;
+    bien: number;
+    assezBien: number;
+    passable: number;
+  };
+  notes?: string;
+  signers?: {
+    principal?: string;
+    juryPresident?: string;
+  };
+}
+
+export interface SchoolAccount {
+  id: string;
+  name: string;
+  code: string;
+  city: string;
+  region: string;
+  type: string;
+  principalName: string;
+  email: string;
+  phone: string;
+  password?: string;
+  createdAt: string;
+  settings: AppSettings;
+  candidates: Candidate[];
 }

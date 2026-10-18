@@ -12,6 +12,9 @@ interface SidebarProps {
   onToggleOffline: () => void;
   settings: AppSettings;
   candidatesCount: number;
+  onOpenBatchPrint?: () => void;
+  onOpenAuth?: () => void;
+  onOpenSearch?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -25,6 +28,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleOffline,
   settings,
   candidatesCount,
+  onOpenBatchPrint,
+  onOpenAuth,
+  onOpenSearch,
 }) => {
   return (
     <aside className="fixed left-0 top-0 h-full w-80 bg-[#ffffff] z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-[#eaedff]">
@@ -111,6 +117,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation Menu Links */}
         <nav className="px-4 py-3 space-y-1">
+          {/* Quick Search Shortcut */}
+          {onOpenSearch && (
+            <button
+              type="button"
+              onClick={onOpenSearch}
+              className="w-full flex items-center justify-between px-3.5 py-2 rounded-lg bg-[#f2f3ff] hover:bg-[#e2e7ff] text-[#444651] text-[12px] font-medium transition-colors border border-[#eaedff] mb-2 group shadow-2xs"
+              title="Rechercher un candidat (Ctrl+K)"
+            >
+              <span className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-base text-[#0051d5] group-hover:scale-110 transition-transform">
+                  search
+                </span>
+                <span>Rechercher élève...</span>
+              </span>
+              <kbd className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-[#eaedff] font-mono text-[#444651] font-bold shadow-2xs">
+                Ctrl+K
+              </kbd>
+            </button>
+          )}
+
           {/* Dashboard */}
           <button
             type="button"
@@ -174,6 +200,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>3. Bulletin Officiel &amp; PDF</span>
           </button>
 
+          {/* Tirage Groupé en 1 Clic (Nouveau) */}
+          {onOpenBatchPrint && (
+            <button
+              type="button"
+              onClick={onOpenBatchPrint}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-bold text-[#0051d5] bg-[#eaedff]/60 hover:bg-[#eaedff] border border-[#dce1ff]"
+            >
+              <span className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-lg text-[#0051d5]">print_connect</span>
+                <span>Impression Groupée (1 Clic)</span>
+              </span>
+              <span className="font-mono text-[10px] bg-[#0051d5] text-white px-1.5 py-0.5 rounded">
+                A4
+              </span>
+            </button>
+          )}
+
           {/* Records & Global PV */}
           <button
             type="button"
@@ -188,7 +231,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>Palmarès &amp; PV Global</span>
           </button>
 
-          {/* Settings & Logo */}
+          {/* Settings & Archives */}
           <button
             type="button"
             onClick={() => onViewChange('settings')}
@@ -198,9 +241,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : 'text-[#444651] hover:bg-[#eaedff] hover:text-[#131b2e]'
             }`}
           >
-            <span className="material-symbols-outlined text-lg">settings</span>
-            <span>Paramètres &amp; Logo</span>
+            <span className="material-symbols-outlined text-lg">tune</span>
+            <span>Paramètres &amp; Archives</span>
           </button>
+
+          {/* Compte Établissement & Déconnexion / Switcher */}
+          {onOpenAuth && (
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium ${
+                currentView === 'auth'
+                  ? 'bg-[#1e3a8a] text-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
+                  : 'text-[#00236f] bg-white border border-[#eaedff] hover:bg-[#eaedff]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-lg text-[#0051d5]">account_balance</span>
+              <span className="font-semibold">Compte Établissement</span>
+            </button>
+          )}
         </nav>
       </div>
 

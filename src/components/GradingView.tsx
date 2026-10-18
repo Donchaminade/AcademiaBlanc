@@ -26,17 +26,35 @@ export const GradingView: React.FC<GradingViewProps> = ({
   const [selectedCandidateForBonus, setSelectedCandidateForBonus] = useState<Candidate | null>(null);
   const [bonusAmount, setBonusAmount] = useState<number>(0.15);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showRankings, setShowRankings] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(true);
   const [newStudent, setNewStudent] = useState({
     tableNumber: 149,
     matricule: '24-BACD-09425',
     fullName: '',
     dob: '12/04/2006',
-    birthPlace: 'Yamoussoukro',
-    originSchool: 'Lycée Moderne Mixte',
+    birthPlace: 'Lomé',
+    originSchool: 'Lycée Moderne',
     gender: 'F' as 'M' | 'F',
-    parentPhone: '+225 07 00 11 22 33',
-    parentEmail: 'parent@edu.ci',
+    parentPhone: '+228 90 00 11 22',
+    parentEmail: 'parent@edu.tg',
   });
+
+  // Ranked candidates from 1st to last strictly by weighted average
+  const rankedCandidates = React.useMemo(() => {
+    return [...candidates].sort((a, b) => {
+      const avgA = allStats[a.id]?.average ?? 0;
+      const avgB = allStats[b.id]?.average ?? 0;
+      return avgB - avgA;
+    });
+  }, [candidates, allStats]);
+
+  // Candidates with complete grades
+  const completedCount = React.useMemo(() => {
+    return candidates.filter((c) =>
+      subjects.every((s) => c.grades[s.id] && c.grades[s.id].score !== undefined && c.grades[s.id].score > 0)
+    ).length;
+  }, [candidates, subjects]);
 
   const filteredCandidates = candidates.filter((c) => {
     const matchesSearch =
@@ -128,6 +146,26 @@ export const GradingView: React.FC<GradingViewProps> = ({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
+            onClick={() => setShowRankings(!showRankings)}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded text-[12px] font-bold transition-all shadow-xs ${
+              showRankings ? 'bg-[#0051d5] text-white' : 'bg-[#eaedff] text-[#00236f] hover:bg-[#dce1ff]'
+            }`}
+          >
+            <span className="material-symbols-outlined text-base">leaderboard</span>
+            <span>{showRankings ? 'Masquer le Palmarès' : `Palmarès en Direct (du 1er au ${candidates.length}e)`}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowExplanation(!showExplanation)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#eaedff] transition-colors"
+          >
+            <span className="material-symbols-outlined text-base text-[#0051d5]">help</span>
+            <span>Comment sont calculés les rangs ?</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setShowAddModal(true)}
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#00236f] text-white text-[12px] font-semibold hover:bg-[#1e3a8a] transition-all shadow-xs"
           >
@@ -136,6 +174,149 @@ export const GradingView: React.FC<GradingViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Educational Banner: How Ranks Work & Live vs Final */}
+      {showExplanation && (
+        <div className="bg-[#eaedff]/60 border border-[#dce1ff] rounded-lg p-5 space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-[#dce1ff]">
+            <h3 className="text-[14px] font-bold text-[#00236f] flex items-center gap-2">
+              <span className="material-symbols-outlined text-lg text-[#0051d5]">analytics</span>
+              Règles Officielles de Calcul des Rangs (du 1er au Dernier)
+            </h3>
+            <span className="text-[11px] font-bold text-[#0051d5] bg-white px-2.5 py-0.5 rounded border border-[#dce1ff]">
+              Moyenne Pondérée Décroissante
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[12px]">
+            <div className="bg-white p-3.5 rounded border border-[#eaedff] space-y-1">
+              <span className="font-bold text-[#00236f] block flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-[#0051d5] text-white text-[10px] flex items-center justify-center font-bold">1</span>
+                Calcul de la Moyenne
+              </span>
+              <p className="text-[#444651] leading-relaxed">
+                Chaque note est multipliée par son coefficient officiel (ex : Maths c.4, PC c.4, SVT c.4...). Le total des points est divisé par la somme des coefficients (29).
+              </p>
+            </div>
+
+            <div className="bg-white p-3.5 rounded border border-[#eaedff] space-y-1">
+              <span className="font-bold text-[#00236f] block flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-[#0051d5] text-white text-[10px] flex items-center justify-center font-bold">2</span>
+                Tri du 1er au Dernier
+              </span>
+              <p className="text-[#444651] leading-relaxed">
+                Le système trie automatiquement tous les élèves : la plus haute moyenne est <strong>1er (🥇)</strong>, la suivante <strong>2e (🥈)</strong>, puis <strong>3e (🥉)</strong> jusqu'au dernier. En cas d'égalité, ils sont ex-æquo.
+              </p>
+            </div>
+
+            <div className="bg-white p-3.5 rounded border border-[#eaedff] space-y-1">
+              <span className="font-bold text-[#00236f] block flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">3</span>
+                Calcul Instantané en Direct
+              </span>
+              <p className="text-[#444651] leading-relaxed">
+                <strong>Pas besoin d'attendre d'avoir tout fini !</strong> Le rang s'actualise en temps réel à chaque note saisie. Dès que tous les élèves sont complétés, les rangs sont figés et définitifs.
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-1 flex items-center justify-between text-[11px] text-[#444651]">
+            <span className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-sm text-emerald-600">check_circle</span>
+              <span>État actuel de la saisie : <strong>{completedCount} / {candidates.length} élèves notés</strong></span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowRankings(true)}
+              className="text-[#0051d5] font-bold hover:underline flex items-center gap-1"
+            >
+              <span>Consulter le classement général de la classe</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Live Ranking Board (Du 1er au Dernier) */}
+      {showRankings && (
+        <div className="bg-white rounded-lg border-2 border-[#0051d5]/40 shadow-md p-5 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#eaedff]">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5]">
+                Palmarès Officiel • Ordre de Mérite
+              </span>
+              <h3 className="text-[17px] font-bold text-[#00236f]">
+                Classement Général en Direct (du 1er au {rankedCandidates.length}e élève)
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowRankings(false)}
+              className="p-1 rounded text-[#444651] hover:bg-[#f2f3ff]"
+            >
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {rankedCandidates.map((cand, idx) => {
+              const stats = allStats[cand.id];
+              const rankNum = idx + 1;
+              const isFirst = rankNum === 1;
+              const isSecond = rankNum === 2;
+              const isThird = rankNum === 3;
+
+              return (
+                <div
+                  key={cand.id}
+                  onClick={() => onNavigateToBulletin(cand)}
+                  className={`p-3.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                    isFirst
+                      ? 'bg-amber-50/70 border-amber-300 ring-2 ring-amber-300/40 shadow-xs'
+                      : isSecond
+                      ? 'bg-slate-50 border-slate-300 shadow-xs'
+                      : isThird
+                      ? 'bg-orange-50/60 border-orange-200 shadow-xs'
+                      : 'bg-white border-[#eaedff] hover:border-[#0051d5] hover:bg-[#f2f3ff]'
+                  }`}
+                  title="Cliquer pour voir son bulletin officiel"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-[14px] shrink-0 font-mono shadow-xs border border-white">
+                      {isFirst ? (
+                        <span className="text-xl">🥇</span>
+                      ) : isSecond ? (
+                        <span className="text-xl">🥈</span>
+                      ) : isThird ? (
+                        <span className="text-xl">🥉</span>
+                      ) : (
+                        <span className="text-[#00236f] bg-[#eaedff] w-full h-full rounded-full flex items-center justify-center text-[12px]">
+                          {rankNum}e
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-[#131b2e] truncate text-[13px] leading-tight">
+                        {cand.fullName}
+                      </div>
+                      <div className="text-[11px] text-[#444651] mt-0.5">
+                        Table {cand.tableNumber} • {stats?.decision.split(' ')[0] || 'En cours'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className="font-mono text-[16px] font-bold text-[#00236f] block">
+                      {stats?.average.toFixed(2) || '0.00'}
+                    </span>
+                    <span className="text-[10px] text-[#444651]">/ 20.00</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded border border-[#eaedff] shadow-xs flex flex-wrap items-center justify-between gap-4">
@@ -292,8 +473,22 @@ export const GradingView: React.FC<GradingViewProps> = ({
                     </td>
 
                     {/* Rank */}
-                    <td className="py-2 px-2 font-mono text-center font-semibold text-[#0051d5]">
-                      {stats ? `${stats.rank}e` : '—'}
+                    <td className="py-2 px-2 font-mono text-center">
+                      {stats ? (
+                        <span className={`inline-flex items-center justify-center gap-0.5 px-2 py-0.5 rounded text-[11px] font-bold ${
+                          stats.rank === 1
+                            ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-xs'
+                            : stats.rank === 2
+                            ? 'bg-slate-100 text-slate-800 border border-slate-300'
+                            : stats.rank === 3
+                            ? 'bg-orange-100 text-orange-900 border border-orange-300'
+                            : 'text-[#0051d5] bg-[#eaedff]'
+                        }`}>
+                          {stats.rank === 1 ? '🥇 1er' : stats.rank === 2 ? '🥈 2e' : stats.rank === 3 ? '🥉 3e' : `${stats.rank}e`}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
                     </td>
 
                     {/* Mention */}
