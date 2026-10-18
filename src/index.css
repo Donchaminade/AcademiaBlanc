@@ -90,10 +90,6 @@
   text-align: right;
 }
 
-.bulletin-header-right .bulletin-rule {
-  margin-left: auto;
-}
-
 .bulletin-ministry-name,
 .bulletin-republic-name {
   margin: 0;
@@ -131,10 +127,6 @@
   letter-spacing: 0.04em;
 }
 
-.bulletin-exam-meta {
-  margin-top: 0.35rem;
-}
-
 .bulletin-seal {
   display: flex;
   flex-direction: column;
@@ -161,20 +153,22 @@
 .bulletin-ribbon {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  justify-content: center;
   margin-top: 0.5rem;
   margin-bottom: 0.75rem;
+  text-align: center;
 }
 
-.bulletin-ribbon-left {
-  min-width: 0;
-}
-
-.bulletin-ribbon-right {
-  margin-left: auto;
-  text-align: right;
-  white-space: nowrap;
+.bulletin-ribbon-year {
+  display: block;
+  width: 100%;
+  color: #00236f;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .bulletin-identity-grid {
@@ -355,8 +349,7 @@
 
   .bulletin-sheet .bulletin-header-right,
   .bulletin-sheet .bulletin-republic-name,
-  .bulletin-sheet .bulletin-republic-motto,
-  .bulletin-sheet .bulletin-exam-meta {
+  .bulletin-sheet .bulletin-republic-motto {
     text-align: right !important;
   }
 
@@ -378,6 +371,14 @@
     margin-bottom: 1.5mm !important;
     padding-top: 1mm !important;
     padding-bottom: 1mm !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+
+  .bulletin-sheet .bulletin-ribbon-year {
+    font-size: 9.5px !important;
+    letter-spacing: 0.06em !important;
+    text-align: center !important;
   }
 
   .bulletin-sheet .bulletin-title {

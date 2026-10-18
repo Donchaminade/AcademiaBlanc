@@ -19,6 +19,16 @@ export function establishmentCaption(institutionName?: string | null): string {
   return name.toLocaleUpperCase('fr-FR');
 }
 
+/**
+ * Libellé de la bande année du bulletin.
+ * Reprend `settings.academicYear` (réglages locaux, ou `Annee.libelle`
+ * repris dans la session). Aucune année n'est ajoutée ici.
+ */
+export function academicYearCaption(academicYear?: string | null): string {
+  const label = (academicYear ?? '').replace(/\s+/g, ' ').trim();
+  return label.toLocaleUpperCase('fr-FR');
+}
+
 const SIGLE_STOPWORDS = new Set([
   'a',
   'au',
