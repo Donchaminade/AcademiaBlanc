@@ -4,6 +4,21 @@ export interface BulletinHeaderInfo {
   examBadge: string;
 }
 
+/** Libellé neutre sous le logo uniquement si aucun nom d'établissement n'est enregistré. */
+export const ESTABLISHMENT_CAPTION_FALLBACK = 'ÉTABLISSEMENT';
+
+/**
+ * Nom officiel affiché, centré, sous le logo du bulletin.
+ * Reprend `settings.institutionName` (réglages locaux, ou `Etablissement.nom`
+ * repris dans la session après connexion). Le libellé de repli ne s'applique
+ * que lorsque ce nom est absent ou vide.
+ */
+export function establishmentCaption(institutionName?: string | null): string {
+  const name = (institutionName ?? '').replace(/\s+/g, ' ').trim();
+  if (!name) return ESTABLISHMENT_CAPTION_FALLBACK;
+  return name.toLocaleUpperCase('fr-FR');
+}
+
 const SIGLE_STOPWORDS = new Set([
   'a',
   'au',
