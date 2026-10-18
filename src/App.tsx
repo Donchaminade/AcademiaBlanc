@@ -14,7 +14,9 @@ import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
-import { PLATFORM_ROLE, apiDelete, apiSend, getSession, getToken, roleLabel } from './api/client';
+import { apiDelete, apiSend, getSession, getToken, isForbidden, isPlatformAccount, refreshSession, roleLabel } from './api/client';
+import { usePermissions } from './api/permissions';
+import { showError } from './utils/alerts';
 import { loadSchoolWorkspace, ExamOption } from './api/workspace';
 import {
   getRegisteredSchools,
@@ -68,8 +70,9 @@ export default function App() {
   });
 
   const [accountRole, setAccountRole] = useState(() => getSession()?.role ?? '');
+  const { can, adminAccess } = usePermissions();
   const [currentView, setCurrentView] = useState<ViewMode>(() => {
-    if (getSession()?.role === PLATFORM_ROLE) return 'plateforme';
+    if (isPlatformAccount()) return 'plateforme';
     return getToken() ? 'bulletin' : 'auth';
   });
   const [selectedSession, setSelectedSession] = useState<string>(() => (getToken() ? '' : 'BAC II Blanc 2025 - Série D'));
@@ -107,6 +110,15 @@ export default function App() {
     setTimeout(() => {
       setToastMessage(null);
     }, 4000);
+  };
+
+  /** Un refus du serveur (403) s’affiche en fenêtre avec son message ; les autres erreurs en toast. */
+  const signalerErreur = (err: unknown, fallback: string) => {
+    if (isForbidden(err)) {
+      void showError('Action non autorisée', err.message);
+      return;
+    }
+    showToast(err instanceof Error && err.message ? err.message : fallback);
   };
 
   // Sync isolated data on changes
@@ -152,9 +164,10 @@ export default function App() {
     const session = getSession();
     const role = session?.role ?? '';
     setAccountRole(role);
-    if (role === PLATFORM_ROLE) {
+    if (isPlatformAccount(session)) {
       setIsAuthModalOpen(false);
       setCurrentView('plateforme');
+      if (!session?.etablissementId) return;
     }
     applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
   };
@@ -171,7 +184,14 @@ export default function App() {
 
   useEffect(() => {
     if (!getToken()) return;
-    applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
+    // Les droits peuvent avoir changé depuis la connexion : la session est relue sur l’API avant de charger la base.
+    refreshSession()
+      .then((session) => {
+        if (session) setAccountRole(session.role);
+        if (isPlatformAccount(session) && !session?.etablissementId) return undefined;
+        return applyWorkspace();
+      })
+      .catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
   }, []);
 
   // Switch active establishment
@@ -280,7 +300,7 @@ export default function App() {
         sessionId: activeSessionId,
         valeur: newScore,
         absent: false,
-      }).catch((err: Error) => showToast(err.message || 'Note non enregistrée.'));
+      }).catch((err: unknown) => signalerErreur(err, 'Note non enregistrée.'));
     }
   };
 
@@ -336,7 +356,7 @@ export default function App() {
         etablissementOrigine: newCand.originSchool || null,
       }).then(() => applyWorkspace(activeSessionId ?? undefined))
         .then(() => showToast(`${newCand.fullName} est enregistré dans la base.`))
-        .catch((err: Error) => showToast(err.message || 'Inscription impossible.'));
+        .catch((err: unknown) => signalerErreur(err, 'Inscription impossible.'));
       return;
     }
     const updatedList = [...candidates, newCand];
@@ -377,7 +397,7 @@ export default function App() {
       void apiDelete(`/api/eleves/${candidateId}`)
         .then(() => applyWorkspace(activeSessionId ?? undefined))
         .then(() => showToast('Élève retiré de la base.'))
-        .catch((err: Error) => showToast(err.message || 'Suppression impossible.'));
+        .catch((err: unknown) => signalerErreur(err, 'Suppression impossible.'));
       return;
     }
     const remaining = candidates.filter((c) => c.id !== candidateId);
@@ -444,6 +464,10 @@ export default function App() {
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault();
+        if (usingApi && !can('BULLETINS', 'IMPRIMER')) {
+          void showError('Action non autorisée', 'Votre compte ne détient pas le droit IMPRIMER sur BULLETINS.');
+          return;
+        }
         if (isBatchPrintModalOpen) {
           printDocument('all-bulletins', `Bulletins_${settings.institutionName}`);
         } else if (currentView === 'bulletin' && selectedCandidate) {
@@ -472,7 +496,10 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [candidates, selectedCandidateId, currentView, isBatchPrintModalOpen, selectedCandidate, settings.institutionName, selectedSession]);
+  }, [candidates, selectedCandidateId, currentView, isBatchPrintModalOpen, selectedCandidate, settings.institutionName, selectedSession, usingApi, can]);
+
+  // Impression des bulletins : libre hors API, soumise à BULLETINS:IMPRIMER une fois connecté.
+  const peutImprimer = !usingApi || can('BULLETINS', 'IMPRIMER');
 
   // If in auth view mode full-screen
   if (currentView === 'auth') {
@@ -507,15 +534,15 @@ export default function App() {
         onToggleOffline={handleToggleOffline}
         settings={settings}
         candidatesCount={candidates.length}
-        onOpenBatchPrint={() => setIsBatchPrintModalOpen(true)}
+        onOpenBatchPrint={peutImprimer ? () => setIsBatchPrintModalOpen(true) : undefined}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onOpenSearch={() => setIsSearchModalOpen(true)}
         sessionOptions={usingApi ? apiSessions.map((item) => item.label) : undefined}
         centerOptions={usingApi ? apiCenters : undefined}
-        platformOwner={accountRole === PLATFORM_ROLE}
+        platformOwner={isPlatformAccount(getSession()) || accountRole === 'SUPER_ADMIN' || accountRole === 'GESTIONNAIRE_PLATEFORME'}
         usingApi={usingApi}
         apiUser={usingApi ? apiUser : null}
-        onOpenAdmin={usingApi ? () => openAdmin() : undefined}
+        onOpenAdmin={usingApi && adminAccess ? () => openAdmin() : undefined}
       />
 
       {/* Main Content Area - Navigated strictly via Sidebar */}
@@ -583,7 +610,8 @@ export default function App() {
               onOpenSignature={() => setIsSignatureModalOpen(true)}
               onOpenSms={() => setIsSmsModalOpen(true)}
               onDownloadPdf={handleDownloadPdf}
-              onPrintAll={() => setIsBatchPrintModalOpen(true)}
+              onPrintAll={peutImprimer ? () => setIsBatchPrintModalOpen(true) : undefined}
+              canPrint={peutImprimer}
               settings={settings}
               selectedSession={selectedSession}
             />
@@ -610,7 +638,7 @@ export default function App() {
               settings={settings}
               onRenumberAlphabetically={handleRenumberAlphabetically}
               onBatchAddCandidates={handleBatchAddCandidates}
-              onOpenBatchPrint={() => setIsBatchPrintModalOpen(true)}
+              onOpenBatchPrint={peutImprimer ? () => setIsBatchPrintModalOpen(true) : undefined}
             />
           )}
 
@@ -628,7 +656,7 @@ export default function App() {
               usingApi={usingApi}
               hasApiSession={apiSessions.length > 0}
               examType={activeExamType}
-              onOpenAdmin={usingApi ? openAdmin : undefined}
+              onOpenAdmin={usingApi && adminAccess ? openAdmin : undefined}
             />
           )}
 

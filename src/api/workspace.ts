@@ -1,5 +1,15 @@
-import { apiGet } from './client';
+import { apiGet, isForbidden } from './client';
 import { Candidate, Subject } from '../types';
+
+/** Une liste refusée (droit VOIR absent) est traitée comme vide : l’écran reste utilisable avec les droits détenus. */
+async function lire<T>(path: string): Promise<T[]> {
+  try {
+    return await apiGet<T[]>(path);
+  } catch (err) {
+    if (isForbidden(err)) return [];
+    throw err;
+  }
+}
 
 interface Annee { id: number; libelle: string; courante: boolean; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
@@ -44,19 +54,19 @@ export interface SchoolWorkspace {
 
 export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<SchoolWorkspace> {
   const [annees, centres, sessions, matieres, profs, classes, affectations, coefficients, eleves] = await Promise.all([
-    apiGet<Annee[]>('/api/annees-scolaires'),
-    apiGet<Centre[]>('/api/centres'),
-    apiGet<SessionApi[]>('/api/sessions'),
-    apiGet<Matiere[]>('/api/matieres'),
-    apiGet<Professeur[]>('/api/professeurs'),
-    apiGet<Classe[]>('/api/classes'),
-    apiGet<Affectation[]>('/api/affectations'),
-    apiGet<Coefficient[]>('/api/coefficients'),
-    apiGet<EleveApi[]>('/api/eleves'),
+    lire<Annee>('/api/annees-scolaires'),
+    lire<Centre>('/api/centres'),
+    lire<SessionApi>('/api/sessions'),
+    lire<Matiere>('/api/matieres'),
+    lire<Professeur>('/api/professeurs'),
+    lire<Classe>('/api/classes'),
+    lire<Affectation>('/api/affectations'),
+    lire<Coefficient>('/api/coefficients'),
+    lire<EleveApi>('/api/eleves'),
   ]);
 
   const session = sessions.find((item) => item.id === preferredSessionId) || sessions[0] || null;
-  const notes = session ? await apiGet<NoteApi[]>(`/api/notes?sessionId=${session.id}`) : [];
+  const notes = session ? await lire<NoteApi>(`/api/notes?sessionId=${session.id}`) : [];
   const annee = annees.find((item) => item.courante) || annees[0];
   const centre = centres.find((item) => item.id === session?.centreId) || centres[0];
   const teacherName = (matiereId: number, classeId?: number) => {

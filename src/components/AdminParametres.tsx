@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiSend, getSession, getToken } from '../api/client';
+import { Ressource, usePermissions } from '../api/permissions';
 import { confirmDelete, showError, toastError, toastSuccess } from '../utils/alerts';
 import { ImportElevesPanel } from './ImportElevesPanel';
+import { UtilisateursSection } from './UtilisateursSection';
 import { AdminSection } from '../types';
 
 interface Annee { id: number; libelle: string; courante: boolean; dateDebut?: string; dateFin?: string; }
@@ -31,7 +33,7 @@ export const ADMIN_STEPS: { section: AdminSection; label: string }[] = [
 export const adminSectionAnchor = (section: AdminSection) => `admin-section-${section}`;
 
 /** Onglets de l’écran : chaque onglet regroupe plusieurs sections fines. */
-type AdminGroup = 'annees' | 'matieres' | 'enseignants' | 'eleves' | 'notes';
+type AdminGroup = 'annees' | 'matieres' | 'enseignants' | 'eleves' | 'notes' | 'utilisateurs';
 
 const GROUPS: { key: AdminGroup; label: string; icon: string; sections: AdminSection[] }[] = [
   { key: 'annees', label: 'Année & Sessions', icon: 'calendar_month', sections: ['annees', 'centres', 'sessions'] },
@@ -39,7 +41,23 @@ const GROUPS: { key: AdminGroup; label: string; icon: string; sections: AdminSec
   { key: 'enseignants', label: 'Enseignants & Classes', icon: 'groups', sections: ['enseignants', 'classes', 'affectations'] },
   { key: 'eleves', label: 'Élèves', icon: 'school', sections: ['eleves'] },
   { key: 'notes', label: 'Notes', icon: 'grading', sections: ['notes'] },
+  { key: 'utilisateurs', label: 'Utilisateurs & droits', icon: 'manage_accounts', sections: ['utilisateurs'] },
 ];
+
+/** Ressource de permission correspondant à chaque section. */
+const RESSOURCE_DE: Record<AdminSection, Ressource> = {
+  annees: 'ANNEES',
+  centres: 'CENTRES',
+  sessions: 'SESSIONS',
+  matieres: 'MATIERES',
+  coefficients: 'COEFFICIENTS',
+  enseignants: 'ENSEIGNANTS',
+  classes: 'CLASSES',
+  affectations: 'AFFECTATIONS',
+  eleves: 'ELEVES',
+  notes: 'NOTES',
+  utilisateurs: 'UTILISATEURS',
+};
 
 const groupOf = (section: AdminSection): AdminGroup =>
   GROUPS.find((g) => g.sections.includes(section))?.key ?? 'annees';
@@ -126,7 +144,7 @@ const EditBanner: React.FC<{ id: number; summary: React.ReactNode }> = ({ id, su
 
 interface Column<T> { header: string; render: (row: T) => React.ReactNode; className?: string }
 
-function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyText, editingId, onEdit, onDelete }: {
+function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyText, editingId, onEdit, onDelete, canCreate = true, canEdit = true, canDelete = true }: {
   columns: Column<T>[];
   rows: T[];
   emptyIcon: string;
@@ -134,53 +152,64 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
   editingId?: number | null;
   onEdit: (row: T) => void;
   onDelete: (row: T) => void;
+  /** Droits CREER / MODIFIER / SUPPRIMER de l’utilisateur : les boutons absents ne sont pas rendus. */
+  canCreate?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }) {
   if (rows.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-1 rounded border border-dashed border-[#dce1ff] bg-[#f2f3ff] px-4 py-6 text-center">
         <span className="material-symbols-outlined text-2xl text-[#757682]">{emptyIcon}</span>
         <p className="text-[13px] font-semibold text-[#444651]">{emptyText}</p>
-        <p className="text-[11px] text-[#757682]">Utilisez le formulaire ci-dessous pour ajouter une première fiche.</p>
+        <p className="text-[11px] text-[#757682]">{canCreate ? 'Utilisez le formulaire ci-dessous pour ajouter une première fiche.' : 'Votre compte ne peut pas créer de fiche ici.'}</p>
       </div>
     );
   }
+  const hasActions = canEdit || canDelete;
   return (
     <div className="overflow-x-auto rounded border border-[#eaedff]">
       <table className="w-full text-[13px]">
         <thead>
           <tr className="bg-[#f2f3ff] text-left text-[11px] uppercase tracking-wide text-[#444651]">
             {columns.map((col) => <th key={col.header} className={`px-3 py-2 font-bold whitespace-nowrap ${col.className ?? ''}`}>{col.header}</th>)}
-            <th className="px-3 py-2 font-bold text-right">Actions</th>
+            {hasActions && <th className="px-3 py-2 font-bold text-right">Actions</th>}
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.id} className={`border-t border-[#eaedff] transition-colors ${editingId === row.id ? 'bg-[#eaedff]/60' : 'hover:bg-[#faf8ff]'}`}>
               {columns.map((col) => <td key={col.header} className={`px-3 py-2 text-[#131b2e] ${col.className ?? ''}`}>{col.render(row)}</td>)}
-              <td className="px-3 py-1.5 whitespace-nowrap">
-                <div className="flex items-center justify-end gap-1">
-                  <button
-                    type="button"
-                    onClick={() => onEdit(row)}
-                    title="Modifier"
-                    aria-label="Modifier"
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-[#00236f] hover:bg-[#eaedff] text-[12px] font-semibold transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-base">edit</span>
-                    <span className="hidden md:inline">Modifier</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(row)}
-                    title="Supprimer"
-                    aria-label="Supprimer"
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-[#ba1a1a] hover:bg-[#ffdad6] text-[12px] font-semibold transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-base">delete</span>
-                    <span className="hidden md:inline">Supprimer</span>
-                  </button>
-                </div>
-              </td>
+              {hasActions && (
+                <td className="px-3 py-1.5 whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-1">
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => onEdit(row)}
+                        title="Modifier"
+                        aria-label="Modifier"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[#00236f] hover:bg-[#eaedff] text-[12px] font-semibold transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-base">edit</span>
+                        <span className="hidden md:inline">Modifier</span>
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={() => onDelete(row)}
+                        title="Supprimer"
+                        aria-label="Supprimer"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[#ba1a1a] hover:bg-[#ffdad6] text-[12px] font-semibold transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-base">delete</span>
+                        <span className="hidden md:inline">Supprimer</span>
+                      </button>
+                    )}
+                  </div>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -205,10 +234,18 @@ const Badge: React.FC<{ tone?: 'blue' | 'green' | 'grey' | 'red'; children: Reac
 
 const sectionFromHash = (): AdminSection | null => {
   const hash = typeof window !== 'undefined' ? window.location.hash.replace(/^#admin-/, '') : '';
-  return ADMIN_STEPS.some((s) => s.section === hash) || hash === 'coefficients' ? (hash as AdminSection) : null;
+  return ADMIN_STEPS.some((s) => s.section === hash) || hash === 'coefficients' || hash === 'utilisateurs' ? (hash as AdminSection) : null;
 };
 
 export const AdminParametres: React.FC<AdminParametresProps> = ({ section: requestedSection, scrollKey = 0, onDataChanged }) => {
+  const { can, permissions: mesDroits } = usePermissions();
+  /** Droits de l’utilisateur sur une section : pilotent formulaires et boutons (le serveur reste la référence). */
+  const droits = (section: AdminSection) => {
+    const r = RESSOURCE_DE[section];
+    return { voir: can(r, 'VOIR'), creer: can(r, 'CREER'), modifier: can(r, 'MODIFIER'), supprimer: can(r, 'SUPPRIMER') };
+  };
+  /** Un onglet est visible si au moins une de ses sections est visible. */
+  const groupeVisible = (g: AdminGroup) => GROUPS.find((item) => item.key === g)?.sections.some((sec) => droits(sec).voir) ?? false;
   const [group, setGroup] = useState<AdminGroup>(() => groupOf(requestedSection ?? sectionFromHash() ?? 'annees'));
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -266,16 +303,18 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
 
   const load = async () => {
     if (!getToken()) return;
+    // Seules les listes autorisées (droit VOIR) sont demandées : les autres restent vides au lieu de provoquer un 403.
+    const si = <T,>(section: AdminSection, path: string): Promise<T[]> => (droits(section).voir ? apiGet<T[]>(path) : Promise.resolve([]));
     const [a, c, s, m, p, k, af, coef, el] = await Promise.all([
-      apiGet<Annee[]>('/api/annees-scolaires'),
-      apiGet<Centre[]>('/api/centres'),
-      apiGet<Session[]>('/api/sessions'),
-      apiGet<Matiere[]>('/api/matieres'),
-      apiGet<Professeur[]>('/api/professeurs'),
-      apiGet<Classe[]>('/api/classes'),
-      apiGet<Affectation[]>('/api/affectations'),
-      apiGet<Coefficient[]>('/api/coefficients'),
-      apiGet<Eleve[]>('/api/eleves'),
+      si<Annee>('annees', '/api/annees-scolaires'),
+      si<Centre>('centres', '/api/centres'),
+      si<Session>('sessions', '/api/sessions'),
+      si<Matiere>('matieres', '/api/matieres'),
+      si<Professeur>('enseignants', '/api/professeurs'),
+      si<Classe>('classes', '/api/classes'),
+      si<Affectation>('affectations', '/api/affectations'),
+      si<Coefficient>('coefficients', '/api/coefficients'),
+      si<Eleve>('eleves', '/api/eleves'),
     ]);
     setAnnees(a);
     setCentres(c);
@@ -287,7 +326,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
     setCoefficients(coef);
     setEleves(el);
     const sessionId = sessionNotesRef.current || (s[0] ? String(s[0].id) : '');
-    if (sessionId) {
+    if (sessionId && droits('notes').voir) {
       sessionNotesRef.current = sessionId;
       setSessionNotes(sessionId);
       setNotes(await apiGet<Note[]>(`/api/notes?sessionId=${sessionId}`));
@@ -304,9 +343,12 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
       .finally(() => setLoading(false));
   };
 
+  // Recharge quand les droits changent (rafraîchissement de session après connexion).
+  const cleDroits = mesDroits.join(',');
   useEffect(() => {
     reload();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cleDroits]);
 
   useEffect(() => {
     if (scrollKey === 0 && !requestedSection) return;
@@ -377,7 +419,10 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
     enseignants: profs.length + classes.length + affectations.length,
     eleves: eleves.length,
     notes: notes.length,
+    utilisateurs: 0,
   };
+  const groupesVisibles = GROUPS.filter((item) => groupeVisible(item.key));
+  const groupeCourant: AdminGroup | null = groupeVisible(group) ? group : (groupesVisibles[0]?.key ?? null);
 
   return (
     <div className="space-y-5">
@@ -412,8 +457,8 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
 
       {/* Sous-navigation */}
       <nav aria-label="Sections d’administration" className="bg-white rounded border border-[#eaedff] shadow-xs p-1.5 flex gap-1 overflow-x-auto">
-        {GROUPS.map((item) => {
-          const active = group === item.key;
+        {groupesVisibles.map((item) => {
+          const active = groupeCourant === item.key;
           return (
             <button
               key={item.key}
@@ -426,19 +471,34 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             >
               <span className="material-symbols-outlined text-base">{item.icon}</span>
               <span>{item.label}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-white/20 text-white' : 'bg-[#eaedff] text-[#00236f]'}`}>{counts[item.key]}</span>
+              {item.key !== 'utilisateurs' && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-white/20 text-white' : 'bg-[#eaedff] text-[#00236f]'}`}>{counts[item.key]}</span>
+              )}
             </button>
           );
         })}
       </nav>
 
+      {groupesVisibles.length === 0 && (
+        <div className="bg-white border border-[#eaedff] rounded p-6 text-[13px] text-[#444651]">
+          Votre compte ne détient aucun droit de consultation sur le référentiel. Rapprochez-vous du responsable de l’établissement.
+        </div>
+      )}
+
       {/* ---------------------------------------------------------- */}
-      {group === 'annees' && (
+      {groupeCourant === 'utilisateurs' && <UtilisateursSection mode="etablissement" onChanged={onDataChanged} />}
+
+      {/* ---------------------------------------------------------- */}
+      {groupeCourant === 'annees' && (
         <div className="space-y-5">
+          {droits('annees').voir && (
           <SectionCard id="annees" icon="calendar_month" title="Années scolaires" description="Définissez les années académiques et l’année courante utilisée par défaut." count={annees.length}>
             <DataTable<Annee>
               rows={annees}
               editingId={anneeEdit?.id}
+              canCreate={droits('annees').creer}
+              canEdit={droits('annees').modifier}
+              canDelete={droits('annees').supprimer}
               emptyIcon="event_busy"
               emptyText="Aucune année scolaire pour l’instant"
               columns={[
@@ -449,6 +509,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               onDelete={(r) => void remove(`/api/annees-scolaires/${r.id}`, r.libelle, reset.annee)}
             />
             {anneeEdit && <EditBanner id={anneeEdit.id} summary={<>{anneeEdit.libelle} · courante : {anneeEdit.courante ? 'oui' : 'non'}</>} />}
+            {(droits('annees').creer || (anneeEdit && droits('annees').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               const body = { libelle: annee.trim(), courante: anneeEdit?.courante ?? false };
@@ -461,12 +522,18 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               </Field>
               <FormActions editing={!!anneeEdit} createLabel="Créer l’année" onCancel={reset.annee} />
             </form>
+            )}
           </SectionCard>
+          )}
 
+          {droits('centres').voir && (
           <SectionCard id="centres" icon="location_city" title="Centres d’examen" description="Lieux de composition rattachés à l’établissement, identifiés par un code court." count={centres.length}>
             <DataTable<Centre>
               rows={centres}
               editingId={centreEdit?.id}
+              canCreate={droits('centres').creer}
+              canEdit={droits('centres').modifier}
+              canDelete={droits('centres').supprimer}
               emptyIcon="domain_disabled"
               emptyText="Aucun centre d’examen pour l’instant"
               columns={[
@@ -478,6 +545,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               onDelete={(r) => void remove(`/api/centres/${r.id}`, r.nom, reset.centre)}
             />
             {centreEdit && <EditBanner id={centreEdit.id} summary={<>{centreEdit.code} · {centreEdit.nom} · {centreEdit.ville || 'ville non renseignée'}</>} />}
+            {(droits('centres').creer || (centreEdit && droits('centres').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               void run(() => centreEdit
@@ -495,12 +563,18 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               </Field>
               <FormActions editing={!!centreEdit} createLabel="Créer le centre" onCancel={reset.centre} />
             </form>
+            )}
           </SectionCard>
+          )}
 
+          {droits('sessions').voir && (
           <SectionCard id="sessions" icon="event_note" title="Sessions d’examen" description="Une session relie un examen à une année scolaire et à un centre." count={sessions.length}>
             <DataTable<Session>
               rows={sessions}
               editingId={sessionEdit?.id}
+              canCreate={droits('sessions').creer}
+              canEdit={droits('sessions').modifier}
+              canDelete={droits('sessions').supprimer}
               emptyIcon="event_busy"
               emptyText="Aucune session d’examen pour l’instant"
               columns={[
@@ -517,6 +591,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               onDelete={(r) => void remove(`/api/sessions/${r.id}`, r.nom, reset.session)}
             />
             {sessionEdit && <EditBanner id={sessionEdit.id} summary={<>{sessionEdit.typeExamen} · année {nom(annees, sessionEdit.anneeScolaireId)} · centre {nom(centres, sessionEdit.centreId)}</>} />}
+            {(droits('sessions').creer || (sessionEdit && droits('sessions').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               const anneeId = Number(session.anneeScolaireId || annees[0]?.id);
@@ -544,17 +619,23 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               </Field>
               <FormActions editing={!!sessionEdit} createLabel="Créer la session" onCancel={reset.session} />
             </form>
+            )}
           </SectionCard>
+          )}
         </div>
       )}
 
       {/* ---------------------------------------------------------- */}
-      {group === 'matieres' && (
+      {groupeCourant === 'matieres' && (
         <div className="space-y-5">
+          {droits('matieres').voir && (
           <SectionCard id="matieres" icon="menu_book" title="Matières" description="Catalogue des disciplines évaluées, avec un code court pour les bulletins." count={matieres.length}>
             <DataTable<Matiere>
               rows={matieres}
               editingId={matiereEdit?.id}
+              canCreate={droits('matieres').creer}
+              canEdit={droits('matieres').modifier}
+              canDelete={droits('matieres').supprimer}
               emptyIcon="book_off"
               emptyText="Aucune matière pour l’instant"
               columns={[
@@ -569,6 +650,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               onDelete={(r) => void remove(`/api/matieres/${r.id}`, r.nom, reset.matiere)}
             />
             {matiereEdit && <EditBanner id={matiereEdit.id} summary={<>code {matiereEdit.code} · {matiereEdit.nom}</>} />}
+            {(droits('matieres').creer || (matiereEdit && droits('matieres').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               void run(() => matiereEdit
@@ -583,12 +665,18 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               </Field>
               <FormActions editing={!!matiereEdit} createLabel="Créer la matière" onCancel={reset.matiere} />
             </form>
+            )}
           </SectionCard>
+          )}
 
+          {droits('coefficients').voir && (
           <SectionCard id="coefficients" icon="functions" title="Coefficients" description="Pondération d’une matière, pour toutes les classes ou pour une classe précise." count={coefficients.length}>
             <DataTable<Coefficient>
               rows={coefficients}
               editingId={coefficientEdit?.id}
+              canCreate={droits('coefficients').creer}
+              canEdit={droits('coefficients').modifier}
+              canDelete={droits('coefficients').supprimer}
               emptyIcon="percent"
               emptyText="Aucun coefficient pour l’instant"
               columns={[
@@ -604,6 +692,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               onDelete={(r) => void remove(`/api/coefficients/${r.id}`, `coefficient ${r.valeur} — ${nom(matieres, r.matiereId)}`, reset.coefficient)}
             />
             {coefficientEdit && <EditBanner id={coefficientEdit.id} summary={<>valeur {coefficientEdit.valeur} · série {coefficientEdit.serie || '—'}</>} />}
+            {(droits('coefficients').creer || (coefficientEdit && droits('coefficients').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               const valeur = Number(coefficient.valeur);
@@ -630,17 +719,23 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               </Field>
               <FormActions editing={!!coefficientEdit} createLabel="Ajouter le coefficient" updateLabel="Mettre à jour le coefficient" onCancel={reset.coefficient} />
             </form>
+            )}
           </SectionCard>
+          )}
         </div>
       )}
 
       {/* ---------------------------------------------------------- */}
-      {group === 'enseignants' && (
+      {groupeCourant === 'enseignants' && (
         <div className="space-y-5">
+          {droits('enseignants').voir && (
           <SectionCard id="enseignants" icon="person" title="Enseignants" description="Corps professoral de l’établissement, désignable comme titulaire d’une classe." count={profs.length}>
             <DataTable<Professeur>
               rows={profs}
               editingId={profEdit?.id}
+              canCreate={droits('enseignants').creer}
+              canEdit={droits('enseignants').modifier}
+              canDelete={droits('enseignants').supprimer}
               emptyIcon="person_off"
               emptyText="Aucun enseignant pour l’instant"
               columns={[
@@ -655,6 +750,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               onDelete={(r) => void remove(`/api/professeurs/${r.id}`, r.nom, reset.prof)}
             />
             {profEdit && <EditBanner id={profEdit.id} summary={<>{profEdit.nom} · {profEdit.email || 'email non renseigné'}</>} />}
+            {(droits('enseignants').creer || (profEdit && droits('enseignants').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               void run(() => profEdit
@@ -669,12 +765,18 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               </Field>
               <FormActions editing={!!profEdit} createLabel="Ajouter l’enseignant" onCancel={reset.prof} />
             </form>
+            )}
           </SectionCard>
+          )}
 
+          {droits('classes').voir && (
           <SectionCard id="classes" icon="meeting_room" title="Classes & titulaires" description="Classes de l’année scolaire et enseignant titulaire de chacune." count={classes.length}>
             <DataTable<Classe>
               rows={classes}
               editingId={classeEdit?.id}
+              canCreate={droits('classes').creer}
+              canEdit={droits('classes').modifier}
+              canDelete={droits('classes').supprimer}
               emptyIcon="no_meeting_room"
               emptyText="Aucune classe pour l’instant"
               columns={[
@@ -690,6 +792,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               onDelete={(r) => void remove(`/api/classes/${r.id}`, r.nom, reset.classe)}
             />
             {classeEdit && <EditBanner id={classeEdit.id} summary={<>{classeEdit.niveau} · {classeEdit.serie || 'série non renseignée'} · année {nom(annees, classeEdit.anneeScolaireId)}</>} />}
+            {(droits('classes').creer || (classeEdit && droits('classes').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               const anneeId = Number(classe.anneeScolaireId || annees[0]?.id);
@@ -710,12 +813,18 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               </Field>
               <FormActions editing={!!classeEdit} createLabel="Créer la classe" updateLabel="Mettre à jour la classe" onCancel={reset.classe} />
             </form>
+            )}
           </SectionCard>
+          )}
 
+          {droits('affectations').voir && (
           <SectionCard id="affectations" icon="assignment_ind" title="Affectations" description="Qui enseigne quelle matière dans quelle classe." count={affectations.length}>
             <DataTable<Affectation>
               rows={affectations}
               editingId={affectationEdit?.id}
+              canCreate={droits('affectations').creer}
+              canEdit={droits('affectations').modifier}
+              canDelete={droits('affectations').supprimer}
               emptyIcon="assignment_late"
               emptyText="Aucune affectation pour l’instant"
               columns={[
@@ -730,6 +839,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               onDelete={(r) => void remove(`/api/affectations/${r.id}`, `${nom(profs, r.professeurId)} · ${nom(matieres, r.matiereId)} · ${nom(classes, r.classeId)}`, reset.affectation)}
             />
             {affectationEdit && <EditBanner id={affectationEdit.id} summary={<>{nom(profs, affectationEdit.professeurId)} · {nom(matieres, affectationEdit.matiereId)} · {nom(classes, affectationEdit.classeId)}</>} />}
+            {(droits('affectations').creer || (affectationEdit && droits('affectations').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" onSubmit={(e) => {
               e.preventDefault();
               const body = { professeurId: Number(affectation.professeurId), matiereId: Number(affectation.matiereId), classeId: Number(affectation.classeId) };
@@ -757,16 +867,21 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               </Field>
               <FormActions editing={!!affectationEdit} createLabel="Affecter" updateLabel="Mettre à jour l’affectation" onCancel={reset.affectation} />
             </form>
+            )}
           </SectionCard>
+          )}
         </div>
       )}
 
       {/* ---------------------------------------------------------- */}
-      {group === 'eleves' && (
+      {groupeCourant === 'eleves' && (
         <SectionCard id="eleves" icon="school" title="Élèves" description="Inscriptions des candidats avec matricule, classe et session d’examen." count={eleves.length}>
           <DataTable<Eleve>
             rows={eleves}
             editingId={eleveEdit?.id}
+            canCreate={droits('eleves').creer}
+            canEdit={droits('eleves').modifier}
+            canDelete={droits('eleves').supprimer}
             emptyIcon="person_search"
             emptyText="Aucun élève inscrit pour l’instant"
             columns={[
@@ -784,6 +899,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             onDelete={(r) => void remove(`/api/eleves/${r.id}`, r.nomComplet, reset.eleve)}
           />
           {eleveEdit && <EditBanner id={eleveEdit.id} summary={<>{eleveEdit.nomComplet} · {eleveEdit.genre} · table {eleveEdit.numeroTable ?? '—'} · {eleveEdit.lieuNaissance || 'lieu non renseigné'}</>} />}
+          {(droits('eleves').creer || (eleveEdit && droits('eleves').modifier)) && (
           <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3" onSubmit={(e) => {
             e.preventDefault();
             if (eleve.genre !== 'M' && eleve.genre !== 'F') { toastError('Le genre doit être M ou F.'); return; }
@@ -825,6 +941,8 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             </Field>
             <FormActions editing={!!eleveEdit} createLabel="Inscrire l’élève" updateLabel="Mettre à jour l’élève" onCancel={reset.eleve} />
           </form>
+          )}
+          {droits('eleves').creer && (
           <ImportElevesPanel
             classes={classes}
             sessions={sessions}
@@ -832,11 +950,12 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               .then(() => onDataChanged?.())
               .catch((err: Error) => void showError('Rechargement des listes impossible', err.message))}
           />
+          )}
         </SectionCard>
       )}
 
       {/* ---------------------------------------------------------- */}
-      {group === 'notes' && (
+      {groupeCourant === 'notes' && (
         <SectionCard id="notes" icon="grading" title="Notes" description="Notes sur 20 par élève, matière et session ; une absence remplace la note." count={notes.length}>
           <div className="flex flex-col sm:flex-row sm:items-end gap-3 rounded border border-[#eaedff] bg-[#faf8ff] p-3">
             <Field label="Session affichée" className="sm:w-72">
@@ -862,6 +981,9 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
           <DataTable<Note>
             rows={notes}
             editingId={noteEdit?.id}
+            canCreate={droits('notes').creer}
+            canEdit={droits('notes').modifier}
+            canDelete={droits('notes').supprimer}
             emptyIcon="rule"
             emptyText="Aucune note pour cette session"
             columns={[
@@ -877,6 +999,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             onDelete={(r) => void remove(`/api/notes/${r.id}`, `note de ${nom(eleves, r.eleveId)} en ${nom(matieres, r.matiereId)}`, reset.note)}
           />
           {noteEdit && <EditBanner id={noteEdit.id} summary={<>{nom(eleves, noteEdit.eleveId)} · {nom(matieres, noteEdit.matiereId)} · {noteEdit.absent ? 'absent' : `${noteEdit.valeur}/20`}</>} />}
+          {(droits('notes').creer || (noteEdit && droits('notes').modifier)) && (
           <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" onSubmit={(e) => {
             e.preventDefault();
             const valeur = note.absent ? null : Number(note.valeur);
@@ -913,6 +1036,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             </label>
             <FormActions editing={!!noteEdit} createLabel="Enregistrer la note" updateLabel="Mettre à jour la note" onCancel={reset.note} />
           </form>
+          )}
         </SectionCard>
       )}
     </div>

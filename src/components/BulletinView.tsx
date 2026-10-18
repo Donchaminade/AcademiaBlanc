@@ -14,6 +14,8 @@ interface BulletinViewProps {
   onOpenSms: () => void;
   onDownloadPdf: () => void;
   onPrintAll?: () => void;
+  /** Faux sans le droit BULLETINS:IMPRIMER : les boutons d’impression et de téléchargement sont masqués. */
+  canPrint?: boolean;
   settings: AppSettings;
   selectedSession?: string;
 }
@@ -28,6 +30,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   onOpenSms,
   onDownloadPdf,
   onPrintAll,
+  canPrint = true,
   settings,
   selectedSession,
 }) => {
@@ -159,18 +162,20 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           </div>
 
           {/* Imprimer le bulletin actuel */}
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-[#eaedff] hover:bg-[#dce1ff] text-[#131b2e] text-[12px] transition-colors shadow-xs font-medium"
-            title="Imprimer ce bulletin individuel"
-          >
-            <span className="material-symbols-outlined text-base">print</span>
-            <span>Ce bulletin</span>
-          </button>
+          {canPrint && (
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-[#eaedff] hover:bg-[#dce1ff] text-[#131b2e] text-[12px] transition-colors shadow-xs font-medium"
+              title="Imprimer ce bulletin individuel"
+            >
+              <span className="material-symbols-outlined text-base">print</span>
+              <span>Ce bulletin</span>
+            </button>
+          )}
 
           {/* Imprimer TOUS les bulletins en 1 clic */}
-          {onPrintAll && (
+          {canPrint && onPrintAll && (
             <button
               type="button"
               onClick={onPrintAll}
@@ -203,14 +208,16 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           </button>
 
           {/* Download PDF */}
-          <button
-            type="button"
-            onClick={onDownloadPdf}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded bg-[#00236f] text-white text-[12px] hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95 font-semibold"
-          >
-            <span className="material-symbols-outlined text-base">download</span>
-            <span>Télécharger PDF A4</span>
-          </button>
+          {canPrint && (
+            <button
+              type="button"
+              onClick={onDownloadPdf}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded bg-[#00236f] text-white text-[12px] hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95 font-semibold"
+            >
+              <span className="material-symbols-outlined text-base">download</span>
+              <span>Télécharger PDF A4</span>
+            </button>
+          )}
         </div>
       </div>
 

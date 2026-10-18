@@ -17,6 +17,7 @@ interface SidebarProps {
   onOpenSearch?: () => void;
   sessionOptions?: string[];
   centerOptions?: string[];
+  /** Compte de niveau plateforme (propriétaire du logiciel ou gestionnaire) : affiche l’entrée « Plateforme ». */
   platformOwner?: boolean;
   /** Vrai quand l'établissement est connecté à l'API : plus aucune valeur de démonstration n'est affichée. */
   usingApi?: boolean;
@@ -207,7 +208,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-lg">domain</span>
-              <span>Surveillance des établissements</span>
+              <span>Plateforme : établissements &amp; gestionnaires</span>
             </button>
           )}
 
