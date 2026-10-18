@@ -413,11 +413,10 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   <td className="py-2.5 px-2 text-right text-[12px] text-[#444651] italic">
                     Moyenne pondérée:
                   </td>
-                  <td className="py-2.5 px-2 font-mono text-[15px] text-right font-bold text-[#0051d5]">
-                    {computedStats.totalPoints.toFixed(2)}
-                  </td>
-                  <td className="py-2.5 px-3 text-right text-[11px] text-[#444651] uppercase font-semibold" colSpan={2}>
-                    Barème Total Éligibilité : {(computedStats.totalCoef * 20).toFixed(2)} PTS
+                  <td className="py-2.5 px-0 font-mono text-[15px] font-bold text-[#0051d5]" colSpan={3}>
+                    <span className="bulletin-weighted-total">
+                      {computedStats.totalPoints.toFixed(2)}
+                    </span>
                   </td>
                 </tr>
               </tfoot>

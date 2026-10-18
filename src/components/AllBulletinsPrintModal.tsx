@@ -330,11 +330,10 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       <td className="py-1.5 px-2 text-right italic text-[#444651]">
                         Moyenne :
                       </td>
-                      <td className="py-1.5 px-2 font-mono text-[13px] text-right font-bold text-[#0051d5]">
-                        {stats?.totalPoints.toFixed(2) || '0.00'}
-                      </td>
-                      <td className="py-1.5 px-3 text-right uppercase font-semibold text-[#444651]" colSpan={2}>
-                        Barème Total : {((stats?.totalCoef || 29) * 20).toFixed(2)} PTS
+                      <td className="py-1.5 px-0 font-mono text-[13px] font-bold text-[#0051d5]" colSpan={3}>
+                        <span className="bulletin-weighted-total">
+                          {stats?.totalPoints.toFixed(2) || '0.00'}
+                        </span>
                       </td>
                     </tr>
                   </tfoot>
