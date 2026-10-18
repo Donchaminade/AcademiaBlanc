@@ -371,6 +371,8 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
       await showError('Changement d’année courante impossible', err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
       return;
     }
+    // Le formulaire ouvert doit reprendre le drapeau désormais enregistré.
+    setAnneeEdit((enCours) => (enCours ? { ...enCours, courante: enCours.id === cible.id } : enCours));
     onDataChanged?.();
     toastSuccess(`« ${cible.libelle} » est désormais l’année courante.`);
     try {

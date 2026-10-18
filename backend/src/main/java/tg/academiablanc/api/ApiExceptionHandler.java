@@ -14,8 +14,10 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -81,6 +83,11 @@ public class ApiExceptionHandler {
   @ExceptionHandler(NoResourceFoundException.class)
   public ResponseEntity<Map<String, String>> introuvable(NoResourceFoundException ex) {
     return corps(HttpStatus.NOT_FOUND, "Élément introuvable.");
+  }
+
+  @ExceptionHandler({MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class})
+  public ResponseEntity<Map<String, String>> requeteInvalide(Exception ex) {
+    return corps(HttpStatus.BAD_REQUEST, "Requête invalide.");
   }
 
   @ExceptionHandler(Exception.class)
