@@ -256,17 +256,6 @@ export const INITIAL_CANDIDATES: Candidate[] = [
 ];
 
 
-export const PROMO_AVERAGES: Record<string, { avg: number; rankRatio: string }> = {
-  math: { avg: 10.80, rankRatio: '138' },
-  pc: { avg: 11.20, rankRatio: '138' },
-  svt: { avg: 11.90, rankRatio: '138' },
-  fr: { avg: 10.10, rankRatio: '138' },
-  philo: { avg: 9.80, rankRatio: '138' },
-  ang: { avg: 12.40, rankRatio: '138' },
-  hg: { avg: 11.00, rankRatio: '138' },
-  eps: { avg: 14.50, rankRatio: '138' },
-};
-
 export const PROMO_OVERALL_AVERAGE = 11.42;
 export const TOTAL_CANDIDATES_COUNT = 138;
 

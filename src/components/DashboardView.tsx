@@ -1,6 +1,6 @@
 import React from 'react';
 import { Candidate, Subject, CandidateComputedStats } from '../types';
-import { PROMO_AVERAGES, PROMO_OVERALL_AVERAGE } from '../data/mockData';
+import { PROMO_OVERALL_AVERAGE } from '../data/mockData';
 
 interface DashboardViewProps {
   candidates: Candidate[];
@@ -231,7 +231,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 Bilan Pédagogique par Discipline
               </h3>
               <p className="text-[12px] text-[#444651]">
-                Moyennes calculées sur l'ensemble de la promotion (138 candidats)
+                Disciplines, enseignants et coefficients de la session
               </p>
             </div>
             <span className="text-[11px] font-mono text-[#0051d5] font-semibold bg-[#eaedff] px-2 py-1 rounded">
@@ -246,31 +246,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <th className="py-2 px-3 font-bold">Matière</th>
                   <th className="py-2 px-2 font-bold">Enseignant</th>
                   <th className="py-2 px-2 font-bold text-center">Coef</th>
-                  <th className="py-2 px-2 font-bold text-right">Moy. Promo</th>
-                  <th className="py-2 px-2 font-bold text-right">Statut</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#eaedff]">
-                {subjects.map(s => {
-                  const p = PROMO_AVERAGES[s.id] || { avg: 10.0 };
-                  const isGood = p.avg >= 12;
-                  const isLow = p.avg < 10;
-                  return (
-                    <tr key={s.id} className="hover:bg-[#f2f3ff]/50 transition-colors">
-                      <td className="py-2 px-3 font-semibold text-[#131b2e]">{s.name}</td>
-                      <td className="py-2 px-2 text-[#444651]">{s.teacher}</td>
-                      <td className="py-2 px-2 font-mono text-center font-bold text-[#00236f]">{s.coef}</td>
-                      <td className="py-2 px-2 font-mono text-right font-bold text-[#131b2e]">{p.avg.toFixed(2)}</td>
-                      <td className="py-2 px-2 text-right">
-                        <span className={`inline-block font-mono text-[10px] px-2 py-0.5 rounded font-semibold ${
-                          isGood ? 'bg-[#dce1ff] text-[#00236f]' : isLow ? 'bg-[#ffdad6] text-[#ba1a1a]' : 'bg-[#eaedff] text-[#0051d5]'
-                        }`}>
-                          {isGood ? 'FORT' : isLow ? 'À RENFORCER' : 'STABLE'}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {subjects.map(s => (
+                  <tr key={s.id} className="hover:bg-[#f2f3ff]/50 transition-colors">
+                    <td className="py-2 px-3 font-semibold text-[#131b2e]">{s.name}</td>
+                    <td className="py-2 px-2 text-[#444651]">{s.teacher}</td>
+                    <td className="py-2 px-2 font-mono text-center font-bold text-[#00236f]">{s.coef}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
