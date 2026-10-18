@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
 import { PROMO_AVERAGES } from '../data/mockData';
 import { getBulletinHeaderInfo } from '../utils/bulletinHeader';
+import { appreciationFromAverage, computeSubjectRank, formatSubjectRank } from '../utils/bulletinMetrics';
+import { printDocument } from '../utils/printDocument';
 
 interface BulletinViewProps {
   candidates: Candidate[];
@@ -54,7 +56,10 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   };
 
   const handlePrint = () => {
-    window.print();
+    printDocument(
+      'single-bulletin',
+      `Bulletin_${selectedCandidate.tableNumber}_${selectedCandidate.fullName}`,
+    );
   };
 
   return (
@@ -168,10 +173,10 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               type="button"
               onClick={onPrintAll}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#0051d5] hover:bg-[#003cb3] text-white text-[12px] transition-all shadow-md active:scale-95 font-bold"
-              title="Imprimer tous les bulletins de notes de la session en 1 clic"
+              title="Ouvrir l'aperçu puis télécharger tous les bulletins en PDF"
             >
               <span className="material-symbols-outlined text-base">print_connect</span>
-              <span>Tous les bulletins ({candidates.length})</span>
+              <span>Télécharger tous les bulletins ({candidates.length})</span>
             </button>
           )}
 
@@ -281,10 +286,10 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 {headerInfo.examBadge}
               </p>
               <p className="text-[12px] text-[#444651]">
-                Secrétariat Général du Centre 03
+                {selectedCandidate.examCenter}
               </p>
               <p className="font-mono text-[11px] text-[#0051d5] font-semibold">
-                BORDEREAU N° 2025-BL-D-{selectedCandidate.tableNumber}
+                BORDEREAU N° {selectedCandidate.matricule}
               </p>
             </div>
           </div>
@@ -350,7 +355,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   Genre / Série
                 </span>
                 <span className="text-[13px] text-[#131b2e] font-medium block mt-0.5">
-                  {selectedCandidate.gender === 'M' ? 'Masculin (M)' : 'Féminin (F)'} • Série D
+                  {selectedCandidate.gender === 'M' ? 'Masculin (M)' : 'Féminin (F)'} • {selectedCandidate.serie}
                 </span>
               </div>
 
@@ -386,7 +391,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   <th className="py-2 px-2 font-semibold text-right">Total Coef</th>
                   <th className="py-2 px-2 font-semibold text-right">Moy. Promo</th>
                   <th className="py-2 px-2 font-semibold text-center">Rang</th>
-                  <th className="py-2 px-3 font-semibold text-left">Appréciation du professeur &amp; Visa</th>
+                  <th className="py-2 px-3 font-semibold text-left">Appréciation du professeur</th>
                 </tr>
               </thead>
               <tbody className="divide-y-0 text-[#131b2e]">
@@ -395,12 +400,9 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   const scoreTotal = (gradeData.score * subj.coef).toFixed(2);
                   const promoInfo = PROMO_AVERAGES[subj.id] || { avg: 10.0, rankRatio: '138' };
                   const isEven = idx % 2 === 0;
-
-                  // Compute dynamic subject rank for this candidate
-                  const subjectRank = 
-                    selectedCandidate.tableNumber === 142 
-                      ? (subj.id === 'math' ? '3e' : subj.id === 'pc' ? '5e' : subj.id === 'svt' ? '8e' : subj.id === 'fr' ? '14e' : subj.id === 'philo' ? '18e' : subj.id === 'ang' ? '4e' : subj.id === 'hg' ? '10e' : '2e')
-                      : `${Math.max(1, Math.min(138, Math.round(140 - gradeData.score * 7)))}e`;
+                  const subjectRankValue = computeSubjectRank(selectedCandidate.id, subj.id, candidates);
+                  const subjectRank = subjectRankValue === null ? '—' : formatSubjectRank(subjectRankValue);
+                  const professorAppreciation = appreciationFromAverage(computedStats.average);
 
                   return (
                     <tr
@@ -426,10 +428,10 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                         {promoInfo.avg.toFixed(2)}
                       </td>
                       <td className="py-1.5 px-2 font-mono text-[11px] text-center font-semibold text-[#0051d5]">
-                        {subjectRank} / {promoInfo.rankRatio}
+                        {subjectRank}
                       </td>
                       <td className="py-1.5 px-3 text-[12px] italic text-[#131b2e] leading-tight">
-                        {gradeData.appreciation}
+                        {professorAppreciation}
                       </td>
                     </tr>
                   );

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SchoolAccount } from '../types';
 import { getRegisteredSchools, createSchoolAccount } from '../data/schoolsData';
+import { isPlausibleEmail } from '../utils/safeUrl';
 
 interface AuthViewProps {
   currentSchool: SchoolAccount;
@@ -51,11 +52,15 @@ export const AuthView: React.FC<AuthViewProps> = ({
       setRegError('Le nom du Proviseur ou Chef d\'établissement est obligatoire.');
       return;
     }
-    if (!formData.email.trim()) {
-      setRegError('L\'adresse email officielle est requise.');
+    if (!isPlausibleEmail(formData.email)) {
+      setRegError('Indiquez une adresse email valide.');
       return;
     }
-    if (formData.password && formData.password !== formData.confirmPassword) {
+    if (formData.password.length < 6) {
+      setRegError('Le mot de passe doit contenir au moins 6 caractères.');
+      return;
+    }
+    if (formData.password !== formData.confirmPassword) {
       setRegError('Les deux mots de passe ne correspondent pas.');
       return;
     }
@@ -70,7 +75,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         principalName: formData.principalName.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim(),
-        password: formData.password || 'password123',
+        password: formData.password,
         initialWithSampleStudents: formData.initialWithSampleStudents,
       });
 
@@ -85,13 +90,23 @@ export const AuthView: React.FC<AuthViewProps> = ({
     e.preventDefault();
     setLoginError('');
 
+    const email = loginEmail.trim().toLowerCase();
+    if (!email || !loginPassword) {
+      setLoginError('Email et mot de passe sont obligatoires.');
+      return;
+    }
+
     const found = schools.find(
-      s => s.email.toLowerCase() === loginEmail.toLowerCase().trim() ||
-           s.name.toLowerCase().includes(loginEmail.toLowerCase().trim())
+      (s) => s.email.toLowerCase() === email || s.name.toLowerCase() === email
     );
 
     if (!found) {
-      setLoginError('Aucun établissement trouvé avec cet email ou ce nom.');
+      setLoginError('Aucun établissement trouvé avec cet email ou ce nom exact.');
+      return;
+    }
+
+    if ((found.password || '') !== loginPassword) {
+      setLoginError('Mot de passe incorrect.');
       return;
     }
 

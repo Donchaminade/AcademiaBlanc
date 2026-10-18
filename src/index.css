@@ -106,4 +106,50 @@
     break-after: page !important;
     page-break-after: always !important;
   }
+
+  #bulletinSheet,
+  .bulletin-sheet {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+.emargement-sheet {
+  display: none;
+}
+
+@media print {
+  body[data-print-mode='all-bulletins'] .app-chrome {
+    display: none !important;
+  }
+
+  body[data-print-mode='all-bulletins'] .batch-print-overlay {
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+  }
+
+  body[data-print-mode='emargement'] .students-ui,
+  body[data-print-mode='emargement'] aside,
+  body[data-print-mode='emargement'] .no-print {
+    display: none !important;
+  }
+
+  body[data-print-mode='emargement'] .emargement-sheet {
+    display: block !important;
+  }
+
+  body[data-print-mode='emargement'] .pl-80,
+  body[data-print-mode='archives'] .pl-80,
+  body[data-print-mode='registre'] .pl-80 {
+    padding-left: 0 !important;
+  }
+
+  body[data-print-mode='archives'] .settings-chrome {
+    display: none !important;
+  }
 }

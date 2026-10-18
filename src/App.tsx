@@ -20,6 +20,7 @@ import {
   saveSchoolData,
 } from './data/schoolsData';
 import { Candidate, Subject, ViewMode, AppSettings, SchoolAccount } from './types';
+import { printDocument } from './utils/printDocument';
 
 export default function App() {
   // Establishment Multi-Tenant State
@@ -52,7 +53,20 @@ export default function App() {
   const [selectedCenter, setSelectedCenter] = useState<string>(() => {
     return `${currentSchool?.name || 'Lycée Moderne de Tokoin'} (Centre 01)`;
   });
-  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('academiablanc_offline') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [juryLocked, setJuryLocked] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(`academiablanc_jury_lock_${getCurrentSchoolId()}`) === '1';
+    } catch {
+      return false;
+    }
+  });
 
   // Modals state
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
@@ -96,6 +110,11 @@ export default function App() {
     setSettings(schoolData.settings);
     setSelectedCandidateId(schoolData.candidates[0]?.id || '');
     setSelectedCenter(`${target.name} (Centre d'Examen)`);
+    try {
+      setJuryLocked(localStorage.getItem(`academiablanc_jury_lock_${schoolId}`) === '1');
+    } catch {
+      setJuryLocked(false);
+    }
 
     setIsAuthModalOpen(false);
     if (currentView === 'auth') {
@@ -260,12 +279,34 @@ export default function App() {
     showToast(`Tables générées automatiquement de ${base} à ${base + candidates.length - 1} selon l'ordre alphabétique des noms (A → Z) !`);
   };
 
-  // PDF download simulation
   const handleDownloadPdf = () => {
-    showToast('Génération du PDF vectoriel A4 (Haute Résolution 300 DPI) en cours...');
-    setTimeout(() => {
-      window.print();
-    }, 600);
+    if (!selectedCandidate) return;
+    printDocument(
+      'single-bulletin',
+      `Bulletin_${selectedCandidate.tableNumber}_${selectedCandidate.fullName}`,
+    );
+  };
+
+  const handleToggleOffline = () => {
+    const next = !isOfflineMode;
+    setIsOfflineMode(next);
+    try {
+      localStorage.setItem('academiablanc_offline', next ? '1' : '0');
+    } catch {
+      // quota ignore
+    }
+    showToast(next ? 'Mode hors-ligne actif : les envois externes sont suspendus.' : 'Connexion rétablie.');
+  };
+
+  const handleToggleJuryLock = () => {
+    const next = !juryLocked;
+    setJuryLocked(next);
+    try {
+      localStorage.setItem(`academiablanc_jury_lock_${currentSchoolId}`, next ? '1' : '0');
+    } catch {
+      // quota ignore
+    }
+    showToast(next ? 'Procès-verbal verrouillé : la saisie des notes est bloquée.' : 'Procès-verbal déverrouillé : la saisie est de nouveau possible.');
   };
 
   // Keyboard navigation
@@ -282,7 +323,20 @@ export default function App() {
 
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault();
-        window.print();
+        if (isBatchPrintModalOpen) {
+          printDocument('all-bulletins', `Bulletins_${settings.institutionName}`);
+        } else if (currentView === 'bulletin' && selectedCandidate) {
+          printDocument(
+            'single-bulletin',
+            `Bulletin_${selectedCandidate.tableNumber}_${selectedCandidate.fullName}`,
+          );
+        } else if (currentView === 'records') {
+          printDocument('registre', `PV_${selectedSession}`);
+        } else if (currentView === 'students') {
+          printDocument('emargement', `Emargement_${selectedSession}`);
+        } else {
+          printDocument('page', document.title);
+        }
       }
 
       if (currentView === 'bulletin') {
@@ -297,7 +351,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [candidates, selectedCandidateId, currentView]);
+  }, [candidates, selectedCandidateId, currentView, isBatchPrintModalOpen, selectedCandidate, settings.institutionName, selectedSession]);
 
   // If in auth view mode full-screen
   if (currentView === 'auth') {
@@ -322,10 +376,7 @@ export default function App() {
         selectedCenter={selectedCenter}
         onCenterChange={setSelectedCenter}
         isOfflineMode={isOfflineMode}
-        onToggleOffline={() => {
-          setIsOfflineMode(!isOfflineMode);
-          showToast(!isOfflineMode ? 'Passage en mode hors-ligne simulé.' : 'Connexion rétablie.');
-        }}
+        onToggleOffline={handleToggleOffline}
         settings={settings}
         candidatesCount={candidates.length}
         onOpenBatchPrint={() => setIsBatchPrintModalOpen(true)}
@@ -334,7 +385,7 @@ export default function App() {
       />
 
       {/* Main Content Area - Navigated strictly via Sidebar */}
-      <div className="pl-80 w-full min-h-screen flex flex-col">
+      <div className="app-chrome pl-80 w-full min-h-screen flex flex-col">
         {/* View Routing */}
         <main className="relative bg-[#faf8ff] flex-1">
           {currentView === 'bulletin' && selectedCandidate && (
@@ -349,6 +400,7 @@ export default function App() {
               onDownloadPdf={handleDownloadPdf}
               onPrintAll={() => setIsBatchPrintModalOpen(true)}
               settings={settings}
+              selectedSession={selectedSession}
             />
           )}
 
@@ -402,6 +454,7 @@ export default function App() {
                 setCurrentView('bulletin');
               }}
               onAddNewCandidate={handleAddNewCandidate}
+              juryLocked={juryLocked}
             />
           )}
 
@@ -416,6 +469,8 @@ export default function App() {
               }}
               selectedSession={selectedSession}
               selectedCenter={selectedCenter}
+              juryLocked={juryLocked}
+              onToggleJuryLock={handleToggleJuryLock}
             />
           )}
 
@@ -448,6 +503,7 @@ export default function App() {
           stats={computedStats}
           onClose={() => setIsSmsModalOpen(false)}
           onSent={(msg) => showToast(msg)}
+          isOffline={isOfflineMode}
         />
       )}
 
@@ -471,6 +527,7 @@ export default function App() {
           subjects={subjects}
           allStats={allStats}
           settings={settings}
+          selectedSession={selectedSession}
           onClose={() => setIsBatchPrintModalOpen(false)}
         />
       )}

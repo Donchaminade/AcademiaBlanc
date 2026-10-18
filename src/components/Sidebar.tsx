@@ -56,7 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             onClick={onToggleOffline}
             className="mt-3 w-full inline-flex items-center justify-between px-2.5 py-1.5 rounded bg-[#eaedff] text-[#00236f] text-[11px] font-semibold tracking-wide hover:bg-[#dce1ff] transition-colors"
-            title="Cliquer pour basculer la simulation de connexion"
+            title="Basculer entre le mode en ligne et le mode hors-ligne local"
           >
             <span className="flex items-center gap-2">
               <span className="material-symbols-outlined text-sm text-[#0051d5] animate-pulse">
@@ -209,7 +209,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <span className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-lg text-[#0051d5]">print_connect</span>
-                <span>Impression Groupée (1 Clic)</span>
+                <span>Télécharger tous les bulletins</span>
               </span>
               <span className="font-mono text-[10px] bg-[#0051d5] text-white px-1.5 py-0.5 rounded">
                 A4
