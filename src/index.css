@@ -227,6 +227,16 @@
 .bulletin-grades .col-rank { width: 8%; }
 .bulletin-grades .col-appreciation { width: 20%; }
 
+/* Le total pondéré reste sous « Total Coef » (11 %) alors que la cellule
+   couvre aussi Rang (8 %) et Appréciation (20 %), soit 39 % du tableau. */
+.bulletin-grades tfoot .bulletin-weighted-total {
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% * 11 / 39);
+  padding-right: 0.5rem;
+  text-align: right;
+}
+
 .bulletin-grades th,
 .bulletin-grades td {
   overflow-wrap: break-word;
