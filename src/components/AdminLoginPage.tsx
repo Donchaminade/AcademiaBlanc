@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ApiError, isPlatformAccount, loginPlateforme, setSession } from '../api/client';
+import { ApiError, isPlatformAccount, isUnavailable, loginPlateforme, setSession } from '../api/client';
 import type { AuthSession } from '../api/client';
 import { isPlausibleEmail } from '../utils/safeUrl';
 import { ROUTE_PATHS } from '../utils/router';
@@ -25,16 +25,13 @@ const DELAI_NOTE_REVEIL_MS = 3000;
  * serveur est repris tel quel : il désigne une configuration manquante, pas un mauvais mot de passe.
  */
 export function messageErreurConnexionAdmin(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 401) {
-      return /non initialis/i.test(err.message) ? err.message : MESSAGE_IDENTIFIANTS_ADMIN;
-    }
-    if (err.status === 403) return err.message || MESSAGE_COMPTE_NON_PLATEFORME;
-    if (err.status === 0 || (err.status >= 502 && err.status <= 504)) return MESSAGE_SERVEUR_INJOIGNABLE_ADMIN;
-    return err.message || MESSAGE_SERVEUR_INJOIGNABLE_ADMIN;
+  // Aucune réponse (réseau coupé, délai dépassé) ou passerelle 502/503/504 : serveur endormi ou arrêté.
+  if (isUnavailable(err) || !(err instanceof ApiError)) return MESSAGE_SERVEUR_INJOIGNABLE_ADMIN;
+  if (err.status === 401) {
+    return /non initialis/i.test(err.message) ? err.message : MESSAGE_IDENTIFIANTS_ADMIN;
   }
-  // Pas de réponse HTTP (réseau coupé, serveur arrêté, délai dépassé).
-  return MESSAGE_SERVEUR_INJOIGNABLE_ADMIN;
+  if (err.status === 403) return err.message || MESSAGE_COMPTE_NON_PLATEFORME;
+  return err.message || MESSAGE_SERVEUR_INJOIGNABLE_ADMIN;
 }
 
 /**
