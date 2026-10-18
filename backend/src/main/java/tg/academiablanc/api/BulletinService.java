@@ -68,7 +68,8 @@ public class BulletinService {
     if (roster.isEmpty()) {
       roster = eleves.findByEtablissementIdOrderByNomCompletAsc(user.etablissementId());
     }
-    List<Matiere> subjects = matieres.findByEtablissementIdOrderByNomAsc(user.etablissementId());
+    List<Matiere> subjects = new ArrayList<>(matieres.findByEtablissementIdOrderByNomAsc(user.etablissementId()));
+    subjects.sort(ReferentielMatieres.ORDRE_BULLETIN);
     List<Note> sessionNotes = notes.findByEtablissementIdAndSessionId(user.etablissementId(), sessionId);
     List<Coefficient> coefs = coefficients.findByEtablissementId(user.etablissementId());
 

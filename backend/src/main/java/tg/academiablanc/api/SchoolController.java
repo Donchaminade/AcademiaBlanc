@@ -62,6 +62,7 @@ public class SchoolController {
   private final NoteRepository notes;
   private final BulletinService bulletins;
   private final EleveImportService importEleves;
+  private final ReferentielMatieresService referentielMatieres;
 
   public SchoolController(
       AnneeScolaireRepository annees,
@@ -75,7 +76,8 @@ public class SchoolController {
       EleveRepository eleves,
       NoteRepository notes,
       BulletinService bulletins,
-      EleveImportService importEleves
+      EleveImportService importEleves,
+      ReferentielMatieresService referentielMatieres
   ) {
     this.annees = annees;
     this.centres = centres;
@@ -89,13 +91,14 @@ public class SchoolController {
     this.notes = notes;
     this.bulletins = bulletins;
     this.importEleves = importEleves;
+    this.referentielMatieres = referentielMatieres;
   }
 
   public record AnneeRequest(@NotBlank @Size(max = 40) String libelle, LocalDate dateDebut, LocalDate dateFin, boolean courante) {}
   public record CentreRequest(@NotBlank @Size(max = 180) String nom, @Size(max = 120) String ville, @NotBlank @Size(max = 40) String code) {}
   public record SessionRequest(@NotNull Long anneeScolaireId, @NotNull Long centreId, @NotBlank @Size(max = 180) String nom,
                                @NotBlank @Size(max = 120) String typeExamen, @Size(max = 80) String serie, @NotBlank @Size(max = 40) String statut) {}
-  public record MatiereRequest(@NotBlank @Size(max = 180) String nom, @NotBlank @Size(max = 40) String code) {}
+  public record MatiereRequest(@NotBlank @Size(max = 180) String nom, @NotBlank @Size(max = 40) String code, @Size(max = 10) String groupeCode) {}
   public record CoefficientRequest(@NotNull Long matiereId, Long classeId, @Size(max = 80) String serie, @NotNull @DecimalMin("0.5") @DecimalMax("20") BigDecimal valeur) {}
   public record ProfesseurRequest(@NotBlank @Size(max = 180) String nom, @Size(max = 180) String email) {}
   public record ClasseRequest(@NotNull Long anneeScolaireId, @NotBlank @Size(max = 120) String nom, @NotBlank @Size(max = 80) String niveau, @Size(max = 80) String serie, Long titulaireId) {}
@@ -234,7 +237,15 @@ public class SchoolController {
     matiere.setEtablissementId(Tenant.current().etablissementId());
     matiere.setNom(request.nom().trim());
     matiere.setCode(request.code().trim().toLowerCase());
+    matiere.setGroupeCode(ReferentielMatieres.codeGroupe(request.groupeCode()));
+    matiere.setGroupeLibelle(ReferentielMatieres.libelleGroupe(request.groupeCode()));
     return matieres.save(matiere);
+  }
+
+  /** Charge les matières principales (FR, ANG, HG, ECM, PC, MAT, SVT) et leurs coefficients par défaut pour chaque classe. */
+  @PostMapping("/matieres/referentiel")
+  public ReferentielMatieresService.Resultat chargerReferentielMatieres(@RequestBody(required = false) ReferentielMatieresService.Demande request) {
+    return referentielMatieres.charger(request);
   }
 
   @GetMapping("/matieres/{id}")
@@ -248,6 +259,8 @@ public class SchoolController {
     Matiere matiere = lire(matieres, id);
     matiere.setNom(request.nom().trim());
     matiere.setCode(request.code().trim().toLowerCase());
+    matiere.setGroupeCode(ReferentielMatieres.codeGroupe(request.groupeCode()));
+    matiere.setGroupeLibelle(ReferentielMatieres.libelleGroupe(request.groupeCode()));
     return matieres.save(matiere);
   }
 
