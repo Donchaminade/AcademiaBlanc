@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiSend, getSession, getToken } from '../api/client';
-import { confirmDelete, showError, toastError, toastSuccess } from '../utils/alerts';
+import { confirmAction, confirmDelete, showError, showSuccess, toastError, toastSuccess } from '../utils/alerts';
 import { ImportElevesPanel } from './ImportElevesPanel';
 import { FamilleBadge, SerieForm, SeriesPanel } from './SeriesPanel';
 import { Serie, grouperSeries } from '../api/series';
@@ -9,7 +9,9 @@ import { AdminSection } from '../types';
 interface Annee { id: number; libelle: string; courante: boolean; dateDebut?: string; dateFin?: string; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
 interface Session { id: number; nom: string; typeExamen: string; statut: string; serie?: string; anneeScolaireId: number; centreId: number; }
-interface Matiere { id: number; nom: string; code: string; }
+interface Matiere { id: number; nom: string; code: string; groupeCode?: string | null; groupeLibelle?: string | null; }
+/** Compte rendu du chargement du référentiel des matières principales (POST /api/matieres/referentiel). */
+interface ReferentielResultat { matieresCreees: number; matieresExistantes: number; coefficientsCrees: number; coefficientsExistants: number; }
 interface Professeur { id: number; nom: string; email?: string; }
 interface Classe { id: number; nom: string; niveau: string; serie?: string; titulaireId?: number; anneeScolaireId: number; }
 interface Affectation { id: number; professeurId: number; matiereId: number; classeId: number; }
@@ -61,10 +63,19 @@ const ghost = 'inline-flex items-center justify-center gap-2 w-full sm:w-auto px
 
 const ANNEE_COURANTE_INDELEBILE = 'L’année courante ne peut pas être supprimée. Définissez d’abord une autre année comme courante.';
 
+/** Groupes de matières (UE) proposés dans le formulaire ; miroir de ReferentielMatieres.GROUPES côté API. */
+const GROUPES_MATIERES: { code: string; libelle: string }[] = [
+  { code: 'LT', libelle: 'Enseignements Littératures' },
+  { code: 'SC', libelle: 'Enseignements Scientifiques' },
+];
+
+/** Matières principales chargées en un clic ; miroir de ReferentielMatieres.MATIERES côté API (affichage seulement). */
+const MATIERES_PRINCIPALES = 'Français, Anglais, Histoire-Géographie, ECM, Sciences Physiques, Mathématiques, SVT';
+
 const EMPTY = {
   centre: { nom: '', code: '', ville: 'Lomé' },
   session: { nom: '', typeExamen: 'BACCALAURÉAT II', statut: 'OUVERTE', serie: 'Série D', anneeScolaireId: '', centreId: '' },
-  matiere: { nom: '', code: '' },
+  matiere: { nom: '', code: '', groupeCode: '' },
   prof: { nom: '', email: '' },
   classe: { nom: '', cycle: 'LYCEE' as Cycle, niveau: 'Tle', serie: '', titulaireId: '', anneeScolaireId: '' },
   affectation: { professeurId: '', matiereId: '', classeId: '' },
@@ -287,6 +298,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const [sessionEdit, setSessionEdit] = useState<Session | null>(null);
   const [matiere, setMatiere] = useState(EMPTY.matiere);
   const [matiereEdit, setMatiereEdit] = useState<Matiere | null>(null);
+  const [chargementReferentiel, setChargementReferentiel] = useState(false);
   const [prof, setProf] = useState(EMPTY.prof);
   const [profEdit, setProfEdit] = useState<Professeur | null>(null);
   const [classe, setClasse] = useState(EMPTY.classe);
@@ -408,6 +420,38 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
       await load();
     } catch (err) {
       await showError('Actualisation impossible', err instanceof Error ? err.message : 'Les données ont été enregistrées mais la liste n’a pas pu être rechargée.');
+    }
+  };
+
+  /**
+   * Charge les 7 matières principales et leurs coefficients par défaut (selon le niveau et la série de chaque classe).
+   * L’API ne crée que ce qui manque : relancer le chargement n’écrase aucun coefficient déjà saisi.
+   */
+  const chargerReferentiel = async () => {
+    const ok = await confirmAction({
+      title: 'Charger les matières principales ?',
+      text: classes.length
+        ? `${MATIERES_PRINCIPALES}. Un coefficient par défaut sera proposé pour chacune des ${classes.length} classe${classes.length > 1 ? 's' : ''} (collège, lycée A, C ou D). Les matières et coefficients déjà présents sont conservés.`
+        : `${MATIERES_PRINCIPALES}. Aucune classe n’est encore créée : seules les matières seront ajoutées ; relancez le chargement après avoir créé vos classes pour obtenir les coefficients.`,
+      confirmText: 'Charger',
+      icon: 'info',
+    });
+    if (!ok) return;
+    setChargementReferentiel(true);
+    try {
+      const r = await apiSend<ReferentielResultat>('/api/matieres/referentiel', 'POST', { appliquerCoefficientsParDefaut: true });
+      reset.matiere();
+      reset.coefficient();
+      onDataChanged?.();
+      await showSuccess('Référentiel chargé',
+        `${r.matieresCreees} matière${r.matieresCreees > 1 ? 's' : ''} créée${r.matieresCreees > 1 ? 's' : ''} (${r.matieresExistantes} déjà présente${r.matieresExistantes > 1 ? 's' : ''}), `
+        + `${r.coefficientsCrees} coefficient${r.coefficientsCrees > 1 ? 's' : ''} ajouté${r.coefficientsCrees > 1 ? 's' : ''} (${r.coefficientsExistants} conservé${r.coefficientsExistants > 1 ? 's' : ''}). `
+        + 'Vous pouvez ajuster chaque coefficient dans la section Coefficients.');
+      await load();
+    } catch (err) {
+      await showError('Chargement impossible', err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
+    } finally {
+      setChargementReferentiel(false);
     }
   };
 
@@ -660,6 +704,24 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
       {group === 'matieres' && (
         <div className="space-y-5">
           <SectionCard id="matieres" icon="menu_book" title="Matières" description="Catalogue des disciplines évaluées, avec un code court pour les bulletins." count={matieres.length}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded border border-dashed border-[#c7d2fe] bg-[#f8f9ff] px-4 py-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <span className="shrink-0 w-9 h-9 rounded bg-[#eaedff] text-[#0051d5] flex items-center justify-center">
+                  <span className="material-symbols-outlined text-xl">auto_awesome</span>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-[#00236f]">Référentiel des matières principales</p>
+                  <p className="text-[12px] text-[#444651] mt-0.5">
+                    {MATIERES_PRINCIPALES}, avec leur groupe (Littératures / Scientifiques) et un coefficient par défaut pour chaque classe selon son niveau et sa série.
+                    Les éléments déjà présents sont conservés ; tout reste modifiable ensuite.
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={() => void chargerReferentiel()} disabled={chargementReferentiel} className={`${primary} shrink-0 disabled:opacity-60 disabled:cursor-not-allowed`}>
+                <span className={`material-symbols-outlined text-base ${chargementReferentiel ? 'animate-spin' : ''}`}>{chargementReferentiel ? 'progress_activity' : 'download'}</span>
+                {chargementReferentiel ? 'Chargement…' : 'Charger le référentiel'}
+              </button>
+            </div>
             <DataTable<Matiere>
               rows={matieres}
               editingId={matiereEdit?.id}
@@ -668,26 +730,36 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               columns={[
                 { header: 'Code', render: (r) => <Badge tone="blue">{r.code}</Badge>, className: 'w-24' },
                 { header: 'Matière', render: (r) => <span className="font-semibold">{r.nom}</span> },
+                { header: 'Groupe', render: (r) => r.groupeCode
+                  ? <Badge tone={r.groupeCode === 'SC' ? 'green' : 'grey'}>{r.groupeLibelle || r.groupeCode}</Badge>
+                  : <span className="text-[#757682]">—</span> },
                 { header: 'Coefficients', render: (r) => {
                   const n = coefficients.filter((c) => c.matiereId === r.id).length;
                   return n ? `${n} défini${n > 1 ? 's' : ''}` : <span className="text-[#757682]">—</span>;
                 } },
               ]}
-              onEdit={(r) => void open<Matiere>(`/api/matieres/${r.id}`, (detail) => { setMatiereEdit(detail); setMatiere({ nom: detail.nom, code: detail.code }); })}
+              onEdit={(r) => void open<Matiere>(`/api/matieres/${r.id}`, (detail) => { setMatiereEdit(detail); setMatiere({ nom: detail.nom, code: detail.code, groupeCode: detail.groupeCode || '' }); })}
               onDelete={(r) => void remove(`/api/matieres/${r.id}`, r.nom, reset.matiere)}
             />
             {matiereEdit && <EditBanner id={matiereEdit.id} summary={<>code {matiereEdit.code} · {matiereEdit.nom}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
+              const body = { nom: matiere.nom, code: matiere.code, groupeCode: matiere.groupeCode || null };
               void run(() => matiereEdit
-                ? apiSend(`/api/matieres/${matiereEdit.id}`, 'PUT', matiere).then(() => undefined)
-                : apiSend('/api/matieres', 'POST', matiere).then(() => undefined), matiereEdit ? 'Matière mise à jour.' : 'Matière créée.', reset.matiere);
+                ? apiSend(`/api/matieres/${matiereEdit.id}`, 'PUT', body).then(() => undefined)
+                : apiSend('/api/matieres', 'POST', body).then(() => undefined), matiereEdit ? 'Matière mise à jour.' : 'Matière créée.', reset.matiere);
             }}>
               <Field label="Code">
                 <input required placeholder="MATH" value={matiere.code} onChange={(e) => setMatiere({ ...matiere, code: e.target.value })} className={field} />
               </Field>
-              <Field label="Nom de la matière" className="lg:col-span-3">
+              <Field label="Nom de la matière" className="lg:col-span-2">
                 <input required placeholder="Mathématiques" value={matiere.nom} onChange={(e) => setMatiere({ ...matiere, nom: e.target.value })} className={field} />
+              </Field>
+              <Field label="Groupe (facultatif)">
+                <select value={matiere.groupeCode} onChange={(e) => setMatiere({ ...matiere, groupeCode: e.target.value })} className={field}>
+                  <option value="">Hors groupe</option>
+                  {GROUPES_MATIERES.map((g) => <option key={g.code} value={g.code}>{g.libelle}</option>)}
+                </select>
               </Field>
               <FormActions editing={!!matiereEdit} createLabel="Créer la matière" onCancel={reset.matiere} />
             </form>

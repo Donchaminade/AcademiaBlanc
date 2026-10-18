@@ -28,4 +28,11 @@ public class Matiere implements TenantOwned {
 
   @Column(nullable = false)
   private String code;
+
+  /** Code du groupe de matières (UE) : LT ou SC ; nul pour une matière hors groupe. */
+  @Column(name = "groupe_code")
+  private String groupeCode;
+
+  @Column(name = "groupe_libelle")
+  private String groupeLibelle;
 }
