@@ -56,6 +56,14 @@ const field = 'w-full bg-[#f2f3ff] text-[13px] py-2 px-3 rounded border border-[
 const primary = 'inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 rounded bg-[#00236f] text-white text-[12px] font-bold hover:bg-[#1e3a8a] transition-colors shadow-xs';
 const ghost = 'inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#e2e7ff] transition-colors';
 
+/** Accepte la virgule décimale française (« 12,5 ») comme le point. */
+const parseDecimal = (value: string) => Number(value.replace(',', '.'));
+
+/** Vide le formulaire seulement si la fiche supprimée est celle ouverte. */
+const resetIfSame = (editingId: number | null | undefined, deletedId: number, resetForm: () => void) => () => {
+  if (editingId === deletedId) resetForm();
+};
+
 const EMPTY = {
   centre: { nom: '', code: '', ville: 'Lomé' },
   session: { nom: '', typeExamen: 'BACCALAURÉAT II', statut: 'OUVERTE', serie: 'Série D', anneeScolaireId: '', centreId: '' },
@@ -342,9 +350,9 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const remove = async (path: string, label: string, clear: () => void) => {
     const ok = await confirmDelete(label, 'La fiche est retirée si aucun élément lié ne la retient.');
     if (!ok) return;
-    clear();
     try {
       await apiDelete(path);
+      clear();
       await load();
       onDataChanged?.();
       toastSuccess(`« ${label} » supprimé.`);
@@ -445,7 +453,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 { header: 'Statut', render: (r) => r.courante ? <Badge tone="green">Courante</Badge> : <Badge>Archivée</Badge> },
               ]}
               onEdit={(r) => void open<Annee>(`/api/annees-scolaires/${r.id}`, (detail) => { setAnneeEdit(detail); setAnnee(detail.libelle); })}
-              onDelete={(r) => void remove(`/api/annees-scolaires/${r.id}`, r.libelle, reset.annee)}
+              onDelete={(r) => void remove(`/api/annees-scolaires/${r.id}`, r.libelle, resetIfSame(anneeEdit?.id, r.id, reset.annee))}
             />
             {anneeEdit && <EditBanner id={anneeEdit.id} summary={<>{anneeEdit.libelle} · courante : {anneeEdit.courante ? 'oui' : 'non'}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
@@ -474,7 +482,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 { header: 'Ville', render: (r) => r.ville || <span className="text-[#757682]">—</span> },
               ]}
               onEdit={(r) => void open<Centre>(`/api/centres/${r.id}`, (detail) => { setCentreEdit(detail); setCentre({ nom: detail.nom, code: detail.code, ville: detail.ville || '' }); })}
-              onDelete={(r) => void remove(`/api/centres/${r.id}`, r.nom, reset.centre)}
+              onDelete={(r) => void remove(`/api/centres/${r.id}`, r.nom, resetIfSame(centreEdit?.id, r.id, reset.centre))}
             />
             {centreEdit && <EditBanner id={centreEdit.id} summary={<>{centreEdit.code} · {centreEdit.nom} · {centreEdit.ville || 'ville non renseignée'}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
@@ -513,7 +521,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 setSessionEdit(detail);
                 setSession({ nom: detail.nom, typeExamen: detail.typeExamen, statut: detail.statut, serie: detail.serie || '', anneeScolaireId: String(detail.anneeScolaireId), centreId: String(detail.centreId) });
               })}
-              onDelete={(r) => void remove(`/api/sessions/${r.id}`, r.nom, reset.session)}
+              onDelete={(r) => void remove(`/api/sessions/${r.id}`, r.nom, resetIfSame(sessionEdit?.id, r.id, reset.session))}
             />
             {sessionEdit && <EditBanner id={sessionEdit.id} summary={<>{sessionEdit.typeExamen} · année {nom(annees, sessionEdit.anneeScolaireId)} · centre {nom(centres, sessionEdit.centreId)}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
@@ -565,7 +573,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 } },
               ]}
               onEdit={(r) => void open<Matiere>(`/api/matieres/${r.id}`, (detail) => { setMatiereEdit(detail); setMatiere({ nom: detail.nom, code: detail.code }); })}
-              onDelete={(r) => void remove(`/api/matieres/${r.id}`, r.nom, reset.matiere)}
+              onDelete={(r) => void remove(`/api/matieres/${r.id}`, r.nom, resetIfSame(matiereEdit?.id, r.id, reset.matiere))}
             />
             {matiereEdit && <EditBanner id={matiereEdit.id} summary={<>code {matiereEdit.code} · {matiereEdit.nom}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
@@ -600,12 +608,12 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 setCoefficientEdit(detail);
                 setCoefficient({ matiereId: String(detail.matiereId), classeId: detail.classeId ? String(detail.classeId) : '', serie: detail.serie || '', valeur: String(detail.valeur) });
               })}
-              onDelete={(r) => void remove(`/api/coefficients/${r.id}`, `coefficient ${r.valeur} — ${nom(matieres, r.matiereId)}`, reset.coefficient)}
+              onDelete={(r) => void remove(`/api/coefficients/${r.id}`, `coefficient ${r.valeur} — ${nom(matieres, r.matiereId)}`, resetIfSame(coefficientEdit?.id, r.id, reset.coefficient))}
             />
             {coefficientEdit && <EditBanner id={coefficientEdit.id} summary={<>valeur {coefficientEdit.valeur} · série {coefficientEdit.serie || '—'}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
-              const valeur = Number(coefficient.valeur);
+              const valeur = parseDecimal(coefficient.valeur);
               if (!Number.isFinite(valeur) || valeur < 0.5 || valeur > 20) { toastError('Le coefficient doit être compris entre 0,5 et 20.'); return; }
               const body = { matiereId: Number(coefficient.matiereId), classeId: coefficient.classeId ? Number(coefficient.classeId) : null, serie: coefficient.serie, valeur };
               void run(() => coefficientEdit
@@ -651,7 +659,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 } },
               ]}
               onEdit={(r) => void open<Professeur>(`/api/professeurs/${r.id}`, (detail) => { setProfEdit(detail); setProf({ nom: detail.nom, email: detail.email || '' }); })}
-              onDelete={(r) => void remove(`/api/professeurs/${r.id}`, r.nom, reset.prof)}
+              onDelete={(r) => void remove(`/api/professeurs/${r.id}`, r.nom, resetIfSame(profEdit?.id, r.id, reset.prof))}
             />
             {profEdit && <EditBanner id={profEdit.id} summary={<>{profEdit.nom} · {profEdit.email || 'email non renseigné'}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
@@ -686,7 +694,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 setClasseEdit(detail);
                 setClasse({ nom: detail.nom, niveau: detail.niveau, serie: detail.serie || '', titulaireId: detail.titulaireId ? String(detail.titulaireId) : '', anneeScolaireId: String(detail.anneeScolaireId) });
               })}
-              onDelete={(r) => void remove(`/api/classes/${r.id}`, r.nom, reset.classe)}
+              onDelete={(r) => void remove(`/api/classes/${r.id}`, r.nom, resetIfSame(classeEdit?.id, r.id, reset.classe))}
             />
             {classeEdit && <EditBanner id={classeEdit.id} summary={<>{classeEdit.niveau} · {classeEdit.serie || 'série non renseignée'} · année {nom(annees, classeEdit.anneeScolaireId)}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
@@ -726,7 +734,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 setAffectationEdit(detail);
                 setAffectation({ professeurId: String(detail.professeurId), matiereId: String(detail.matiereId), classeId: String(detail.classeId) });
               })}
-              onDelete={(r) => void remove(`/api/affectations/${r.id}`, `${nom(profs, r.professeurId)} · ${nom(matieres, r.matiereId)} · ${nom(classes, r.classeId)}`, reset.affectation)}
+              onDelete={(r) => void remove(`/api/affectations/${r.id}`, `${nom(profs, r.professeurId)} · ${nom(matieres, r.matiereId)} · ${nom(classes, r.classeId)}`, resetIfSame(affectationEdit?.id, r.id, reset.affectation))}
             />
             {affectationEdit && <EditBanner id={affectationEdit.id} summary={<>{nom(profs, affectationEdit.professeurId)} · {nom(matieres, affectationEdit.matiereId)} · {nom(classes, affectationEdit.classeId)}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" onSubmit={(e) => {
@@ -780,7 +788,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               setEleveEdit(detail);
               setEleve({ nomComplet: detail.nomComplet, matricule: detail.matricule, genre: detail.genre, classeId: String(detail.classeId), sessionId: detail.sessionId ? String(detail.sessionId) : '', numeroTable: detail.numeroTable ? String(detail.numeroTable) : '' });
             })}
-            onDelete={(r) => void remove(`/api/eleves/${r.id}`, r.nomComplet, reset.eleve)}
+            onDelete={(r) => void remove(`/api/eleves/${r.id}`, r.nomComplet, resetIfSame(eleveEdit?.id, r.id, reset.eleve))}
           />
           {eleveEdit && <EditBanner id={eleveEdit.id} summary={<>{eleveEdit.nomComplet} · {eleveEdit.genre} · table {eleveEdit.numeroTable ?? '—'} · {eleveEdit.lieuNaissance || 'lieu non renseigné'}</>} />}
           <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3" onSubmit={(e) => {
@@ -866,12 +874,12 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               setNoteEdit(detail);
               setNote({ eleveId: String(detail.eleveId), matiereId: String(detail.matiereId), sessionId: String(detail.sessionId), valeur: detail.valeur == null ? '' : String(detail.valeur), absent: detail.absent });
             })}
-            onDelete={(r) => void remove(`/api/notes/${r.id}`, `note de ${nom(eleves, r.eleveId)} en ${nom(matieres, r.matiereId)}`, reset.note)}
+            onDelete={(r) => void remove(`/api/notes/${r.id}`, `note de ${nom(eleves, r.eleveId)} en ${nom(matieres, r.matiereId)}`, resetIfSame(noteEdit?.id, r.id, reset.note))}
           />
           {noteEdit && <EditBanner id={noteEdit.id} summary={<>{nom(eleves, noteEdit.eleveId)} · {nom(matieres, noteEdit.matiereId)} · {noteEdit.absent ? 'absent' : `${noteEdit.valeur}/20`}</>} />}
           <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" onSubmit={(e) => {
             e.preventDefault();
-            const valeur = note.absent ? null : Number(note.valeur);
+            const valeur = note.absent ? null : parseDecimal(note.valeur);
             if (!note.absent && (valeur == null || !Number.isFinite(valeur) || valeur < 0 || valeur > 20)) { toastError('La note doit être comprise entre 0 et 20, ou marquée absente.'); return; }
             const body = { eleveId: Number(note.eleveId), matiereId: Number(note.matiereId), sessionId: Number(note.sessionId), valeur, absent: note.absent };
             void run(() => noteEdit
