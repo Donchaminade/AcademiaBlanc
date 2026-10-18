@@ -122,7 +122,11 @@ export default function App() {
   };
 
   const applyWorkspace = async (sessionId?: number) => {
+    const token = getToken();
+    if (!token) return;
     const workspace = await loadSchoolWorkspace(sessionId);
+    // Déconnexion ou autre compte pendant le chargement : ne pas réécrire l'espace vidé.
+    if (getToken() !== token) return;
     const session = getSession();
     setUsingApi(true);
     setApiUser(session ? { name: session.nomUtilisateur || session.email, role: roleLabel(session.role) } : null);
@@ -543,7 +547,7 @@ export default function App() {
         usingApi={usingApi}
         apiUser={usingApi ? apiUser : null}
         onOpenAdmin={usingApi ? () => openAdmin() : undefined}
-        onLogout={usingApi ? handleLogout : undefined}
+        onLogout={getToken() ? handleLogout : undefined}
       />
 
       {/* Main Content Area - Navigated strictly via Sidebar */}
@@ -761,7 +765,7 @@ export default function App() {
               onSelectSchool={handleSelectSchool}
               onAccountCreated={handleAccountCreated}
               onApiReady={handleApiReady}
-              onLogout={usingApi ? handleLogout : undefined}
+              onLogout={getToken() ? handleLogout : undefined}
               onClose={() => setIsAuthModalOpen(false)}
             />
           </div>

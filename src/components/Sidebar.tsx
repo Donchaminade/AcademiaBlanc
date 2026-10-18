@@ -414,7 +414,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {apiUser && onLogout && (
+        {onLogout && (
           <button
             type="button"
             onClick={onLogout}
