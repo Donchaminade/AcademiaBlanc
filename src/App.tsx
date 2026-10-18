@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useMemo, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { BulletinView } from './components/BulletinView';
 import { DashboardView } from './components/DashboardView';
@@ -8,6 +8,7 @@ import { RecordsView } from './components/RecordsView';
 import { SettingsView } from './components/SettingsView';
 import { AdminParametres } from './components/AdminParametres';
 import { AuthView } from './components/AuthView';
+import { AuthPage } from './components/AuthPage';
 import { PlateformeView } from './components/PlateformeView';
 import { AllBulletinsPrintModal } from './components/AllBulletinsPrintModal';
 import { SignatureModal } from './components/SignatureModal';
@@ -29,6 +30,10 @@ import {
 } from './data/schoolsData';
 import { Candidate, Subject, ViewMode, AppSettings, SchoolAccount, AdminSection } from './types';
 import { printDocument } from './utils/printDocument';
+import { usePublicRoute } from './utils/router';
+
+// Site vitrine (GSAP, Three.js) chargé à la demande : l’application connectée n’embarque pas ces bibliothèques.
+const LandingPage = lazy(() => import('./components/landing/LandingPage'));
 
 export default function App() {
   // Establishment Multi-Tenant State
@@ -72,6 +77,8 @@ export default function App() {
   });
 
   const [accountRole, setAccountRole] = useState(() => getSession()?.role ?? '');
+  // Hors application : `/` (vitrine), `/connexion`, `/inscription`.
+  const [route, navigate] = usePublicRoute();
   const { can, adminAccess } = usePermissions();
   const [currentView, setCurrentView] = useState<ViewMode>(() => {
     if (isPlatformAccount()) return 'plateforme';
@@ -251,6 +258,7 @@ export default function App() {
     setIsSearchModalOpen(false);
     setIsBatchPrintModalOpen(false);
     setCurrentView('auth');
+    navigate('vitrine');
   };
 
   useEffect(() => {
@@ -267,6 +275,11 @@ export default function App() {
       })
       .catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
   }, []);
+
+  // Une fois dans l’application, `/connexion` et `/inscription` n’ont plus de sens : l’URL revient sur `/`.
+  useEffect(() => {
+    if (currentView !== 'auth' && route !== 'vitrine') navigate('vitrine', { replace: true });
+  }, [currentView, route, navigate]);
 
   // Switch active establishment
   const handleSelectSchool = (schoolId: string) => {
@@ -575,15 +588,28 @@ export default function App() {
   // Impression des bulletins : libre hors API, soumise à BULLETINS:IMPRIMER une fois connecté.
   const peutImprimer = !usingApi || can('BULLETINS', 'IMPRIMER');
 
-  // If in auth view mode full-screen
+  // Hors application : site vitrine, puis pages pleine écran de connexion / création de compte.
   if (currentView === 'auth') {
+    if (route === 'vitrine') {
+      return (
+        <Suspense fallback={<div className="min-h-screen bg-[#faf8ff]" aria-busy="true" />}>
+          <LandingPage onConnexion={() => navigate('connexion')} onInscription={() => navigate('inscription')} />
+        </Suspense>
+      );
+    }
     return (
-      <AuthView
+      <AuthPage
+        mode={route === 'connexion' ? 'login' : 'register'}
+        onModeChange={(mode) => navigate(mode === 'login' ? 'connexion' : 'inscription', { replace: true })}
+        onBack={() => navigate('vitrine')}
         onSelectSchool={handleSelectSchool}
         onAccountCreated={handleAccountCreated}
         onApiReady={handleApiReady}
-        onLogout={getToken() ? handleLogout : undefined}
-        onClose={() => setCurrentView('bulletin')}
+        // Après connexion sans compte local correspondant : entrée dans l’application.
+        onClose={() => {
+          if (getToken()) setCurrentView('bulletin');
+          else navigate('vitrine');
+        }}
       />
     );
   }

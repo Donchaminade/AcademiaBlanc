@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SchoolAccount } from '../types';
 import { getRegisteredSchools, createSchoolAccount } from '../data/schoolsData';
 import { PLATFORM_ROLE, getSession, getToken, login as apiLogin, setSession, signup as apiSignup } from '../api/client';
@@ -13,7 +13,15 @@ interface AuthViewProps {
   onLogout?: () => void;
   /** Rendu dans une modale : pas de fond plein écran ni de padding externe. */
   embedded?: boolean;
+  /** Onglet présélectionné ; un changement ultérieur de la prop bascule l’onglet (routes /connexion et /inscription). */
+  initialMode?: AuthMode;
+  /** Appelé quand l’utilisateur change d’onglet, pour tenir l’URL à jour. */
+  onModeChange?: (mode: AuthMode) => void;
+  /** Masque le bouton « Fermer » de l’en-tête (la page hôte fournit son propre retour). */
+  hideCloseButton?: boolean;
 }
+
+export type AuthMode = 'login' | 'register';
 
 export const AuthView: React.FC<AuthViewProps> = ({
   onSelectSchool,
@@ -22,8 +30,18 @@ export const AuthView: React.FC<AuthViewProps> = ({
   onClose,
   onLogout,
   embedded = false,
+  initialMode = 'register',
+  onModeChange,
+  hideCloseButton = false,
 }) => {
-  const [mode, setMode] = useState<'login' | 'register'>('register');
+  const [mode, setMode] = useState<AuthMode>(initialMode);
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
+  const changerMode = (next: AuthMode) => {
+    setMode(next);
+    onModeChange?.(next);
+  };
   // Seule la session API authentifiée est affichée : jamais la liste des autres établissements.
   const activeSession = getToken() ? getSession() : null;
 
@@ -155,7 +173,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
           </div>
         </div>
 
-        {onClose && (
+        {onClose && !hideCloseButton && (
           <button
             type="button"
             onClick={onClose}
@@ -193,7 +211,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
       <div className="shrink-0 flex border-b border-[#eaedff] bg-[#faf8ff]">
         <button
           type="button"
-          onClick={() => setMode('register')}
+          onClick={() => changerMode('register')}
           className={`flex-1 py-2.5 px-4 font-bold text-[13px] flex items-center justify-center gap-2 border-b-2 transition-all ${
             mode === 'register'
               ? 'border-[#0051d5] text-[#0051d5] bg-white'
@@ -205,7 +223,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         </button>
         <button
           type="button"
-          onClick={() => setMode('login')}
+          onClick={() => changerMode('login')}
           className={`flex-1 py-2.5 px-4 font-bold text-[13px] flex items-center justify-center gap-2 border-b-2 transition-all ${
             mode === 'login'
               ? 'border-[#0051d5] text-[#0051d5] bg-white'
