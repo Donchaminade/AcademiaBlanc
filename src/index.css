@@ -66,33 +66,46 @@
   vertical-align: middle;
 }
 
-/* En-tête du bulletin : ministère + sigle à gauche, république + devise à droite.
-   Ces classes fixent l'alignement à l'écran et à l'impression, sans dépendre
-   des variantes sm: qui suivent la fenêtre plutôt que la feuille A4. */
-.bulletin-official-head {
+/* Grille du bulletin : mêmes colonnes à l'écran et à l'impression.
+   Les breakpoints sm/md suivent la fenêtre, pas la feuille A4, et
+   faisaient retomber l'identité sur une seule colonne à l'impression. */
+.bulletin-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: start;
-  column-gap: 1rem;
+  column-gap: 0.75rem;
+  padding-bottom: 1rem;
 }
 
-.bulletin-ministry,
-.bulletin-republic {
+.bulletin-header-left,
+.bulletin-header-right {
   min-width: 0;
 }
 
-.bulletin-ministry {
+.bulletin-header-left {
   text-align: left;
 }
 
-.bulletin-ministry-name {
+.bulletin-header-right {
+  text-align: right;
+}
+
+.bulletin-header-right .bulletin-rule {
+  margin-left: auto;
+}
+
+.bulletin-ministry-name,
+.bulletin-republic-name {
   margin: 0;
   color: #00236f;
-  font-size: 12.5px;
   font-weight: 700;
   line-height: 1.25;
-  letter-spacing: 0.01em;
   text-transform: uppercase;
+}
+
+.bulletin-ministry-name {
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
 }
 
 .bulletin-ministry-sigle {
@@ -102,21 +115,11 @@
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: 0.08em;
-  text-align: left;
-}
-
-.bulletin-republic {
-  text-align: right;
 }
 
 .bulletin-republic-name {
-  margin: 0;
-  color: #00236f;
   font-size: 11px;
-  font-weight: 700;
-  line-height: 1.25;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 .bulletin-republic-motto {
@@ -126,17 +129,10 @@
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: 0.04em;
-  text-align: right;
 }
 
 .bulletin-exam-meta {
   margin-top: 0.35rem;
-  text-align: right;
-}
-
-.bulletin-exam-meta .bulletin-rule {
-  margin-left: auto;
-  margin-right: 0;
 }
 
 .bulletin-seal {
@@ -147,15 +143,123 @@
   padding-inline: 0.25rem;
 }
 
+.bulletin-ribbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.bulletin-ribbon-left {
+  min-width: 0;
+}
+
+.bulletin-ribbon-right {
+  margin-left: auto;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bulletin-identity-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr) minmax(0, 1.7fr);
+  column-gap: 1.25rem;
+  row-gap: 0.15rem;
+  align-items: start;
+}
+
+.bulletin-identity-name {
+  grid-column: 1 / -1;
+  margin-bottom: 0.35rem;
+}
+
+.bulletin-field-label {
+  display: block;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.bulletin-field-value {
+  display: block;
+  line-height: 1.3;
+}
+
+.bulletin-field-genre {
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.bulletin-field-school {
+  grid-column: 1 / 3;
+}
+
+.bulletin-field-center {
+  grid-column: 3 / 4;
+}
+
+.bulletin-field-label.bulletin-field-school,
+.bulletin-field-label.bulletin-field-center {
+  margin-top: 0.55rem;
+}
+
+.bulletin-grades {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.bulletin-grades .col-subject { width: 28%; }
+.bulletin-grades .col-teacher { width: 16%; }
+.bulletin-grades .col-coef { width: 7%; }
+.bulletin-grades .col-note { width: 10%; }
+.bulletin-grades .col-total { width: 11%; }
+.bulletin-grades .col-rank { width: 8%; }
+.bulletin-grades .col-appreciation { width: 20%; }
+
+.bulletin-grades th,
+.bulletin-grades td {
+  overflow-wrap: break-word;
+  vertical-align: middle;
+}
+
+.bulletin-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: stretch;
+  margin-bottom: 1rem;
+}
+
+.bulletin-metrics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.bulletin-metric {
+  min-width: 0;
+  height: 100%;
+}
+
 /* Print Styles for official ISO 216 / A4 output */
 @media print {
   @page {
     size: A4 portrait;
-    margin: 6mm 8mm;
+    margin: 7mm 8mm;
   }
-  
+
+  html,
+  body,
+  .min-h-screen {
+    height: auto !important;
+    min-height: 0 !important;
+    background: #ffffff !important;
+  }
+
   body {
-    background-color: #ffffff !important;
     color: #000000 !important;
   }
 
@@ -165,7 +269,8 @@
     display: none !important;
   }
 
-  .pl-80 {
+  .pl-80,
+  .app-chrome {
     padding-left: 0 !important;
   }
 
@@ -174,20 +279,34 @@
     background-color: #ffffff !important;
   }
 
+  .bulletin-canvas {
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
   #bulletinSheet,
   .bulletin-sheet {
     box-shadow: none !important;
-    width: 138% !important;
-    max-width: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    /* Largeur utile A4 (210 mm − marges 8 mm). Évite le zoom et
+       empêche la feuille groupée, calée sur la fenêtre, de dépasser la page. */
+    width: 194mm !important;
+    max-width: 194mm !important;
+    min-width: 0 !important;
     height: auto !important;
     min-height: 0 !important;
-    margin: 0 !important;
-    padding: 4mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
     transform: none !important;
-    zoom: 0.72;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
     overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   #bulletinSheet .bulletin-signature-card,
@@ -203,35 +322,101 @@
     margin-bottom: 1px !important;
   }
 
-  .bulletin-official-head {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
-    align-items: start !important;
-  }
-
-  .bulletin-ministry,
-  .bulletin-ministry-name,
-  .bulletin-ministry-sigle {
-    text-align: left !important;
-  }
-
-  .bulletin-republic,
-  .bulletin-republic-name,
-  .bulletin-republic-motto,
-  .bulletin-exam-meta {
-    text-align: right !important;
-  }
-
   .print\:break-after-page {
     break-after: page !important;
     page-break-after: always !important;
   }
 
-  #bulletinSheet,
-  .bulletin-sheet {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  .bulletin-sheet .bulletin-header {
+    padding-bottom: 2mm !important;
+    column-gap: 3mm !important;
   }
+
+  .bulletin-sheet .bulletin-header-left,
+  .bulletin-sheet .bulletin-ministry-name,
+  .bulletin-sheet .bulletin-ministry-sigle {
+    text-align: left !important;
+  }
+
+  .bulletin-sheet .bulletin-header-right,
+  .bulletin-sheet .bulletin-republic-name,
+  .bulletin-sheet .bulletin-republic-motto,
+  .bulletin-sheet .bulletin-exam-meta {
+    text-align: right !important;
+  }
+
+  .bulletin-sheet .bulletin-seal-mark {
+    width: 16mm !important;
+    height: 16mm !important;
+  }
+
+  .bulletin-sheet .bulletin-ribbon {
+    margin-top: 1.5mm !important;
+    margin-bottom: 1.5mm !important;
+    padding-top: 1mm !important;
+    padding-bottom: 1mm !important;
+  }
+
+  .bulletin-sheet .bulletin-title {
+    margin-bottom: 2mm !important;
+    padding-top: 1.5mm !important;
+    padding-bottom: 1.5mm !important;
+  }
+
+  .bulletin-sheet .bulletin-identity {
+    margin-bottom: 2mm !important;
+    padding: 2mm 2.5mm !important;
+  }
+
+  .bulletin-sheet .bulletin-identity-grid {
+    column-gap: 3mm !important;
+    row-gap: 0.4mm !important;
+  }
+
+  .bulletin-sheet .bulletin-field-label.bulletin-field-school,
+  .bulletin-sheet .bulletin-field-label.bulletin-field-center {
+    margin-top: 1.5mm !important;
+  }
+
+  .bulletin-sheet .bulletin-table-wrap {
+    margin-bottom: 2mm !important;
+    overflow: visible !important;
+  }
+
+  .bulletin-sheet .bulletin-grades th,
+  .bulletin-sheet .bulletin-grades td {
+    padding-top: 0.7mm !important;
+    padding-bottom: 0.7mm !important;
+  }
+
+  .bulletin-sheet .bulletin-summary {
+    margin-bottom: 2mm !important;
+    gap: 2mm !important;
+  }
+
+  .bulletin-sheet .bulletin-footer {
+    margin-top: 2mm !important;
+    padding-top: 1.5mm !important;
+  }
+
+  .bulletin-sheet .material-symbols-outlined {
+    font-size: 14px !important;
+  }
+
+  .bulletin-sheet .text-\[28px\] { font-size: 18px !important; line-height: 1 !important; }
+  .bulletin-sheet .text-\[22px\] { font-size: 16px !important; line-height: 1 !important; }
+  .bulletin-sheet .text-\[17px\] { font-size: 13px !important; }
+  .bulletin-sheet .text-\[16px\] { font-size: 12.5px !important; }
+  .bulletin-sheet .text-\[15px\] { font-size: 12px !important; }
+  .bulletin-sheet .text-\[14px\] { font-size: 11px !important; }
+  .bulletin-sheet .text-\[13px\] { font-size: 10.5px !important; }
+  .bulletin-sheet .text-\[12px\] { font-size: 10px !important; }
+  .bulletin-sheet .text-\[11\.5px\] { font-size: 9.5px !important; }
+  .bulletin-sheet .text-\[11px\] { font-size: 9px !important; }
+  .bulletin-sheet .text-\[10\.5px\] { font-size: 9px !important; }
+  .bulletin-sheet .text-\[10px\] { font-size: 8.5px !important; }
+  .bulletin-sheet .text-\[9\.5px\] { font-size: 8px !important; }
+  .bulletin-sheet .text-\[9px\] { font-size: 8px !important; }
 }
 
 .emargement-sheet {
@@ -239,7 +424,7 @@
 }
 
 @media print {
-  body[data-print-mode='all-bulletins'] .app-chrome {
+  body[data-print-mode='all-bulletins'] .app-chrome > :not(.batch-print-overlay) {
     display: none !important;
   }
 
@@ -247,10 +432,19 @@
     position: static !important;
     inset: auto !important;
     overflow: visible !important;
+    width: auto !important;
+    max-width: none !important;
     height: auto !important;
     max-height: none !important;
     background: #ffffff !important;
     backdrop-filter: none !important;
+  }
+
+  body[data-print-mode='all-bulletins'] .batch-print-overlay > div {
+    width: auto !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   body[data-print-mode='emargement'] .students-ui,

@@ -135,7 +135,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
           return (
             <div
               key={candidate.id}
-              className={`bulletin-sheet bg-white text-[#131b2e] rounded-xs shadow-xl p-8 sm:p-10 relative border border-[#eaedff] print:border-none print:shadow-none print:m-0 ${
+              className={`bulletin-sheet min-w-[800px] bg-white text-[#131b2e] rounded-xs shadow-xl p-8 sm:p-10 relative border border-[#eaedff] print:border-none print:shadow-none print:m-0 ${
                 !isLast ? 'print:break-after-page' : ''
               }`}
               style={{ pageBreakAfter: isLast ? 'auto' : 'always', breakAfter: isLast ? 'auto' : 'page' }}
@@ -151,9 +151,9 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                 </div>
               )}
 
-              {/* En-tête : ministère + sigle à gauche, république + devise à droite */}
-              <div className="bulletin-official-head relative z-10 pb-3 border-b border-[#eaedff]">
-                <div className="bulletin-ministry">
+              {/* Ministère + sigle à gauche, république + devise à droite */}
+              <div className="bulletin-header relative z-10 border-b border-[#eaedff]">
+                <div className="bulletin-header-left">
                   <p className="bulletin-ministry-name">{settings.ministryName}</p>
                   {ministryMark ? <p className="bulletin-ministry-sigle">{ministryMark}</p> : null}
                 </div>
@@ -161,7 +161,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                 {/* Central Academic Seal */}
                 <div className="bulletin-seal">
                   {settings.sealUrl && settings.sealUrl.trim() !== '' ? (
-                    <div className="w-16 h-16 rounded-full bg-[#f2f3ff] flex items-center justify-center p-1.5 shadow-sm border border-[#eaedff] overflow-hidden">
+                    <div className="bulletin-seal-mark w-16 h-16 rounded-full bg-[#f2f3ff] flex items-center justify-center p-1.5 shadow-sm border border-[#eaedff] overflow-hidden">
                       <img
                         alt="Sceau Académique Officiel"
                         className="w-full h-full object-contain"
@@ -170,7 +170,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                     </div>
                   ) : (
                     /* Zone laissée vide pour tampon manuel à l'encre */
-                    <div className="w-16 h-16 rounded-full border border-dashed border-[#b0b7cb] print:border-[#cbd5e1] flex flex-col items-center justify-center p-1 bg-transparent text-center">
+                    <div className="bulletin-seal-mark w-16 h-16 rounded-full border border-dashed border-[#b0b7cb] print:border-[#cbd5e1] flex flex-col items-center justify-center p-1 bg-transparent text-center">
                       <span className="text-[8px] text-[#6b7280] uppercase font-semibold leading-tight print:hidden">
                         Cachet
                       </span>
@@ -184,7 +184,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                   </span>
                 </div>
 
-                <div className="bulletin-republic">
+                <div className="bulletin-header-right">
                   <p className="bulletin-republic-name">{settings.countryName}</p>
                   <p className="bulletin-republic-motto">{settings.motto}</p>
                   <div className="bulletin-exam-meta space-y-0.5">
@@ -206,17 +206,17 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
               </div>
 
               {/* Establishment Name Highlight Banner */}
-              <div className="relative z-10 mt-3 py-1.5 px-3 bg-[#eaedff] rounded text-center border border-[#dce1ff] flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[#00236f] uppercase tracking-wider">
+              <div className="bulletin-ribbon relative z-10 py-1.5 px-3 bg-[#eaedff] rounded border border-[#dce1ff]">
+                <span className="bulletin-ribbon-left text-[11px] font-bold text-[#00236f] uppercase tracking-wider">
                   ÉTABLISSEMENT : {settings.institutionName.toUpperCase()}
                 </span>
-                <span className="text-[11px] font-semibold text-[#0051d5]">
+                <span className="bulletin-ribbon-right text-[11px] font-semibold text-[#0051d5]">
                   Centre d'Examen : {candidate.examCenterName}
                 </span>
               </div>
 
               {/* Institutional Title Badge - Dynamic */}
-              <div className="relative z-10 my-3 bg-[#00236f] text-white py-2 px-4 text-center rounded-xs shadow-xs">
+              <div className="bulletin-title relative z-10 my-3 bg-[#00236f] text-white py-2 px-4 text-center rounded-xs shadow-xs">
                 <h1 className="text-[14px] font-bold uppercase tracking-wide">
                   {headerInfo.mainTitle}
                 </h1>
@@ -226,14 +226,14 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
               </div>
 
               {/* Candidate Identity Card */}
-              <div className="relative z-10 bg-[#f2f3ff] rounded-xs p-3.5 mb-3 border border-[#eaedff]">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2 text-left">
-                  <div className="sm:col-span-3 pb-1 border-b border-[#eaedff]">
-                    <span className="text-[9.5px] text-[#444651] uppercase font-bold tracking-wider block">
+              <div className="bulletin-identity relative z-10 bg-[#f2f3ff] rounded-xs p-3.5 mb-3 border border-[#eaedff]">
+                <div className="bulletin-identity-grid text-left">
+                  <div className="bulletin-identity-name pb-1 border-b border-[#eaedff]">
+                    <span className="bulletin-field-label text-[9.5px] text-[#444651] uppercase font-bold tracking-wider">
                       Nom et Prénoms du Candidat
                     </span>
                     <div className="flex items-center gap-3 mt-0.5">
-                      <span className="font-mono text-[12px] font-bold text-[#0051d5] bg-white px-2 py-0.5 rounded border border-[#eaedff]">
+                      <span className="font-mono text-[12px] font-bold text-[#0051d5] bg-white px-2 py-0.5 rounded border border-[#eaedff] whitespace-nowrap">
                         TABLE {candidate.tableNumber}
                       </span>
                       <span className="text-[16px] text-[#00236f] font-bold tracking-tight">
@@ -242,38 +242,54 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                     </div>
                   </div>
 
-                  <div>
-                    <span className="text-[9.5px] text-[#444651] uppercase font-bold tracking-wider block">
-                      Matricule National
-                    </span>
-                    <span className="font-mono text-[12px] font-bold text-[#131b2e] block">
-                      {candidate.matricule}
-                    </span>
-                  </div>
+                  <span className="bulletin-field-label text-[9.5px] text-[#444651] uppercase font-bold tracking-wider">
+                    Matricule National
+                  </span>
+                  <span className="bulletin-field-label text-[9.5px] text-[#444651] uppercase font-bold tracking-wider">
+                    Date &amp; Lieu de Naissance
+                  </span>
+                  <span className="bulletin-field-label text-[9.5px] text-[#444651] uppercase font-bold tracking-wider">
+                    Genre / Série
+                  </span>
 
-                  <div>
-                    <span className="text-[9.5px] text-[#444651] uppercase font-bold tracking-wider block">
-                      Date &amp; Lieu de Naissance
-                    </span>
-                    <span className="text-[12px] text-[#131b2e] font-medium block">
-                      {candidate.dob} à {candidate.birthPlace}
-                    </span>
-                  </div>
+                  <span className="bulletin-field-value font-mono text-[12px] font-bold text-[#131b2e]">
+                    {candidate.matricule}
+                  </span>
+                  <span className="bulletin-field-value text-[12px] text-[#131b2e] font-medium">
+                    {candidate.dob} à {candidate.birthPlace}
+                  </span>
+                  <span className="bulletin-field-value bulletin-field-genre text-[12px] text-[#131b2e] font-medium">
+                    {candidate.gender === 'M' ? 'Masculin (M)' : 'Féminin (F)'} • {candidate.serie}
+                  </span>
 
-                  <div>
-                    <span className="text-[9.5px] text-[#444651] uppercase font-bold tracking-wider block">
-                      Genre / Série
-                    </span>
-                    <span className="text-[12px] text-[#131b2e] font-medium block">
-                      {candidate.gender === 'M' ? 'Masculin (M)' : 'Féminin (F)'} • {candidate.serie}
-                    </span>
-                  </div>
+                  <span className="bulletin-field-label bulletin-field-school text-[9.5px] text-[#444651] uppercase font-bold tracking-wider">
+                    Établissement d'Origine
+                  </span>
+                  <span className="bulletin-field-label bulletin-field-center text-[9.5px] text-[#444651] uppercase font-bold tracking-wider">
+                    Centre d'Examen
+                  </span>
+
+                  <span className="bulletin-field-value bulletin-field-school text-[12px] text-[#131b2e] font-medium">
+                    {candidate.originSchool}
+                  </span>
+                  <span className="bulletin-field-value bulletin-field-center text-[12px] text-[#00236f] font-semibold">
+                    {candidate.examCenterName}
+                  </span>
                 </div>
               </div>
 
               {/* Dense Score Table */}
-              <div className="relative z-10 overflow-hidden rounded-xs bg-white shadow-xs mb-3 border border-[#eaedff]">
-                <table className="w-full text-left border-collapse text-[11px]">
+              <div className="bulletin-table-wrap relative z-10 overflow-hidden rounded-xs bg-white shadow-xs mb-3 border border-[#eaedff]">
+                <table className="bulletin-grades w-full text-left border-collapse text-[11px]">
+                  <colgroup>
+                    <col className="col-subject" />
+                    <col className="col-teacher" />
+                    <col className="col-coef" />
+                    <col className="col-note" />
+                    <col className="col-total" />
+                    <col className="col-rank" />
+                    <col className="col-appreciation" />
+                  </colgroup>
                   <thead>
                     <tr className="bg-[#00236f] text-white text-[11px]">
                       <th className="py-1.5 px-3 font-semibold text-left">Matières &amp; Disciplines</th>
@@ -347,8 +363,8 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
 
               {/* Deliberation Decision & Metrics */}
               {stats && (
-                <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-2.5 mb-3">
-                  <div className="md:col-span-8 bg-[#f2f3ff] rounded-xs p-3 flex flex-col justify-between border border-[#eaedff]">
+                <div className="bulletin-summary relative z-10">
+                  <div className="bulletin-decision bg-[#f2f3ff] rounded-xs p-3 flex flex-col justify-between border border-[#eaedff]">
                     <div className="flex items-center justify-between pb-1.5">
                       <div>
                         <span className="text-[10px] text-[#444651] uppercase font-semibold block">
@@ -379,8 +395,8 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="md:col-span-4 grid grid-cols-2 gap-2">
-                    <div className="bg-white rounded-xs p-2 text-center border border-[#eaedff] flex flex-col justify-center">
+                  <div className="bulletin-metrics">
+                    <div className="bulletin-metric bg-white rounded-xs p-2 text-center border border-[#eaedff] flex flex-col justify-center">
                       <span className="text-[10px] text-[#444651] uppercase font-semibold">Moyenne</span>
                       <span className="text-[22px] text-[#00236f] font-bold leading-none my-0.5">
                         {stats.average.toFixed(2)}
@@ -388,7 +404,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       <span className="text-[10px] text-[#444651]">/ 20.00</span>
                     </div>
 
-                    <div className="bg-white rounded-xs p-2 text-center border border-[#eaedff] flex flex-col justify-center">
+                    <div className="bulletin-metric bg-white rounded-xs p-2 text-center border border-[#eaedff] flex flex-col justify-center">
                       <span className="text-[10px] text-[#444651] uppercase font-semibold">Rang</span>
                       <span className="text-[22px] text-[#0051d5] font-bold leading-none my-0.5">
                         {stats.rank === 1 ? '1er' : `${stats.rank < 10 ? `0${stats.rank}` : stats.rank}e`}
