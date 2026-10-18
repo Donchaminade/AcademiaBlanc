@@ -406,13 +406,6 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       </span>
                       <span className="text-[10px] text-[#444651]">sur {stats.totalCandidates}</span>
                     </div>
-
-                    <div className="col-span-2 bg-white rounded-xs p-1.5 px-2.5 flex items-center justify-between border border-[#eaedff]">
-                      <span className="text-[10px] text-[#444651] uppercase font-semibold">Écart à la promo</span>
-                      <span className={`font-mono text-[12px] font-bold ${stats.differenceToPromo >= 0 ? 'text-[#0051d5]' : 'text-red-600'}`}>
-                        {stats.differenceToPromo >= 0 ? `+${stats.differenceToPromo.toFixed(2)}` : stats.differenceToPromo.toFixed(2)} pts
-                      </span>
-                    </div>
                   </div>
                 </div>
               )}

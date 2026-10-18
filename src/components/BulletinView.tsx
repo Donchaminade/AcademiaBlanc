@@ -525,22 +525,6 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   sur {computedStats.totalCandidates} candidats
                 </span>
               </div>
-
-              <div className="col-span-2 bg-white rounded-xs p-2.5 px-3 flex items-center justify-between shadow-xs border border-[#eaedff]">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#0051d5] text-base">
-                    monitoring
-                  </span>
-                  <span className="text-[11px] text-[#444651] uppercase font-semibold">
-                    Écart à la moyenne promo
-                  </span>
-                </div>
-                <span className={`font-mono text-[13px] font-bold ${
-                  computedStats.differenceToPromo >= 0 ? 'text-[#0051d5]' : 'text-[#ba1a1a]'
-                }`}>
-                  {computedStats.differenceToPromo >= 0 ? `+${computedStats.differenceToPromo.toFixed(2)}` : computedStats.differenceToPromo.toFixed(2)} pts
-                </span>
-              </div>
             </div>
           </div>
 
