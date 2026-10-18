@@ -6,6 +6,9 @@ export interface AuthSession {
   email: string;
 }
 
+/** Rôle du propriétaire du logiciel, distinct de OWNER / ADMIN / SECRETAIRE. */
+export const PLATFORM_ROLE = 'SUPER_ADMIN';
+
 const TOKEN_KEY = 'academiablanc_token';
 
 export function apiBaseUrl(): string {
@@ -39,6 +42,10 @@ export function getSession(): AuthSession | null {
   } catch {
     return null;
   }
+}
+
+export function isPlatformOwner(session: AuthSession | null = getSession()): boolean {
+  return session?.role === PLATFORM_ROLE;
 }
 
 export function clearToken(): void {

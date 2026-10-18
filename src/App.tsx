@@ -7,12 +7,13 @@ import { GradingView } from './components/GradingView';
 import { RecordsView } from './components/RecordsView';
 import { SettingsView } from './components/SettingsView';
 import { AuthView } from './components/AuthView';
+import { PlateformeView } from './components/PlateformeView';
 import { AllBulletinsPrintModal } from './components/AllBulletinsPrintModal';
 import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
-import { apiDelete, apiSend, getSession, getToken } from './api/client';
+import { PLATFORM_ROLE, apiDelete, apiSend, getSession, getToken } from './api/client';
 import { loadSchoolWorkspace, ExamOption } from './api/workspace';
 import {
   getRegisteredSchools,
@@ -56,7 +57,11 @@ export default function App() {
     return data.candidates[0]?.id || '';
   });
 
-  const [currentView, setCurrentView] = useState<ViewMode>(() => (getToken() ? 'bulletin' : 'auth'));
+  const [accountRole, setAccountRole] = useState(() => getSession()?.role ?? '');
+  const [currentView, setCurrentView] = useState<ViewMode>(() => {
+    if (getSession()?.role === PLATFORM_ROLE) return 'plateforme';
+    return getToken() ? 'bulletin' : 'auth';
+  });
   const [selectedSession, setSelectedSession] = useState<string>('BAC II Blanc 2025 - Série D');
   const [selectedCenter, setSelectedCenter] = useState<string>(() => {
     return `${currentSchool?.name || 'Lycée Moderne de Tokoin'} (Centre 01)`;
@@ -127,6 +132,17 @@ export default function App() {
     setSelectedCandidateId((current) => workspace.candidates.some((item) => item.id === current)
       ? current
       : workspace.candidates[0]?.id || '');
+  };
+
+  const handleApiReady = () => {
+    const session = getSession();
+    const role = session?.role ?? '';
+    setAccountRole(role);
+    if (role === PLATFORM_ROLE) {
+      setIsAuthModalOpen(false);
+      setCurrentView('plateforme');
+    }
+    applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
   };
 
   useEffect(() => {
@@ -440,7 +456,7 @@ export default function App() {
         currentSchool={currentSchool}
         onSelectSchool={handleSelectSchool}
         onAccountCreated={handleAccountCreated}
-        onApiReady={() => { applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.')); }}
+        onApiReady={handleApiReady}
         onClose={() => setCurrentView('bulletin')}
       />
     );
@@ -471,6 +487,7 @@ export default function App() {
         onOpenSearch={() => setIsSearchModalOpen(true)}
         sessionOptions={usingApi ? apiSessions.map((item) => item.label) : undefined}
         centerOptions={usingApi ? apiCenters : undefined}
+        platformOwner={accountRole === PLATFORM_ROLE}
       />
 
       {/* Main Content Area - Navigated strictly via Sidebar */}
@@ -525,6 +542,8 @@ export default function App() {
               onOpenBatchPrint={() => setIsBatchPrintModalOpen(true)}
             />
           )}
+
+          {currentView === 'plateforme' && <PlateformeView />}
 
           {currentView === 'dashboard' && (
             <DashboardView
@@ -638,7 +657,7 @@ export default function App() {
               currentSchool={currentSchool}
               onSelectSchool={handleSelectSchool}
               onAccountCreated={handleAccountCreated}
-              onApiReady={() => { applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.')); }}
+              onApiReady={handleApiReady}
               onClose={() => setIsAuthModalOpen(false)}
             />
           </div>

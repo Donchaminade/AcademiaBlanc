@@ -6,4 +6,6 @@ import tg.academiablanc.domain.Professeur;
 
 public interface ProfesseurRepository extends JpaRepository<Professeur, Long> {
   List<Professeur> findByEtablissementIdOrderByNomAsc(Long etablissementId);
+
+  long countByEtablissementId(Long etablissementId);
 }

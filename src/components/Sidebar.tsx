@@ -17,6 +17,7 @@ interface SidebarProps {
   onOpenSearch?: () => void;
   sessionOptions?: string[];
   centerOptions?: string[];
+  platformOwner?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -35,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSearch,
   sessionOptions,
   centerOptions,
+  platformOwner = false,
 }) => {
   return (
     <aside className="fixed left-0 top-0 h-full w-80 bg-[#ffffff] z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-[#eaedff]">
@@ -142,6 +144,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <kbd className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-[#eaedff] font-mono text-[#444651] font-bold shadow-2xs">
                 Ctrl+K
               </kbd>
+            </button>
+          )}
+
+          {platformOwner && (
+            <button
+              type="button"
+              onClick={() => onViewChange('plateforme')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium ${
+                currentView === 'plateforme'
+                  ? 'bg-[#1e3a8a] text-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
+                  : 'text-[#00236f] bg-[#f2f3ff] hover:bg-[#eaedff]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-lg">domain</span>
+              <span>Surveillance des établissements</span>
             </button>
           )}
 

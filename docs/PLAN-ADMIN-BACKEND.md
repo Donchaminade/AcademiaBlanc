@@ -31,12 +31,13 @@ Isolation : chaque table métier a `etablissement_id`. Les index et les requête
 | note | valeur 0–20 ou absent | élève + matière + session, unique |
 | bulletin | moyenne, rang, mention, appréciation, totaux, date | élève + session, recalculé puis stocké |
 
-Rôles : `OWNER` (créateur du compte), `ADMIN` (même droits de paramétrage), `SECRETAIRE` (années, centres, sessions, élèves, notes, bulletins ; pas les affectations ni le titulaire), `ENSEIGNANT` (lecture, saisie des notes seulement sur ses affectations). Le titulaire n’est pas un rôle : c’est `classe.titulaire_id`. Sur le bulletin, son nom alimente « Le Titulaire » ; le responsable de l’établissement alimente le signataire (proviseur, directeur, principal).
+Rôles : `OWNER` (créateur du compte), `ADMIN` (même droits de paramétrage), `SECRETAIRE` (années, centres, sessions, élèves, notes, bulletins ; pas les affectations ni le titulaire), `ENSEIGNANT` (lecture, saisie des notes seulement sur ses affectations), `SUPER_ADMIN` (propriétaire du logiciel, surveillance en lecture seule de tous les établissements, sans droit d’écriture sur les API d’un établissement). Le titulaire n’est pas un rôle : c’est `classe.titulaire_id`. Sur le bulletin, son nom alimente « Le Titulaire » ; le responsable de l’établissement alimente le signataire (proviseur, directeur, principal). La désignation du propriétaire est décrite dans `docs/DEPLOIEMENT.md`.
 
 ## 3. Authentification
 
-- `POST /api/auth/signup` crée l’établissement, l’utilisateur `OWNER` et une année courante. Mot de passe BCrypt, jamais renvoyé.
-- `POST /api/auth/login` renvoie un JWT (12 h).
+- `POST /api/auth/signup` crée l’établissement, l’utilisateur `OWNER` et une année courante. Mot de passe BCrypt, jamais renvoyé. Cette route ne peut pas créer un `SUPER_ADMIN`.
+- `POST /api/auth/login` renvoie un JWT (12 h). Si l’email est celui de `SUPER_ADMIN_EMAIL`, le jeton porte le rôle `SUPER_ADMIN`.
+- `GET /api/plateforme/etablissements` est réservé à `SUPER_ADMIN`. Les autres routes restent filtrées par `etablissement_id`.
 - Le front envoie `Authorization: Bearer`. Le jeton reste en `sessionStorage`, pas dans l’URL.
 - CORS : liste `CORS_ALLOWED_ORIGINS` (domaine Vercel de production et aperçus).
 

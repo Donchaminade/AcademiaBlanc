@@ -54,7 +54,7 @@ export interface CandidateComputedStats {
   differenceToPromo: number;
 }
 
-export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'auth';
+export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'auth' | 'plateforme';
 
 export interface AppSettings {
   logoUrl: string;
