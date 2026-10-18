@@ -55,6 +55,15 @@ public class PlatformOwnerService implements ApplicationListener<ApplicationRead
     synchronize();
   }
 
+  /**
+   * Vrai quand {@code SUPER_ADMIN_EMAIL} est posé et qu'un compte porte cet email : l'accès
+   * d'administration de la plateforme est utilisable. Ne révèle rien sur les autres comptes.
+   */
+  @Transactional(readOnly = true)
+  public boolean estInitialise() {
+    return !superAdminEmail.isEmpty() && utilisateurs.findByEmailIgnoreCase(superAdminEmail).isPresent();
+  }
+
   @Transactional
   public Utilisateur alignOnLogin(Utilisateur user) {
     if (user.getEmail() != null && superAdminEmail.equals(normalize(user.getEmail()))) {
