@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
-import { establishmentCaption, getBulletinHeaderInfo, ministrySigle } from '../utils/bulletinHeader';
+import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministrySigle } from '../utils/bulletinHeader';
 import { appreciationFromAverage, computeSubjectRank, formatSubjectRank } from '../utils/bulletinMetrics';
 import { printDocument } from '../utils/printDocument';
 
@@ -34,6 +34,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const ministryMark = ministrySigle(settings.ministryName);
   const sealCaption = establishmentCaption(settings.institutionName);
+  const yearCaption = academicYearCaption(settings.academicYear);
 
   const headerInfo = useMemo(() => {
     return getBulletinHeaderInfo(
@@ -266,36 +267,12 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             <div className="bulletin-header-right">
               <p className="bulletin-republic-name">{settings.countryName}</p>
               <p className="bulletin-republic-motto">{settings.motto}</p>
-              <div className="bulletin-exam-meta space-y-0.5">
-                <p className="text-[11px] uppercase tracking-widest text-[#444651]">
-                  {selectedSession || settings.sessionName}
-                </p>
-                <p className="text-[15px] text-[#00236f] font-bold">
-                  {settings.academicYear}
-                </p>
-                <div className="bulletin-rule w-12 h-0.5 bg-[#0051d5] my-1"></div>
-                <p className="text-[11px] uppercase font-semibold text-[#131b2e]">
-                  {headerInfo.examBadge}
-                </p>
-                <p className="text-[12px] text-[#444651]">
-                  {selectedCandidate.examCenter}
-                </p>
-                <p className="font-mono text-[11px] text-[#0051d5] font-semibold">
-                  BORDEREAU N° {selectedCandidate.matricule}
-                </p>
-              </div>
             </div>
           </div>
 
-          {/* Establishment Ribbon */}
+          {/* Bande de l'année académique */}
           <div className="bulletin-ribbon relative z-10 py-1.5 px-3 bg-[#eaedff] rounded border border-[#dce1ff]">
-            <span className="bulletin-ribbon-left text-[11.5px] font-bold text-[#00236f] uppercase tracking-wider flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-sm text-[#0051d5]">school</span>
-              <span>ÉTABLISSEMENT : {settings.institutionName.toUpperCase()}</span>
-            </span>
-            <span className="bulletin-ribbon-right text-[11px] font-semibold text-[#0051d5]">
-              Centre d'Examen : {selectedCandidate.examCenterName}
-            </span>
+            <span className="bulletin-ribbon-year">{yearCaption}</span>
           </div>
 
           {/* Institutional Title Badge - Dynamic according to exam session (BEPC, BAC, etc.) */}
