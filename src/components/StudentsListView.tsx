@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Candidate, Subject, AppSettings } from '../types';
 import { printDocument } from '../utils/printDocument';
 import { confirmDelete } from '../utils/alerts';
+import { getToken } from '../api/client';
 
 interface StudentsListViewProps {
   candidates: Candidate[];
@@ -37,6 +38,8 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
   onOpenBatchPrint,
 }) => {
   const [startTableNum, setStartTableNum] = useState<number>(settings?.startTableNumber || 138);
+  /** Connecté à l'API : le matricule est attribué par le serveur et n'est pas saisi. */
+  const matriculeServeur = !!getToken();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterGender, setFilterGender] = useState<'all' | 'M' | 'F'>('all');
   const [filterGradeStatus, setFilterGradeStatus] = useState<'all' | 'complete' | 'pending'>('all');
@@ -586,12 +589,18 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
 
               <div>
                 <label className="block font-semibold text-[#444651] mb-1">Matricule National</label>
-                <input
-                  type="text"
-                  value={newStudent.matricule}
-                  onChange={(e) => setNewStudent({ ...newStudent, matricule: e.target.value })}
-                  className="w-full bg-[#f2f3ff] py-1.5 px-3 rounded border border-[#eaedff] font-mono outline-none"
-                />
+                {matriculeServeur ? (
+                  <div className="w-full bg-[#faf8ff] py-1.5 px-3 rounded border border-dashed border-[#dce1ff] text-[#757682] italic">
+                    Attribué automatiquement à l'inscription
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={newStudent.matricule}
+                    onChange={(e) => setNewStudent({ ...newStudent, matricule: e.target.value })}
+                    className="w-full bg-[#f2f3ff] py-1.5 px-3 rounded border border-[#eaedff] font-mono outline-none"
+                  />
+                )}
               </div>
 
               <div>
@@ -714,8 +723,10 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
                 <input
                   type="text"
                   value={editingCandidate.matricule}
+                  readOnly={matriculeServeur}
+                  title={matriculeServeur ? 'Matricule attribué par le serveur, non modifiable' : undefined}
                   onChange={(e) => setEditingCandidate({ ...editingCandidate, matricule: e.target.value })}
-                  className="w-full bg-[#f2f3ff] py-1.5 px-3 rounded border border-[#eaedff] font-mono outline-none"
+                  className={`w-full py-1.5 px-3 rounded border border-[#eaedff] font-mono outline-none ${matriculeServeur ? 'bg-[#faf8ff] text-[#757682] cursor-not-allowed' : 'bg-[#f2f3ff]'}`}
                 />
               </div>
 
