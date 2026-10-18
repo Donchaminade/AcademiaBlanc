@@ -9,6 +9,7 @@ import { SettingsView } from './components/SettingsView';
 import { AdminParametres } from './components/AdminParametres';
 import { AuthView } from './components/AuthView';
 import { AuthPage } from './components/AuthPage';
+import { AdminLoginPage } from './components/AdminLoginPage';
 import { PlateformeView } from './components/PlateformeView';
 import { AllBulletinsPrintModal } from './components/AllBulletinsPrintModal';
 import { SignatureModal } from './components/SignatureModal';
@@ -236,6 +237,8 @@ export default function App() {
   const handleLogout = async () => {
     const confirmed = await confirmAction({ title: 'Se déconnecter ?', confirmText: 'Se déconnecter' });
     if (!confirmed) return;
+    // Un compte de la plateforme revient sur son entrée dédiée `/admin`, un établissement sur la vitrine.
+    const comptePlateforme = isPlatformAccount(getSession());
     clearToken();
     setUsingApi(false);
     setApiUser(null);
@@ -258,7 +261,7 @@ export default function App() {
     setIsSearchModalOpen(false);
     setIsBatchPrintModalOpen(false);
     setCurrentView('auth');
-    navigate('vitrine');
+    navigate(comptePlateforme ? 'admin' : 'vitrine');
   };
 
   useEffect(() => {
@@ -276,7 +279,8 @@ export default function App() {
       .catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
   }, []);
 
-  // Une fois dans l’application, `/connexion` et `/inscription` n’ont plus de sens : l’URL revient sur `/`.
+  // Une fois dans l’application, `/connexion`, `/inscription` et `/admin` n’ont plus de sens : l’URL revient
+  // sur `/` (une session plateforme déjà active ouvre donc directement la vue Plateforme depuis `/admin`).
   useEffect(() => {
     if (currentView !== 'auth' && route !== 'vitrine') navigate('vitrine', { replace: true });
   }, [currentView, route, navigate]);
@@ -595,6 +599,18 @@ export default function App() {
         <Suspense fallback={<div className="min-h-screen bg-[#faf8ff]" aria-busy="true" />}>
           <LandingPage onConnexion={() => navigate('connexion')} onInscription={() => navigate('inscription')} />
         </Suspense>
+      );
+    }
+    if (route === 'admin') {
+      return (
+        <AdminLoginPage
+          onBack={() => navigate('vitrine')}
+          // Session déjà enregistrée par la page : `handleApiReady` ouvre la vue Plateforme, l’URL revient sur `/`.
+          onConnecte={() => {
+            handleApiReady();
+            navigate('vitrine', { replace: true });
+          }}
+        />
       );
     }
     return (

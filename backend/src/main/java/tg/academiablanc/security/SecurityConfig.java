@@ -40,7 +40,7 @@ public class SecurityConfig {
             // Le dispatch d'erreur du conteneur ne rejoue pas le jeton : sans cette règle, toute
             // erreur (404, 409, 400…) ressortait en 403 au corps vide.
             .requestMatchers("/error").permitAll()
-            .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login", "/api/auth/login-plateforme").permitAll()
             // Plateforme : SUPER_ADMIN et gestionnaires ; le détail par action est contrôlé par PermissionService.
             .requestMatchers("/api/plateforme/**").hasAnyRole("SUPER_ADMIN", "GESTIONNAIRE_PLATEFORME")
             .anyRequest().authenticated())

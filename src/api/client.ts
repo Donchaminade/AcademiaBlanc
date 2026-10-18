@@ -239,6 +239,18 @@ export function login(email: string, motDePasse: string): Promise<AuthSession> {
   });
 }
 
+/**
+ * Connexion de la page `/admin` : même vérification des identifiants que `login`, mais le serveur
+ * ne délivre un jeton qu’aux rôles de la plateforme (403 sinon) et signale par un 401 explicite
+ * une plateforme dont le propriétaire n’a pas été initialisé.
+ */
+export function loginPlateforme(email: string, motDePasse: string): Promise<AuthSession> {
+  return request<AuthSession>('/api/auth/login-plateforme', {
+    method: 'POST',
+    body: JSON.stringify({ email, motDePasse }),
+  });
+}
+
 export function signup(payload: {
   nom: string;
   ville: string;

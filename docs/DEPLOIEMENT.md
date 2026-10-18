@@ -52,7 +52,14 @@ Procédure :
 
 1. Poser `SUPER_ADMIN_EMAIL` et `SUPER_ADMIN_PASSWORD` sur le service API (Render : Environment du service `academiablanc-api`).
 2. Redéployer ou redémarrer l’API.
-3. Se connecter avec cet email et ce mot de passe sur l’écran de connexion habituel. L’écran « Plateforme : établissements & gestionnaires » s’affiche directement.
+3. Se connecter sur `https://<front>/admin` (en production : https://academia-ochre-chi.vercel.app/admin) avec cet email et ce mot de passe. L’écran « Plateforme : établissements & gestionnaires » s’affiche directement.
+
+La page `/admin` est l’entrée dédiée à la plateforme : connexion seulement, aucune création de compte, pas de lien depuis le site vitrine et balise `noindex`. Elle appelle `POST /api/auth/login-plateforme`, qui vérifie les identifiants comme `/api/auth/login` mais :
+
+- refuse (403) tout compte qui n’est pas `SUPER_ADMIN` ou `GESTIONNAIRE_PLATEFORME` — un responsable d’établissement doit passer par `/connexion` ;
+- répond 401 « Compte de la plateforme non initialisé : vérifiez `SUPER_ADMIN_EMAIL` et `SUPER_ADMIN_PASSWORD` sur le serveur » tant qu’aucun compte ne porte `SUPER_ADMIN_EMAIL` (variable vide, ou mot de passe absent au premier démarrage), sans confirmer l’existence d’autres comptes.
+
+Se déconnecter depuis un compte de la plateforme ramène sur `/admin` ; un compte d’établissement revient sur le site. Le propriétaire et les gestionnaires peuvent toujours se connecter par `/connexion` : la vue Plateforme s’ouvre aussi.
 
 Comportement au démarrage (`PlatformOwnerService`) :
 

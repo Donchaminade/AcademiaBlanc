@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 
-/** Pages publiques, hors application : site vitrine, connexion et création de compte. */
-export type PublicRoute = 'vitrine' | 'connexion' | 'inscription';
+/**
+ * Pages publiques, hors application : site vitrine, connexion et création de compte,
+ * plus `/admin`, entrée réservée à la plateforme (non référencée depuis la vitrine).
+ */
+export type PublicRoute = 'vitrine' | 'connexion' | 'inscription' | 'admin';
 
 export const ROUTE_PATHS: Record<PublicRoute, string> = {
   vitrine: '/',
   connexion: '/connexion',
   inscription: '/inscription',
+  admin: '/admin',
 };
 
 export function routeFromPath(pathname: string): PublicRoute {
   const clean = pathname.replace(/\/+$/, '').toLowerCase() || '/';
   if (clean === ROUTE_PATHS.connexion) return 'connexion';
   if (clean === ROUTE_PATHS.inscription) return 'inscription';
+  if (clean === ROUTE_PATHS.admin) return 'admin';
   return 'vitrine';
 }
 
@@ -23,7 +28,7 @@ export interface NavigateOptions {
 
 /**
  * Routeur minimal fondé sur l’History API : `pushState` à la navigation, écoute de `popstate`
- * pour les boutons Précédent / Suivant. Suffisant pour trois URL, sans dépendance supplémentaire.
+ * pour les boutons Précédent / Suivant. Suffisant pour quatre URL, sans dépendance supplémentaire.
  */
 export function usePublicRoute(): [PublicRoute, (route: PublicRoute, options?: NavigateOptions) => void] {
   const [route, setRoute] = useState<PublicRoute>(() =>

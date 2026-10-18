@@ -101,20 +101,50 @@ public class AuthController {
 
   @PostMapping("/login")
   public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-    Utilisateur user = utilisateurs.findByEmailIgnoreCase(request.email().trim())
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email ou mot de passe incorrect."));
-    if (!passwordEncoder.matches(request.motDePasse(), user.getMotDePasseHash())) {
-      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email ou mot de passe incorrect.");
-    }
-    if (!user.isActif()) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Compte désactivé. Contactez le responsable de l’établissement.");
-    }
-    user = platformOwners.alignOnLogin(user);
+    Utilisateur user = authentifier(request);
     Etablissement school = etablissementDe(user);
     if (school != null && !school.isActif() && user.getRole() != Role.SUPER_ADMIN) {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Établissement désactivé par la plateforme.");
     }
     return reponse(user, school);
+  }
+
+  /**
+   * Connexion réservée à l'administration de la plateforme (page {@code /admin} du front).
+   * Mêmes identifiants que {@code /login}, mais seuls les rôles de plateforme (SUPER_ADMIN,
+   * GESTIONNAIRE_PLATEFORME) obtiennent un jeton ; un compte d'établissement reçoit 403.
+   * Tant qu'aucun compte ne correspond à SUPER_ADMIN_EMAIL, la réponse est un 401 explicite
+   * qui ne confirme l'existence d'aucun autre compte.
+   */
+  @PostMapping("/login-plateforme")
+  public AuthResponse loginPlateforme(@Valid @RequestBody LoginRequest request) {
+    if (!platformOwners.estInitialise()) {
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, MESSAGE_PLATEFORME_NON_INITIALISEE);
+    }
+    Utilisateur user = authentifier(request);
+    if (!user.getRole().estPlateforme()) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, MESSAGE_COMPTE_NON_PLATEFORME);
+    }
+    return reponse(user, etablissementDe(user));
+  }
+
+  public static final String MESSAGE_IDENTIFIANTS = "Email ou mot de passe incorrect.";
+  public static final String MESSAGE_PLATEFORME_NON_INITIALISEE =
+      "Compte de la plateforme non initialisé : vérifiez SUPER_ADMIN_EMAIL et SUPER_ADMIN_PASSWORD sur le serveur.";
+  public static final String MESSAGE_COMPTE_NON_PLATEFORME =
+      "Ce compte n’est pas un compte d’administration de la plateforme. Utilisez /connexion.";
+
+  /** Vérifie email + mot de passe, l'état actif, puis aligne le rôle plateforme sur SUPER_ADMIN_EMAIL. */
+  private Utilisateur authentifier(LoginRequest request) {
+    Utilisateur user = utilisateurs.findByEmailIgnoreCase(request.email().trim())
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, MESSAGE_IDENTIFIANTS));
+    if (!passwordEncoder.matches(request.motDePasse(), user.getMotDePasseHash())) {
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, MESSAGE_IDENTIFIANTS);
+    }
+    if (!user.isActif()) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Compte désactivé. Contactez le responsable de l’établissement.");
+    }
+    return platformOwners.alignOnLogin(user);
   }
 
   @GetMapping("/me")
