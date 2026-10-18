@@ -111,7 +111,8 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
       birthPlace: eleve.lieuNaissance || '',
       originSchool: eleve.etablissementOrigine || '',
       gender: eleve.genre === 'M' ? 'M' : 'F',
-      serie: classe?.serie || session?.serie || '',
+      // La classe porte le code du référentiel (« D », « G2 ») ; le bulletin attend « Série D ».
+      serie: classe?.serie ? `Série ${classe.serie}` : session?.serie || '',
       examCenter: centre?.code || '',
       examCenterName: centre ? `${centre.nom}${centre.ville ? ` (${centre.ville})` : ''}` : '',
       parentPhone: '',

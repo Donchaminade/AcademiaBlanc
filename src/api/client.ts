@@ -147,6 +147,34 @@ export async function refreshSession(): Promise<AuthSession | null> {
   return next;
 }
 
+const STATUS_MESSAGES: Record<number, string> = {
+  400: 'Requête invalide : vérifiez les champs saisis.',
+  401: 'Session expirée. Reconnectez-vous.',
+  403: 'Vous n’avez pas le droit d’effectuer cette action.',
+  404: 'Élément introuvable.',
+  409: 'Suppression impossible : des données y sont encore rattachées.',
+  500: 'Erreur du serveur.',
+  502: 'Serveur indisponible. Réessayez dans un instant.',
+  503: 'Serveur indisponible. Réessayez dans un instant.',
+};
+
+/** Message d’un statut HTTP quand le serveur ne fournit aucun détail. */
+export function messagePourStatut(status: number): string {
+  return STATUS_MESSAGES[status] ?? (status >= 500 ? 'Erreur du serveur.' : `Erreur ${status}`);
+}
+
+/** Privilégie le `message` renvoyé par le serveur, sinon une phrase française selon le statut. */
+async function messageErreur(response: Response): Promise<string> {
+  try {
+    const data = await response.json() as { message?: string; error?: string } | null;
+    if (data?.message && data.message.trim()) return data.message.trim();
+    // Le champ `error` de Spring (« Forbidden », « Not Found »…) est en anglais : on lui préfère notre phrase.
+  } catch {
+    // corps vide ou non JSON
+  }
+  return messagePourStatut(response.status);
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
@@ -164,15 +192,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
-    let message = `Erreur ${response.status}`;
-    try {
-      const data = await response.json() as { message?: string; error?: string };
-      if (data.message) message = data.message;
-      else if (data.error) message = data.error;
-    } catch {
-      // corps non JSON
-    }
-    throw new ApiError(response.status, message);
+    throw new ApiError(response.status, await messageErreur(response));
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;

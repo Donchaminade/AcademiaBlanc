@@ -31,15 +31,16 @@ Une permission s’écrit `RESSOURCE:ACTION` (par exemple `MATIERES:SUPPRIMER`).
 | `ANNEES` | Voir, Détails, Créer, Modifier, Supprimer | `/api/annees-scolaires` |
 | `CENTRES` | idem | `/api/centres` |
 | `SESSIONS` | idem | `/api/sessions` |
-| `MATIERES` | idem | `/api/matieres` |
+| `MATIERES` | idem (`CREER` couvre le chargement du référentiel) | `/api/matieres`, `/api/matieres/referentiel` |
 | `COEFFICIENTS` | idem | `/api/coefficients` |
 | `ENSEIGNANTS` | idem | `/api/professeurs` |
 | `CLASSES` | idem (`MODIFIER` couvre le titulaire) | `/api/classes` |
+| `SERIES` | idem (`CREER` couvre le chargement des séries par défaut) | `/api/series`, `/api/series/defauts` |
 | `AFFECTATIONS` | idem | `/api/affectations` |
 | `ELEVES` | idem (`CREER` couvre l’import) | `/api/eleves`, `/api/eleves/import` |
 | `NOTES` | idem | `/api/notes` |
 | `BULLETINS` | Voir, Créer (générer), Imprimer | `/api/bulletins`, `/api/bulletins/generer` |
-| `PARAMETRES` | Voir, Modifier | écran Paramètres (local) |
+| `PARAMETRES` | Voir, Modifier | écran Paramètres, charte graphique `/api/etablissement/charte` (lecture aussi ouverte avec `BULLETINS:VOIR`) |
 | `UTILISATEURS` | Voir, Détails, Créer, Modifier, Supprimer | `/api/utilisateurs` |
 
 Plateforme :
@@ -59,7 +60,7 @@ Le rôle choisi à la création copie une matrice de départ dans `permission_ut
 | --- | --- | --- | --- | --- |
 | ANNEES, CENTRES, SESSIONS | tout | tout | Voir, Détails | Voir |
 | MATIERES, COEFFICIENTS | tout | tout | Voir, Détails | Voir |
-| ENSEIGNANTS, CLASSES, AFFECTATIONS | tout | tout | Voir, Détails | Voir |
+| ENSEIGNANTS, CLASSES, SERIES, AFFECTATIONS | tout | tout | Voir, Détails | Voir |
 | ELEVES | tout | tout | Voir, Détails, Créer, Modifier | Voir |
 | NOTES | tout | tout | Voir, Détails, Créer, Modifier | Voir, Détails, Créer, Modifier (ses affectations) |
 | BULLETINS | tout | tout | Voir, Créer, Imprimer | Voir |
@@ -112,7 +113,7 @@ API : `GET/POST /api/plateforme/etablissements`, `GET /api/plateforme/etablissem
 
 ## Schéma
 
-Migration `V2__permissions_utilisateurs.sql` :
+Migration `V10__permissions_utilisateurs.sql` :
 
 - `utilisateur.etablissement_id` devient nullable (gestionnaires de la plateforme) ; ajout de `actif` (défaut vrai) et `cree_par` (créateur, nullable).
 - `etablissement.actif` (défaut vrai) pour la désactivation douce.

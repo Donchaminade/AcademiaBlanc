@@ -43,7 +43,7 @@ class PermissionsUtilisateursTest {
 
     long anneeId = json.readTree(corps(envoyer(owner, get("/api/annees-scolaires")))).get(0).get("id").asLong();
     long classeId = json.readTree(corps(envoyer(owner, post("/api/classes"),
-        "{\"anneeScolaireId\":" + anneeId + ",\"nom\":\"Tle D\",\"niveau\":\"Terminale\"}").andExpect(status().isOk())))
+        "{\"anneeScolaireId\":" + anneeId + ",\"nom\":\"3e A\",\"niveau\":\"3e\"}").andExpect(status().isOk())))
         .get("id").asLong();
     long matiereId = json.readTree(corps(envoyer(owner, post("/api/matieres"), "{\"nom\":\"Physique\",\"code\":\"phy\"}")
         .andExpect(status().isOk()))).get("id").asLong();
@@ -63,7 +63,7 @@ class PermissionsUtilisateursTest {
 
     // Peut créer un élève…
     JsonNode eleve = json.readTree(corps(envoyer(sec, post("/api/eleves"),
-        "{\"classeId\":" + classeId + ",\"nomComplet\":\"KOFFI Ama\",\"matricule\":\"P-01\",\"genre\":\"F\"}")
+        "{\"classeId\":" + classeId + ",\"nomComplet\":\"KOFFI Ama\",\"genre\":\"F\"}")
         .andExpect(status().is2xxSuccessful())));
     long eleveId = eleve.get("id").asLong();
     // … mais ni le lister, ni le supprimer.

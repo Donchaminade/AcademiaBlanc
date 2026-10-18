@@ -25,6 +25,8 @@ interface SidebarProps {
   apiUser?: { name: string; role: string } | null;
   /** Ouvre l'écran d'administration (matières, enseignants, classes, élèves…). */
   onOpenAdmin?: () => void;
+  /** Ferme la session API et revient à l'écran de connexion. */
+  onLogout?: () => void;
 }
 
 const DEMO_SESSIONS = [
@@ -69,6 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   usingApi = false,
   apiUser,
   onOpenAdmin,
+  onLogout,
 }) => {
   const sessionChoices = usingApi ? (sessionOptions || []) : (sessionOptions && sessionOptions.length > 0 ? sessionOptions : DEMO_SESSIONS);
   const centerChoices = usingApi ? (centerOptions || []) : (centerOptions && centerOptions.length > 0 ? centerOptions : DEMO_CENTERS);
@@ -411,6 +414,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="material-symbols-outlined text-base">tune</span>
           </button>
         </div>
+
+        {apiUser && onLogout && (
+          <button
+            type="button"
+            onClick={onLogout}
+            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded bg-white text-red-700 text-[12px] font-bold border border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors"
+            title="Fermer la session et revenir à l'écran de connexion"
+          >
+            <span className="material-symbols-outlined text-base">logout</span>
+            <span>Se déconnecter</span>
+          </button>
+        )}
       </div>
     </aside>
   );

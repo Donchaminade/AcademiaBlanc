@@ -66,6 +66,10 @@ public class SchoolController {
   private final BulletinService bulletins;
   private final EleveImportService importEleves;
   private final PermissionService droits;
+  private final SerieService series;
+  private final AnneeDependances dependancesAnnee;
+  private final MatriculeService matricules;
+  private final ReferentielMatieresService referentielMatieres;
 
   public SchoolController(
       AnneeScolaireRepository annees,
@@ -80,6 +84,10 @@ public class SchoolController {
       NoteRepository notes,
       BulletinService bulletins,
       EleveImportService importEleves,
+      SerieService series,
+      AnneeDependances dependancesAnnee,
+      MatriculeService matricules,
+      ReferentielMatieresService referentielMatieres,
       PermissionService droits
   ) {
     this.annees = annees;
@@ -95,19 +103,24 @@ public class SchoolController {
     this.bulletins = bulletins;
     this.importEleves = importEleves;
     this.droits = droits;
+    this.series = series;
+    this.dependancesAnnee = dependancesAnnee;
+    this.matricules = matricules;
+    this.referentielMatieres = referentielMatieres;
   }
 
   public record AnneeRequest(@NotBlank @Size(max = 40) String libelle, LocalDate dateDebut, LocalDate dateFin, boolean courante) {}
   public record CentreRequest(@NotBlank @Size(max = 180) String nom, @Size(max = 120) String ville, @NotBlank @Size(max = 40) String code) {}
   public record SessionRequest(@NotNull Long anneeScolaireId, @NotNull Long centreId, @NotBlank @Size(max = 180) String nom,
                                @NotBlank @Size(max = 120) String typeExamen, @Size(max = 80) String serie, @NotBlank @Size(max = 40) String statut) {}
-  public record MatiereRequest(@NotBlank @Size(max = 180) String nom, @NotBlank @Size(max = 40) String code) {}
+  public record MatiereRequest(@NotBlank @Size(max = 180) String nom, @NotBlank @Size(max = 40) String code, @Size(max = 10) String groupeCode) {}
   public record CoefficientRequest(@NotNull Long matiereId, Long classeId, @Size(max = 80) String serie, @NotNull @DecimalMin("0.5") @DecimalMax("20") BigDecimal valeur) {}
   public record ProfesseurRequest(@NotBlank @Size(max = 180) String nom, @Size(max = 180) String email) {}
   public record ClasseRequest(@NotNull Long anneeScolaireId, @NotBlank @Size(max = 120) String nom, @NotBlank @Size(max = 80) String niveau, @Size(max = 80) String serie, Long titulaireId) {}
   public record TitulaireRequest(@NotNull Long professeurId) {}
   public record AffectationRequest(@NotNull Long professeurId, @NotNull Long matiereId, @NotNull Long classeId) {}
-  public record EleveRequest(@NotNull Long classeId, Long sessionId, @NotBlank @Size(max = 180) String nomComplet, @NotBlank @Size(max = 60) String matricule,
+  /** Le matricule n'est jamais fourni par le client : attribué par {@link MatriculeService} à la création, figé ensuite. */
+  public record EleveRequest(@NotNull Long classeId, Long sessionId, @NotBlank @Size(max = 180) String nomComplet,
                              @Size(max = 20) String dateNaissance, @Size(max = 120) String lieuNaissance, @NotBlank @Size(min = 1, max = 1) String genre,
                              Integer numeroTable, @Size(max = 180) String etablissementOrigine) {}
   public record NoteRequest(@NotNull Long eleveId, @NotNull Long matiereId, @NotNull Long sessionId,
@@ -146,8 +159,21 @@ public class SchoolController {
   @Transactional
   public void supprimerAnnee(@PathVariable Long id) {
     droits.exiger(Ressource.ANNEES, Action.SUPPRIMER);
-    annees.delete(lire(annees, id));
+    AnneeScolaire annee = lire(annees, id);
+    dependancesAnnee.verifierSupprimable(annee);
+    annees.delete(annee);
     flush(annees);
+  }
+
+  /** Désigne l'année courante de l'établissement ; les autres années repassent en « archivée ». */
+  @PutMapping("/annees-scolaires/{id}/courante")
+  @Transactional
+  public AnneeScolaire definirAnneeCourante(@PathVariable Long id) {
+    droits.exiger(Ressource.ANNEES, Action.MODIFIER);
+    AnneeScolaire annee = lire(annees, id);
+    retirerAnneeCourante(annee.getId());
+    annee.setCourante(true);
+    return annees.save(annee);
   }
 
   @GetMapping("/centres")
@@ -247,7 +273,16 @@ public class SchoolController {
     matiere.setEtablissementId(Tenant.current().etablissementId());
     matiere.setNom(request.nom().trim());
     matiere.setCode(request.code().trim().toLowerCase());
+    matiere.setGroupeCode(ReferentielMatieres.codeGroupe(request.groupeCode()));
+    matiere.setGroupeLibelle(ReferentielMatieres.libelleGroupe(request.groupeCode()));
     return matieres.save(matiere);
+  }
+
+  /** Charge les matières principales (FR, ANG, HG, ECM, PC, MAT, SVT) et leurs coefficients par défaut pour chaque classe. */
+  @PostMapping("/matieres/referentiel")
+  public ReferentielMatieresService.Resultat chargerReferentielMatieres(@RequestBody(required = false) ReferentielMatieresService.Demande request) {
+    droits.exiger(Ressource.MATIERES, Action.CREER);
+    return referentielMatieres.charger(request);
   }
 
   @GetMapping("/matieres/{id}")
@@ -262,6 +297,8 @@ public class SchoolController {
     Matiere matiere = lire(matieres, id);
     matiere.setNom(request.nom().trim());
     matiere.setCode(request.code().trim().toLowerCase());
+    matiere.setGroupeCode(ReferentielMatieres.codeGroupe(request.groupeCode()));
+    matiere.setGroupeLibelle(ReferentielMatieres.libelleGroupe(request.groupeCode()));
     return matieres.save(matiere);
   }
 
@@ -492,14 +529,20 @@ public class SchoolController {
     Eleve eleve = new Eleve();
     eleve.setEtablissementId(Tenant.current().etablissementId());
     remplir(eleve, request);
-    return eleves.save(eleve);
+    return matricules.enregistrerNouveau(eleve);
   }
 
   /** Import d'une liste d'élèves (classe créée au besoin, matricules générés, doublons ignorés). */
   @PostMapping("/eleves/import")
   public EleveImportService.Resultat importerEleves(@Valid @RequestBody EleveImportService.Demande request) {
     droits.exiger(Ressource.ELEVES, Action.CREER);
-    return importEleves.importer(request);
+    try {
+      return importEleves.importer(request);
+    } catch (DataIntegrityViolationException ex) {
+      // Collision de matricule avec une inscription concurrente : la transaction a été annulée,
+      // on recalcule la séquence et on rejoue l'import une fois (les doublons restent ignorés).
+      return importEleves.importer(request);
+    }
   }
 
   @GetMapping("/eleves/{id}")
@@ -592,7 +635,18 @@ public class SchoolController {
     annee.setLibelle(request.libelle().trim());
     annee.setDateDebut(request.dateDebut());
     annee.setDateFin(request.dateFin());
+    if (request.courante()) retirerAnneeCourante(annee.getId());
     annee.setCourante(request.courante());
+  }
+
+  /** Une seule année courante par établissement : retire le drapeau aux autres années. */
+  private void retirerAnneeCourante(Long saufId) {
+    for (AnneeScolaire autre : annees.findByEtablissementIdOrderByLibelleDesc(Tenant.current().etablissementId())) {
+      if (autre.isCourante() && !autre.getId().equals(saufId)) {
+        autre.setCourante(false);
+        annees.save(autre);
+      }
+    }
   }
 
   private void remplir(SessionExamen session, SessionRequest request) {
@@ -608,8 +662,26 @@ public class SchoolController {
     classe.setAnneeScolaireId(request.anneeScolaireId());
     classe.setNom(request.nom().trim());
     classe.setNiveau(request.niveau().trim());
-    classe.setSerie(request.serie());
+    classe.setSerie(controlerSerie(request.niveau(), request.serie()));
     classe.setTitulaireId(request.titulaireId());
+  }
+
+  /**
+   * Collège (6e–3e) : aucune série. Lycée (2nde–Tle) : série obligatoire et présente dans le
+   * référentiel de l'établissement. Niveau non reconnu : série facultative mais, si fournie,
+   * elle doit exister. Retourne le code normalisé (« f5 » → « F5 ») ou {@code null}.
+   */
+  private String controlerSerie(String niveau, String serie) {
+    boolean vide = serie == null || serie.isBlank();
+    var cycle = ClasseNiveauUtil.cycleDe(niveau).orElse(null);
+    if (cycle == ClasseNiveauUtil.Cycle.COLLEGE) {
+      if (!vide) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Une classe du collège (6e à 3e) n'a pas de série.");
+      }
+      return null;
+    }
+    if (cycle == null && vide) return null;
+    return series.exiger(Tenant.current().etablissementId(), serie).getCode();
   }
 
   private void remplir(Eleve eleve, EleveRequest request) {
@@ -620,7 +692,6 @@ public class SchoolController {
     eleve.setClasseId(request.classeId());
     eleve.setSessionId(request.sessionId());
     eleve.setNomComplet(request.nomComplet().trim());
-    eleve.setMatricule(request.matricule().trim());
     eleve.setDateNaissance(request.dateNaissance());
     eleve.setLieuNaissance(request.lieuNaissance());
     eleve.setGenre(genre);

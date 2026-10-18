@@ -3,6 +3,7 @@ import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../type
 import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministrySigle } from '../utils/bulletinHeader';
 import { appreciationFromAverage, computeSubjectRank, formatSubjectRank } from '../utils/bulletinMetrics';
 import { printDocument } from '../utils/printDocument';
+import { BulletinSignatureZone } from './BulletinSignatureZone';
 
 interface BulletinViewProps {
   candidates: Candidate[];
@@ -510,21 +511,14 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 </span>
               </div>
 
-              {/* Vector Signature Artifact */}
-              <div className="bulletin-signature-stroke w-20 h-4 flex items-center justify-center my-0">
-                <svg
-                  className="w-full h-full text-[#00236f]"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeWidth="1.8"
-                  viewBox="0 0 160 50"
-                >
-                  <path d="M10 35 C 30 15, 45 45, 60 25 C 75 5, 80 40, 110 30 C 130 22, 140 10, 150 20 M70 20 L 130 20" />
-                </svg>
-              </div>
+              {/* Signature téléversée ou espace laissé vide pour la signature à la main */}
+              <BulletinSignatureZone
+                signatureUrl={settings.signatureTitulaireUrl}
+                signatureAlt={`Signature — ${settings.principalTeacherTitle || 'Le Titulaire'}`}
+                className="h-12"
+              />
               <span className="text-[10px] text-[#444651] italic leading-tight">
-                Visa apposé le 15/05/2025
+                Visa du titulaire
               </span>
             </div>
 
@@ -539,44 +533,14 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 </span>
               </div>
 
-              {/* Official Stamp / Cachet Humide Virtuel */}
-              <div className="bulletin-signature-stamp relative w-12 h-12 my-0 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full border-2 border-dashed border-[#0051d5]/40 flex items-center justify-center">
-                  <div className="bulletin-signature-stamp-inner w-10 h-10 rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none">
-                    <span className="text-[6.5px] font-bold uppercase tracking-wider text-center leading-none">
-                      {settings.countryName.includes('TOGO') ? (
-                        <>
-                          MEPST • TOGO<br />
-                          LOMÉ
-                        </>
-                      ) : (
-                        <>
-                          MINISTÈRE ÉDUCATION<br />
-                          YAMOUSSOUKRO
-                        </>
-                      )}
-                    </span>
-                    <span className="material-symbols-outlined text-[11px] leading-none my-0 text-[#0051d5]">
-                      verified
-                    </span>
-                    <span className="text-[6.5px] font-bold uppercase tracking-tight leading-none">
-                      CERTIFIÉ CONFORME
-                    </span>
-                  </div>
-                </div>
-
-                {/* Dynamic ink signature */}
-                <svg
-                  className="bulletin-signature-stroke relative z-10 w-12 h-4 text-[#0051d5]"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeWidth="2"
-                  viewBox="0 0 140 60"
-                >
-                  <path d="M15 45 Q 40 5, 70 30 T 120 20 Q 90 55, 60 40" />
-                </svg>
-              </div>
+              {/* Cachet et signature téléversés ; sinon espace laissé vide pour le cachet humide */}
+              <BulletinSignatureZone
+                stampUrl={settings.sceauUrl}
+                signatureUrl={settings.signatureProviseurUrl}
+                stampAlt={`Cachet — ${settings.institutionName}`}
+                signatureAlt={`Signature — ${settings.jurySignerTitle || 'Le Proviseur'}`}
+                className="h-12"
+              />
               <span className="text-[10px] text-[#444651] italic leading-tight">
                 Sceau officiel de l'établissement
               </span>

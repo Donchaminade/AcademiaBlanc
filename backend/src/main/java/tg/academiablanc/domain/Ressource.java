@@ -16,6 +16,8 @@ public enum Ressource {
   COEFFICIENTS(false, Action.CRUD),
   ENSEIGNANTS(false, Action.CRUD),
   CLASSES(false, Action.CRUD),
+  /** Référentiel des séries du lycée (générales et techniques). */
+  SERIES(false, Action.CRUD),
   AFFECTATIONS(false, Action.CRUD),
   ELEVES(false, Action.CRUD),
   NOTES(false, Action.CRUD),

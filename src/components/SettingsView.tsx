@@ -3,6 +3,8 @@ import { AppSettings, Candidate, CandidateComputedStats } from '../types';
 import { DEFAULT_SETTINGS, TOGO_SETTINGS, CI_SETTINGS } from '../data/mockData';
 import { ArchivedSessionsSection } from './ArchivedSessionsSection';
 import { AdminParametres } from './AdminParametres';
+import { CharteAssetUpload } from './CharteAssetUpload';
+import { CharteField } from '../api/charte';
 import { isSafeImageUrl } from '../utils/safeUrl';
 import { confirmAction } from '../utils/alerts';
 
@@ -36,8 +38,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const sealFileInputRef = useRef<HTMLInputElement>(null);
 
   const applyPreset = (preset: AppSettings, label: string) => {
-    setFormData(preset);
-    onUpdateSettings(preset);
+    // Un préréglage national ne touche pas aux cachet / signatures déjà téléversés.
+    const next: AppSettings = {
+      ...preset,
+      sceauUrl: formData.sceauUrl,
+      signatureProviseurUrl: formData.signatureProviseurUrl,
+      signatureTitulaireUrl: formData.signatureTitulaireUrl,
+    };
+    setFormData(next);
+    onUpdateSettings(next);
     setToastMessage(`Préréglage officiel pour ${label} appliqué avec succès !`);
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3000);
@@ -99,6 +108,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const triggerToast = () => {
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 2500);
+  };
+
+  const showError = (message: string) => {
+    setToastMessage(message);
+    setShowSavedToast(true);
+    setTimeout(() => setShowSavedToast(false), 3500);
+  };
+
+  const applyCharteAsset = (field: CharteField, dataUrl: string) => {
+    const updated = { ...formData, [field]: dataUrl };
+    setFormData(updated);
+    onUpdateSettings(updated);
+    setToastMessage(dataUrl
+      ? 'Image enregistrée : elle apparaît désormais sur le bulletin.'
+      : "Image retirée : l'emplacement reste vide pour une apposition à la main.");
+    triggerToast();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -389,6 +414,47 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* Cachet & signatures des cartes « Le Titulaire » / « Le Proviseur » */}
+          <div className="bg-white p-5 rounded border border-[#eaedff] shadow-xs space-y-1">
+            <div className="flex items-center justify-between border-b border-[#eaedff] pb-2 mb-1">
+              <h3 className="text-[14px] font-bold text-[#00236f] uppercase tracking-wide flex items-center gap-2">
+                <span className="material-symbols-outlined text-lg text-[#0051d5]">approval</span>
+                Cachet &amp; Signatures du Bulletin
+              </h3>
+            </div>
+            <p className="text-[11px] text-[#444651] leading-snug pb-1">
+              Images affichées dans les cartes « {formData.principalTeacherTitle || 'Le Titulaire'} » et
+              « {formData.jurySignerTitle || 'Le Proviseur'} » en bas du bulletin. Sans image, l'emplacement
+              reste vide pour le cachet humide et les signatures à la main.
+            </p>
+
+            <CharteAssetUpload
+              label="Sceau / cachet de l'établissement"
+              hint="Cachet rond ou rectangulaire, idéalement PNG détouré (fond transparent)."
+              icon="approval"
+              shape="round"
+              value={formData.sceauUrl}
+              onChange={(dataUrl) => applyCharteAsset('sceauUrl', dataUrl)}
+              onError={showError}
+            />
+            <CharteAssetUpload
+              label={`Signature du ${(formData.jurySignerTitle || 'Proviseur').replace(/^le\s+/i, '')}`}
+              hint="Signature manuscrite scannée, affichée à côté du cachet."
+              icon="draw"
+              value={formData.signatureProviseurUrl}
+              onChange={(dataUrl) => applyCharteAsset('signatureProviseurUrl', dataUrl)}
+              onError={showError}
+            />
+            <CharteAssetUpload
+              label={`Signature du ${(formData.principalTeacherTitle || 'Titulaire').replace(/^le\s+/i, '')}`}
+              hint="Optionnelle : signature scannée du titulaire de la classe."
+              icon="draw"
+              value={formData.signatureTitulaireUrl}
+              onChange={(dataUrl) => applyCharteAsset('signatureTitulaireUrl', dataUrl)}
+              onError={showError}
+            />
           </div>
         </div>
 

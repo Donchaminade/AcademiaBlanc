@@ -14,10 +14,11 @@ import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
-import { apiDelete, apiSend, getSession, getToken, isForbidden, isPlatformAccount, refreshSession, roleLabel } from './api/client';
+import { apiDelete, apiSend, clearToken, getSession, getToken, isForbidden, isPlatformAccount, refreshSession, roleLabel } from './api/client';
 import { usePermissions } from './api/permissions';
-import { showError } from './utils/alerts';
+import { confirmAction, showError } from './utils/alerts';
 import { loadSchoolWorkspace, ExamOption } from './api/workspace';
+import { applyCharte, charteChanged, loadCharte, saveCharte } from './api/charte';
 import {
   getRegisteredSchools,
   getCurrentSchoolId,
@@ -126,6 +127,11 @@ export default function App() {
     setSettings(newSettings);
     saveSchoolData(currentSchoolId, newSettings, candidates);
     setSchools(getRegisteredSchools());
+    // Cachet et signatures suivent l'établissement sur l'API pour être retrouvés depuis un autre poste.
+    if (getToken() && charteChanged(settings, newSettings)) {
+      void saveCharte(newSettings).catch((err: unknown) =>
+        signalerErreur(err, 'Cachet / signatures non enregistrés sur le serveur.'));
+    }
   };
 
   const handleUpdateCandidates = (newCandidates: Candidate[]) => {
@@ -134,7 +140,11 @@ export default function App() {
   };
 
   const applyWorkspace = async (sessionId?: number) => {
-    const workspace = await loadSchoolWorkspace(sessionId);
+    const [workspace, charte] = await Promise.all([
+      loadSchoolWorkspace(sessionId),
+      // Une charte indisponible (ancienne API) ne doit pas bloquer le chargement de l'espace.
+      loadCharte().catch(() => null),
+    ]);
     const session = getSession();
     setUsingApi(true);
     setApiUser(session ? { name: session.nomUtilisateur || session.email, role: roleLabel(session.role) } : null);
@@ -145,13 +155,16 @@ export default function App() {
     setActiveSessionId(workspace.sessionId);
     setActiveClasseId(workspace.classeId);
     setActiveExamType(workspace.examType);
-    setSettings((prev) => ({
-      ...prev,
-      institutionName: session?.nomEtablissement || prev.institutionName,
-      academicYear: workspace.academicYear || prev.academicYear,
-      sessionName: workspace.sessionName || prev.sessionName,
-      examType: workspace.examType || prev.examType,
-    }));
+    setSettings((prev) => {
+      const next: AppSettings = {
+        ...prev,
+        institutionName: session?.nomEtablissement || prev.institutionName,
+        academicYear: workspace.academicYear || prev.academicYear,
+        sessionName: workspace.sessionName || prev.sessionName,
+        examType: workspace.examType || prev.examType,
+      };
+      return charte ? applyCharte(next, charte) : next;
+    });
     // Les libellés viennent exclusivement de l'API : vide tant qu'aucune session / aucun centre n'existe.
     setSelectedSession(workspace.sessionName);
     setSelectedCenter(workspace.centerLabel);
@@ -180,6 +193,35 @@ export default function App() {
   const openAdmin = (section?: AdminSection) => {
     setAdminTarget((prev) => ({ section: section ?? null, nonce: prev.nonce + 1 }));
     setCurrentView('admin');
+  };
+
+  // Déconnexion : efface le JWT et vide tout l'espace de travail pour qu'aucune donnée
+  // de l'établissement précédent ne reste affichée, puis revient à l'écran de connexion.
+  const handleLogout = async () => {
+    const confirmed = await confirmAction({ title: 'Se déconnecter ?', confirmText: 'Se déconnecter' });
+    if (!confirmed) return;
+    clearToken();
+    setUsingApi(false);
+    setApiUser(null);
+    setAccountRole('');
+    setCandidates([]);
+    setSubjects([]);
+    setApiSessions([]);
+    setApiCenters([]);
+    setActiveSessionId(null);
+    setActiveClasseId(null);
+    setActiveExamType('');
+    setSelectedCandidateId('');
+    setSelectedSession('');
+    setSelectedCenter('');
+    setSettings(getSchoolData(currentSchoolId).settings);
+    setAdminTarget({ section: null, nonce: 0 });
+    setIsAuthModalOpen(false);
+    setIsSignatureModalOpen(false);
+    setIsSmsModalOpen(false);
+    setIsSearchModalOpen(false);
+    setIsBatchPrintModalOpen(false);
+    setCurrentView('auth');
   };
 
   useEffect(() => {
@@ -344,18 +386,18 @@ export default function App() {
         openAdmin('classes');
         return;
       }
-      void apiSend('/api/eleves', 'POST', {
+      // Le matricule n'est pas envoyé : il est attribué par le serveur.
+      void apiSend<{ matricule: string }>('/api/eleves', 'POST', {
         classeId: activeClasseId,
         sessionId: activeSessionId,
         nomComplet: newCand.fullName,
-        matricule: newCand.matricule,
         genre: newCand.gender,
         numeroTable: newCand.tableNumber || null,
         dateNaissance: newCand.dob || null,
         lieuNaissance: newCand.birthPlace || null,
         etablissementOrigine: newCand.originSchool || null,
-      }).then(() => applyWorkspace(activeSessionId ?? undefined))
-        .then(() => showToast(`${newCand.fullName} est enregistré dans la base.`))
+      }).then((cree) => applyWorkspace(activeSessionId ?? undefined)
+        .then(() => showToast(`${newCand.fullName} est enregistré dans la base — matricule ${cree.matricule}.`)))
         .catch((err: unknown) => signalerErreur(err, 'Inscription impossible.'));
       return;
     }
@@ -505,10 +547,10 @@ export default function App() {
   if (currentView === 'auth') {
     return (
       <AuthView
-        currentSchool={currentSchool}
         onSelectSchool={handleSelectSchool}
         onAccountCreated={handleAccountCreated}
         onApiReady={handleApiReady}
+        onLogout={getToken() ? handleLogout : undefined}
         onClose={() => setCurrentView('bulletin')}
       />
     );
@@ -543,6 +585,7 @@ export default function App() {
         usingApi={usingApi}
         apiUser={usingApi ? apiUser : null}
         onOpenAdmin={usingApi && adminAccess ? () => openAdmin() : undefined}
+        onLogout={usingApi ? handleLogout : undefined}
       />
 
       {/* Main Content Area - Navigated strictly via Sidebar */}
@@ -758,10 +801,10 @@ export default function App() {
           <div className="relative w-full max-w-4xl flex justify-center">
             <AuthView
               embedded
-              currentSchool={currentSchool}
               onSelectSchool={handleSelectSchool}
               onAccountCreated={handleAccountCreated}
               onApiReady={handleApiReady}
+              onLogout={usingApi ? handleLogout : undefined}
               onClose={() => setIsAuthModalOpen(false)}
             />
           </div>

@@ -1,15 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiSend, getSession, getToken } from '../api/client';
 import { Ressource, usePermissions } from '../api/permissions';
-import { confirmDelete, showError, toastError, toastSuccess } from '../utils/alerts';
+import { confirmAction, confirmDelete, showError, showSuccess, toastError, toastSuccess } from '../utils/alerts';
 import { ImportElevesPanel } from './ImportElevesPanel';
 import { UtilisateursSection } from './UtilisateursSection';
+import { FamilleBadge, SerieForm, SeriesPanel } from './SeriesPanel';
+import { Serie, grouperSeries } from '../api/series';
 import { AdminSection } from '../types';
 
 interface Annee { id: number; libelle: string; courante: boolean; dateDebut?: string; dateFin?: string; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
 interface Session { id: number; nom: string; typeExamen: string; statut: string; serie?: string; anneeScolaireId: number; centreId: number; }
-interface Matiere { id: number; nom: string; code: string; }
+interface Matiere { id: number; nom: string; code: string; groupeCode?: string | null; groupeLibelle?: string | null; }
+/** Compte rendu du chargement du référentiel des matières principales (POST /api/matieres/referentiel). */
+interface ReferentielResultat { matieresCreees: number; matieresExistantes: number; coefficientsCrees: number; coefficientsExistants: number; }
 interface Professeur { id: number; nom: string; email?: string; }
 interface Classe { id: number; nom: string; niveau: string; serie?: string; titulaireId?: number; anneeScolaireId: number; }
 interface Affectation { id: number; professeurId: number; matiereId: number; classeId: number; }
@@ -38,7 +42,7 @@ type AdminGroup = 'annees' | 'matieres' | 'enseignants' | 'eleves' | 'notes' | '
 const GROUPS: { key: AdminGroup; label: string; icon: string; sections: AdminSection[] }[] = [
   { key: 'annees', label: 'Année & Sessions', icon: 'calendar_month', sections: ['annees', 'centres', 'sessions'] },
   { key: 'matieres', label: 'Matières & Coefficients', icon: 'menu_book', sections: ['matieres', 'coefficients'] },
-  { key: 'enseignants', label: 'Enseignants & Classes', icon: 'groups', sections: ['enseignants', 'classes', 'affectations'] },
+  { key: 'enseignants', label: 'Enseignants & Classes', icon: 'groups', sections: ['enseignants', 'classes', 'series', 'affectations'] },
   { key: 'eleves', label: 'Élèves', icon: 'school', sections: ['eleves'] },
   { key: 'notes', label: 'Notes', icon: 'grading', sections: ['notes'] },
   { key: 'utilisateurs', label: 'Utilisateurs & droits', icon: 'manage_accounts', sections: ['utilisateurs'] },
@@ -53,6 +57,7 @@ const RESSOURCE_DE: Record<AdminSection, Ressource> = {
   coefficients: 'COEFFICIENTS',
   enseignants: 'ENSEIGNANTS',
   classes: 'CLASSES',
+  series: 'SERIES',
   affectations: 'AFFECTATIONS',
   eleves: 'ELEVES',
   notes: 'NOTES',
@@ -75,17 +80,71 @@ const field = 'w-full bg-[#f2f3ff] text-[13px] py-2 px-3 rounded border border-[
 const primary = 'inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 rounded bg-[#00236f] text-white text-[12px] font-bold hover:bg-[#1e3a8a] transition-colors shadow-xs';
 const ghost = 'inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#e2e7ff] transition-colors';
 
+const ANNEE_COURANTE_INDELEBILE = 'L’année courante ne peut pas être supprimée. Définissez d’abord une autre année comme courante.';
+
+/** Groupes de matières (UE) proposés dans le formulaire ; miroir de ReferentielMatieres.GROUPES côté API. */
+const GROUPES_MATIERES: { code: string; libelle: string }[] = [
+  { code: 'LT', libelle: 'Enseignements Littératures' },
+  { code: 'SC', libelle: 'Enseignements Scientifiques' },
+];
+
+/** Matières principales chargées en un clic ; miroir de ReferentielMatieres.MATIERES côté API (affichage seulement). */
+const MATIERES_PRINCIPALES = 'Français, Anglais, Histoire-Géographie, ECM, Sciences Physiques, Mathématiques, SVT';
+
 const EMPTY = {
   centre: { nom: '', code: '', ville: 'Lomé' },
   session: { nom: '', typeExamen: 'BACCALAURÉAT II', statut: 'OUVERTE', serie: 'Série D', anneeScolaireId: '', centreId: '' },
-  matiere: { nom: '', code: '' },
+  matiere: { nom: '', code: '', groupeCode: '' },
   prof: { nom: '', email: '' },
-  classe: { nom: '', niveau: 'Terminale', serie: 'Série D', titulaireId: '', anneeScolaireId: '' },
+  classe: { nom: '', cycle: 'LYCEE' as Cycle, niveau: 'Tle', serie: '', titulaireId: '', anneeScolaireId: '' },
   affectation: { professeurId: '', matiereId: '', classeId: '' },
   coefficient: { matiereId: '', classeId: '', serie: '', valeur: '2' },
-  eleve: { nomComplet: '', matricule: '', genre: 'F', classeId: '', sessionId: '', numeroTable: '' },
+  eleve: { nomComplet: '', genre: 'F', classeId: '', sessionId: '', numeroTable: '' },
   note: { eleveId: '', matiereId: '', sessionId: '', valeur: '', absent: false },
 };
+
+/** Cycle d’une classe : collège (6e–3e, sans série) ou lycée (2nde–Tle, avec série). */
+type Cycle = 'COLLEGE' | 'LYCEE';
+
+const NIVEAUX: Record<Cycle, { code: string; label: string }[]> = {
+  COLLEGE: [
+    { code: '6e', label: '6e — Sixième' },
+    { code: '5e', label: '5e — Cinquième' },
+    { code: '4e', label: '4e — Quatrième' },
+    { code: '3e', label: '3e — Troisième' },
+  ],
+  LYCEE: [
+    { code: '2nde', label: '2nde — Seconde' },
+    { code: '1ère', label: '1ère — Première' },
+    { code: 'Tle', label: 'Tle — Terminale' },
+  ],
+};
+
+const NIVEAU_ALIAS: Record<string, string> = {
+  '6E': '6e', '6EME': '6e', SIXIEME: '6e',
+  '5E': '5e', '5EME': '5e', CINQUIEME: '5e',
+  '4E': '4e', '4EME': '4e', QUATRIEME: '4e',
+  '3E': '3e', '3EME': '3e', TROISIEME: '3e',
+  '2NDE': '2nde', '2DE': '2nde', SECONDE: '2nde',
+  '1ERE': '1ère', '1RE': '1ère', PREMIERE: '1ère',
+  TLE: 'Tle', TERMINALE: 'Tle',
+};
+
+/** Code canonique d’un niveau saisi librement (« Troisième » → « 3e »), ou la valeur d’origine. */
+const niveauCanonique = (niveau: string): string => {
+  const compact = niveau.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return NIVEAU_ALIAS[compact] ?? niveau;
+};
+
+const cycleDeNiveau = (niveau: string): Cycle =>
+  NIVEAUX.COLLEGE.some((n) => n.code === niveauCanonique(niveau)) ? 'COLLEGE' : 'LYCEE';
+
+/** Nom de classe proposé : « 3e », « Tle D », « 1ère G2 ». */
+const nomClasseSuggere = (niveau: string, serie: string): string =>
+  serie ? `${niveau} ${serie}` : niveau;
+
+/** Valeur spéciale du sélecteur de série qui ouvre le formulaire « Nouvelle série ». */
+const NOUVELLE_SERIE = '__nouvelle__';
 
 /* ------------------------------------------------------------------ */
 /* Briques d’interface                                                 */
@@ -123,7 +182,7 @@ const Field: React.FC<{ label: string; className?: string; children: React.React
 const FormActions: React.FC<{ editing: boolean; createLabel: string; updateLabel?: string; onCancel?: () => void }> = ({ editing, createLabel, updateLabel = 'Mettre à jour', onCancel }) => (
   <div className="col-span-full flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
     {editing && onCancel && (
-      <button type="button" className={ghost} onClick={onCancel}>
+      <button type="button" className={ghost} onClick={() => onCancel()}>
         <span className="material-symbols-outlined text-base">add</span>
         Nouvelle fiche
       </button>
@@ -144,7 +203,7 @@ const EditBanner: React.FC<{ id: number; summary: React.ReactNode }> = ({ id, su
 
 interface Column<T> { header: string; render: (row: T) => React.ReactNode; className?: string }
 
-function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyText, editingId, onEdit, onDelete, canCreate = true, canEdit = true, canDelete = true }: {
+function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyText, editingId, onEdit, onDelete, extraActions, deleteDisabledReason, canCreate = true, canEdit = true, canDelete = true }: {
   columns: Column<T>[];
   rows: T[];
   emptyIcon: string;
@@ -152,6 +211,10 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
   editingId?: number | null;
   onEdit: (row: T) => void;
   onDelete: (row: T) => void;
+  /** Actions supplémentaires affichées avant « Modifier » (soumises au droit MODIFIER). */
+  extraActions?: (row: T) => React.ReactNode;
+  /** Si défini pour une ligne, « Supprimer » est désactivé et la raison sert d’infobulle. */
+  deleteDisabledReason?: (row: T) => string | undefined;
   /** Droits CREER / MODIFIER / SUPPRIMER de l’utilisateur : les boutons absents ne sont pas rendus. */
   canCreate?: boolean;
   canEdit?: boolean;
@@ -177,12 +240,15 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
+          {rows.map((row) => {
+            const deleteBlocked = deleteDisabledReason?.(row);
+            return (
             <tr key={row.id} className={`border-t border-[#eaedff] transition-colors ${editingId === row.id ? 'bg-[#eaedff]/60' : 'hover:bg-[#faf8ff]'}`}>
               {columns.map((col) => <td key={col.header} className={`px-3 py-2 text-[#131b2e] ${col.className ?? ''}`}>{col.render(row)}</td>)}
               {hasActions && (
                 <td className="px-3 py-1.5 whitespace-nowrap">
                   <div className="flex items-center justify-end gap-1">
+                    {canEdit && extraActions?.(row)}
                     {canEdit && (
                       <button
                         type="button"
@@ -199,9 +265,10 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
                       <button
                         type="button"
                         onClick={() => onDelete(row)}
-                        title="Supprimer"
-                        aria-label="Supprimer"
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[#ba1a1a] hover:bg-[#ffdad6] text-[12px] font-semibold transition-colors"
+                        disabled={!!deleteBlocked}
+                        title={deleteBlocked ?? 'Supprimer'}
+                        aria-label={deleteBlocked ? `Supprimer (indisponible : ${deleteBlocked})` : 'Supprimer'}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[#ba1a1a] hover:bg-[#ffdad6] text-[12px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                       >
                         <span className="material-symbols-outlined text-base">delete</span>
                         <span className="hidden md:inline">Supprimer</span>
@@ -211,7 +278,8 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
                 </td>
               )}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -255,6 +323,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const [matieres, setMatieres] = useState<Matiere[]>([]);
   const [profs, setProfs] = useState<Professeur[]>([]);
   const [classes, setClasses] = useState<Classe[]>([]);
+  const [series, setSeries] = useState<Serie[]>([]);
   const [affectations, setAffectations] = useState<Affectation[]>([]);
   const [coefficients, setCoefficients] = useState<Coefficient[]>([]);
   const [eleves, setEleves] = useState<Eleve[]>([]);
@@ -267,10 +336,12 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const [sessionEdit, setSessionEdit] = useState<Session | null>(null);
   const [matiere, setMatiere] = useState(EMPTY.matiere);
   const [matiereEdit, setMatiereEdit] = useState<Matiere | null>(null);
+  const [chargementReferentiel, setChargementReferentiel] = useState(false);
   const [prof, setProf] = useState(EMPTY.prof);
   const [profEdit, setProfEdit] = useState<Professeur | null>(null);
   const [classe, setClasse] = useState(EMPTY.classe);
   const [classeEdit, setClasseEdit] = useState<Classe | null>(null);
+  const [nouvelleSerie, setNouvelleSerie] = useState(false);
   const [affectation, setAffectation] = useState(EMPTY.affectation);
   const [affectationEdit, setAffectationEdit] = useState<Affectation | null>(null);
   const [coefficient, setCoefficient] = useState(EMPTY.coefficient);
@@ -282,17 +353,22 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const [sessionNotes, setSessionNotes] = useState('');
   const sessionNotesRef = useRef('');
 
+  /**
+   * Vide un formulaire et revient en mode « Nouvelle fiche ».
+   * `keep` permet de conserver quelques choix après une création en série
+   * (classe du coefficient, session de la note…) ; il n’est jamais utilisé après une mise à jour.
+   */
   const reset = {
     annee: () => { setAnneeEdit(null); setAnnee('2025-2026'); },
     centre: () => { setCentreEdit(null); setCentre(EMPTY.centre); },
     session: () => { setSessionEdit(null); setSession(EMPTY.session); },
     matiere: () => { setMatiereEdit(null); setMatiere(EMPTY.matiere); },
-    coefficient: () => { setCoefficientEdit(null); setCoefficient(EMPTY.coefficient); },
+    coefficient: (keep: Partial<typeof EMPTY.coefficient> = {}) => { setCoefficientEdit(null); setCoefficient({ ...EMPTY.coefficient, ...keep }); },
     prof: () => { setProfEdit(null); setProf(EMPTY.prof); },
-    classe: () => { setClasseEdit(null); setClasse(EMPTY.classe); },
+    classe: () => { setClasseEdit(null); setClasse(EMPTY.classe); setNouvelleSerie(false); },
     affectation: () => { setAffectationEdit(null); setAffectation(EMPTY.affectation); },
-    eleve: () => { setEleveEdit(null); setEleve(EMPTY.eleve); },
-    note: () => { setNoteEdit(null); setNote(EMPTY.note); },
+    eleve: (keep: Partial<typeof EMPTY.eleve> = {}) => { setEleveEdit(null); setEleve({ ...EMPTY.eleve, ...keep }); },
+    note: (keep: Partial<typeof EMPTY.note> = {}) => { setNoteEdit(null); setNote({ ...EMPTY.note, ...keep }); },
   };
 
   const nom = (liste: { id: number; nom?: string; libelle?: string; nomComplet?: string }[], id?: number) =>
@@ -301,11 +377,17 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
     || liste.find((item) => item.id === id)?.nomComplet
     || (id ? String(id) : '—');
 
+  const serieParCode = (code?: string) => code ? series.find((item) => item.code.toUpperCase() === code.toUpperCase()) : undefined;
+  const usageSeries = classes.reduce<Record<string, number>>((acc, item) => {
+    if (item.serie) acc[item.serie.toUpperCase()] = (acc[item.serie.toUpperCase()] ?? 0) + 1;
+    return acc;
+  }, {});
+
   const load = async () => {
     if (!getToken()) return;
     // Seules les listes autorisées (droit VOIR) sont demandées : les autres restent vides au lieu de provoquer un 403.
     const si = <T,>(section: AdminSection, path: string): Promise<T[]> => (droits(section).voir ? apiGet<T[]>(path) : Promise.resolve([]));
-    const [a, c, s, m, p, k, af, coef, el] = await Promise.all([
+    const [a, c, s, m, p, k, af, coef, el, se] = await Promise.all([
       si<Annee>('annees', '/api/annees-scolaires'),
       si<Centre>('centres', '/api/centres'),
       si<Session>('sessions', '/api/sessions'),
@@ -315,8 +397,10 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
       si<Affectation>('affectations', '/api/affectations'),
       si<Coefficient>('coefficients', '/api/coefficients'),
       si<Eleve>('eleves', '/api/eleves'),
+      si<Serie>('series', '/api/series'),
     ]);
     setAnnees(a);
+    setSeries(se);
     setCentres(c);
     setSessions(s);
     setMatieres(m);
@@ -362,15 +446,55 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
     return () => window.clearTimeout(timer);
   }, [requestedSection, scrollKey]);
 
-  const run = async (action: () => Promise<void>, ok = 'Enregistré.', afterSuccess?: () => void) => {
+  const run = async (action: () => Promise<void>, ok: string | (() => string) = 'Enregistré.', afterSuccess?: () => void) => {
     try {
       await action();
-      await load();
-      afterSuccess?.();
-      onDataChanged?.();
-      toastSuccess(ok);
     } catch (err) {
+      // En cas d’échec, le formulaire garde les valeurs saisies pour permettre la correction.
       await showError('Échec de l’enregistrement', err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
+      return;
+    }
+    // L’enregistrement a réussi : on vide le formulaire avant même de recharger les listes,
+    // pour que les champs ne restent pas remplis si l’actualisation échoue.
+    afterSuccess?.();
+    onDataChanged?.();
+    toastSuccess(typeof ok === 'function' ? ok() : ok);
+    try {
+      await load();
+    } catch (err) {
+      await showError('Actualisation impossible', err instanceof Error ? err.message : 'Les données ont été enregistrées mais la liste n’a pas pu être rechargée.');
+    }
+  };
+
+  /**
+   * Charge les 7 matières principales et leurs coefficients par défaut (selon le niveau et la série de chaque classe).
+   * L’API ne crée que ce qui manque : relancer le chargement n’écrase aucun coefficient déjà saisi.
+   */
+  const chargerReferentiel = async () => {
+    const ok = await confirmAction({
+      title: 'Charger les matières principales ?',
+      text: classes.length
+        ? `${MATIERES_PRINCIPALES}. Un coefficient par défaut sera proposé pour chacune des ${classes.length} classe${classes.length > 1 ? 's' : ''} (collège, lycée A, C ou D). Les matières et coefficients déjà présents sont conservés.`
+        : `${MATIERES_PRINCIPALES}. Aucune classe n’est encore créée : seules les matières seront ajoutées ; relancez le chargement après avoir créé vos classes pour obtenir les coefficients.`,
+      confirmText: 'Charger',
+      icon: 'info',
+    });
+    if (!ok) return;
+    setChargementReferentiel(true);
+    try {
+      const r = await apiSend<ReferentielResultat>('/api/matieres/referentiel', 'POST', { appliquerCoefficientsParDefaut: true });
+      reset.matiere();
+      reset.coefficient();
+      onDataChanged?.();
+      await showSuccess('Référentiel chargé',
+        `${r.matieresCreees} matière${r.matieresCreees > 1 ? 's' : ''} créée${r.matieresCreees > 1 ? 's' : ''} (${r.matieresExistantes} déjà présente${r.matieresExistantes > 1 ? 's' : ''}), `
+        + `${r.coefficientsCrees} coefficient${r.coefficientsCrees > 1 ? 's' : ''} ajouté${r.coefficientsCrees > 1 ? 's' : ''} (${r.coefficientsExistants} conservé${r.coefficientsExistants > 1 ? 's' : ''}). `
+        + 'Vous pouvez ajuster chaque coefficient dans la section Coefficients.');
+      await load();
+    } catch (err) {
+      await showError('Chargement impossible', err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
+    } finally {
+      setChargementReferentiel(false);
     }
   };
 
@@ -382,12 +506,28 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
     }
   };
 
+  const definirAnneeCourante = async (cible: Annee) => {
+    try {
+      await apiSend(`/api/annees-scolaires/${cible.id}/courante`, 'PUT', {});
+    } catch (err) {
+      await showError('Changement d’année courante impossible', err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
+      return;
+    }
+    onDataChanged?.();
+    toastSuccess(`« ${cible.libelle} » est désormais l’année courante.`);
+    try {
+      await load();
+    } catch (err) {
+      await showError('Actualisation impossible', err instanceof Error ? err.message : 'L’année a été changée mais la liste n’a pas pu être rechargée.');
+    }
+  };
+
   const remove = async (path: string, label: string, clear: () => void) => {
     const ok = await confirmDelete(label, 'La fiche est retirée si aucun élément lié ne la retient.');
     if (!ok) return;
-    clear();
     try {
       await apiDelete(path);
+      clear();
       await load();
       onDataChanged?.();
       toastSuccess(`« ${label} » supprimé.`);
@@ -507,6 +647,19 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               ]}
               onEdit={(r) => void open<Annee>(`/api/annees-scolaires/${r.id}`, (detail) => { setAnneeEdit(detail); setAnnee(detail.libelle); })}
               onDelete={(r) => void remove(`/api/annees-scolaires/${r.id}`, r.libelle, reset.annee)}
+              deleteDisabledReason={(r) => r.courante ? ANNEE_COURANTE_INDELEBILE : undefined}
+              extraActions={(r) => !r.courante && (
+                <button
+                  type="button"
+                  onClick={() => void definirAnneeCourante(r)}
+                  title={`Définir ${r.libelle} comme année courante`}
+                  aria-label={`Définir ${r.libelle} comme année courante`}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-[#166534] hover:bg-[#dcfce7] text-[12px] font-semibold transition-colors"
+                >
+                  <span className="material-symbols-outlined text-base">task_alt</span>
+                  <span className="hidden md:inline">Définir comme courante</span>
+                </button>
+              )}
             />
             {anneeEdit && <EditBanner id={anneeEdit.id} summary={<>{anneeEdit.libelle} · courante : {anneeEdit.courante ? 'oui' : 'non'}</>} />}
             {(droits('annees').creer || (anneeEdit && droits('annees').modifier)) && (
@@ -630,6 +783,26 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
         <div className="space-y-5">
           {droits('matieres').voir && (
           <SectionCard id="matieres" icon="menu_book" title="Matières" description="Catalogue des disciplines évaluées, avec un code court pour les bulletins." count={matieres.length}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded border border-dashed border-[#c7d2fe] bg-[#f8f9ff] px-4 py-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <span className="shrink-0 w-9 h-9 rounded bg-[#eaedff] text-[#0051d5] flex items-center justify-center">
+                  <span className="material-symbols-outlined text-xl">auto_awesome</span>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-[#00236f]">Référentiel des matières principales</p>
+                  <p className="text-[12px] text-[#444651] mt-0.5">
+                    {MATIERES_PRINCIPALES}, avec leur groupe (Littératures / Scientifiques) et un coefficient par défaut pour chaque classe selon son niveau et sa série.
+                    Les éléments déjà présents sont conservés ; tout reste modifiable ensuite.
+                  </p>
+                </div>
+              </div>
+              {droits('matieres').creer && (
+              <button type="button" onClick={() => void chargerReferentiel()} disabled={chargementReferentiel} className={`${primary} shrink-0 disabled:opacity-60 disabled:cursor-not-allowed`}>
+                <span className={`material-symbols-outlined text-base ${chargementReferentiel ? 'animate-spin' : ''}`}>{chargementReferentiel ? 'progress_activity' : 'download'}</span>
+                {chargementReferentiel ? 'Chargement…' : 'Charger le référentiel'}
+              </button>
+              )}
+            </div>
             <DataTable<Matiere>
               rows={matieres}
               editingId={matiereEdit?.id}
@@ -641,27 +814,37 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               columns={[
                 { header: 'Code', render: (r) => <Badge tone="blue">{r.code}</Badge>, className: 'w-24' },
                 { header: 'Matière', render: (r) => <span className="font-semibold">{r.nom}</span> },
+                { header: 'Groupe', render: (r) => r.groupeCode
+                  ? <Badge tone={r.groupeCode === 'SC' ? 'green' : 'grey'}>{r.groupeLibelle || r.groupeCode}</Badge>
+                  : <span className="text-[#757682]">—</span> },
                 { header: 'Coefficients', render: (r) => {
                   const n = coefficients.filter((c) => c.matiereId === r.id).length;
                   return n ? `${n} défini${n > 1 ? 's' : ''}` : <span className="text-[#757682]">—</span>;
                 } },
               ]}
-              onEdit={(r) => void open<Matiere>(`/api/matieres/${r.id}`, (detail) => { setMatiereEdit(detail); setMatiere({ nom: detail.nom, code: detail.code }); })}
+              onEdit={(r) => void open<Matiere>(`/api/matieres/${r.id}`, (detail) => { setMatiereEdit(detail); setMatiere({ nom: detail.nom, code: detail.code, groupeCode: detail.groupeCode || '' }); })}
               onDelete={(r) => void remove(`/api/matieres/${r.id}`, r.nom, reset.matiere)}
             />
             {matiereEdit && <EditBanner id={matiereEdit.id} summary={<>code {matiereEdit.code} · {matiereEdit.nom}</>} />}
             {(droits('matieres').creer || (matiereEdit && droits('matieres').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
+              const body = { nom: matiere.nom, code: matiere.code, groupeCode: matiere.groupeCode || null };
               void run(() => matiereEdit
-                ? apiSend(`/api/matieres/${matiereEdit.id}`, 'PUT', matiere).then(() => undefined)
-                : apiSend('/api/matieres', 'POST', matiere).then(() => undefined), matiereEdit ? 'Matière mise à jour.' : 'Matière créée.', reset.matiere);
+                ? apiSend(`/api/matieres/${matiereEdit.id}`, 'PUT', body).then(() => undefined)
+                : apiSend('/api/matieres', 'POST', body).then(() => undefined), matiereEdit ? 'Matière mise à jour.' : 'Matière créée.', reset.matiere);
             }}>
               <Field label="Code">
                 <input required placeholder="MATH" value={matiere.code} onChange={(e) => setMatiere({ ...matiere, code: e.target.value })} className={field} />
               </Field>
-              <Field label="Nom de la matière" className="lg:col-span-3">
+              <Field label="Nom de la matière" className="lg:col-span-2">
                 <input required placeholder="Mathématiques" value={matiere.nom} onChange={(e) => setMatiere({ ...matiere, nom: e.target.value })} className={field} />
+              </Field>
+              <Field label="Groupe (facultatif)">
+                <select value={matiere.groupeCode} onChange={(e) => setMatiere({ ...matiere, groupeCode: e.target.value })} className={field}>
+                  <option value="">Hors groupe</option>
+                  {GROUPES_MATIERES.map((g) => <option key={g.code} value={g.code}>{g.libelle}</option>)}
+                </select>
               </Field>
               <FormActions editing={!!matiereEdit} createLabel="Créer la matière" onCancel={reset.matiere} />
             </form>
@@ -700,7 +883,9 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               const body = { matiereId: Number(coefficient.matiereId), classeId: coefficient.classeId ? Number(coefficient.classeId) : null, serie: coefficient.serie, valeur };
               void run(() => coefficientEdit
                 ? apiSend(`/api/coefficients/${coefficientEdit.id}`, 'PUT', body).then(() => undefined)
-                : apiSend('/api/coefficients', 'POST', body).then(() => undefined), coefficientEdit ? 'Coefficient mis à jour.' : 'Coefficient ajouté.', reset.coefficient);
+                : apiSend('/api/coefficients', 'POST', body).then(() => undefined), coefficientEdit ? 'Coefficient mis à jour.' : 'Coefficient ajouté.',
+                // Après un ajout, la classe reste choisie pour enchaîner les matières ; matière et valeur sont vidées.
+                () => reset.coefficient(coefficientEdit ? {} : { classeId: coefficient.classeId }));
             }}>
               <Field label="Matière" className="lg:col-span-2">
                 <select required value={coefficient.matiereId} onChange={(e) => setCoefficient({ ...coefficient, matiereId: e.target.value })} className={field}>
@@ -770,7 +955,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
           )}
 
           {droits('classes').voir && (
-          <SectionCard id="classes" icon="meeting_room" title="Classes & titulaires" description="Classes de l’année scolaire et enseignant titulaire de chacune." count={classes.length}>
+          <SectionCard id="classes" icon="meeting_room" title="Classes & titulaires" description="Collège (6e à 3e) sans série ; lycée (2nde à Tle) avec une série du référentiel. Enseignant titulaire de chaque classe." count={classes.length}>
             <DataTable<Classe>
               rows={classes}
               editingId={classeEdit?.id}
@@ -781,31 +966,109 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               emptyText="Aucune classe pour l’instant"
               columns={[
                 { header: 'Classe', render: (r) => <span className="font-semibold">{r.nom}</span> },
-                { header: 'Niveau / série', render: (r) => <>{r.niveau}{r.serie ? ` · ${r.serie}` : ''}</> },
+                { header: 'Cycle', render: (r) => <Badge tone={cycleDeNiveau(r.niveau) === 'LYCEE' ? 'blue' : 'grey'}>{cycleDeNiveau(r.niveau) === 'LYCEE' ? 'Lycée' : 'Collège'}</Badge>, className: 'w-24' },
+                { header: 'Niveau', render: (r) => niveauCanonique(r.niveau) },
+                { header: 'Série', render: (r) => r.serie ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-[#00236f]">{r.serie}</span>
+                    <FamilleBadge famille={serieParCode(r.serie)?.famille} />
+                  </span>
+                ) : <span className="text-[#757682]">—</span> },
                 { header: 'Titulaire', render: (r) => r.titulaireId ? nom(profs, r.titulaireId) : <span className="text-[#757682]">non désigné</span> },
                 { header: 'Année', render: (r) => nom(annees, r.anneeScolaireId) },
               ]}
               onEdit={(r) => void open<Classe>(`/api/classes/${r.id}`, (detail) => {
                 setClasseEdit(detail);
-                setClasse({ nom: detail.nom, niveau: detail.niveau, serie: detail.serie || '', titulaireId: detail.titulaireId ? String(detail.titulaireId) : '', anneeScolaireId: String(detail.anneeScolaireId) });
+                setNouvelleSerie(false);
+                setClasse({ nom: detail.nom, cycle: cycleDeNiveau(detail.niveau), niveau: niveauCanonique(detail.niveau), serie: detail.serie || '', titulaireId: detail.titulaireId ? String(detail.titulaireId) : '', anneeScolaireId: String(detail.anneeScolaireId) });
               })}
               onDelete={(r) => void remove(`/api/classes/${r.id}`, r.nom, reset.classe)}
             />
-            {classeEdit && <EditBanner id={classeEdit.id} summary={<>{classeEdit.niveau} · {classeEdit.serie || 'série non renseignée'} · année {nom(annees, classeEdit.anneeScolaireId)}</>} />}
+            {classeEdit && <EditBanner id={classeEdit.id} summary={<>{niveauCanonique(classeEdit.niveau)} · {classeEdit.serie ? `série ${classeEdit.serie}` : 'sans série'} · année {nom(annees, classeEdit.anneeScolaireId)}</>} />}
             {(droits('classes').creer || (classeEdit && droits('classes').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               const anneeId = Number(classe.anneeScolaireId || annees[0]?.id);
               if (!anneeId) { toastError('Créez d’abord une année scolaire.'); return; }
-              const body = { anneeScolaireId: anneeId, nom: classe.nom, niveau: classe.niveau, serie: classe.serie, titulaireId: classe.titulaireId ? Number(classe.titulaireId) : null };
+              const lycee = classe.cycle === 'LYCEE';
+              if (lycee && !classe.serie) { toastError('Choisissez la série de la classe (ou créez-la avec « + Nouvelle série »).'); return; }
+              const body = {
+                anneeScolaireId: anneeId,
+                nom: (classe.nom.trim() || nomClasseSuggere(classe.niveau, lycee ? classe.serie : '')),
+                niveau: classe.niveau,
+                serie: lycee ? classe.serie : null,
+                titulaireId: classe.titulaireId ? Number(classe.titulaireId) : null,
+              };
               void run(() => classeEdit
                 ? apiSend(`/api/classes/${classeEdit.id}`, 'PUT', body).then(() => undefined)
                 : apiSend('/api/classes', 'POST', body).then(() => undefined), classeEdit ? 'Classe mise à jour.' : 'Classe créée.', reset.classe);
             }}>
-              <Field label="Nom de la classe" className="lg:col-span-2">
-                <input required placeholder="Tle D1" value={classe.nom} onChange={(e) => setClasse({ ...classe, nom: e.target.value })} className={field} />
+              <Field label="Cycle">
+                <select
+                  value={classe.cycle}
+                  onChange={(e) => {
+                    const cycle = e.target.value as Cycle;
+                    const niveau = NIVEAUX[cycle][NIVEAUX[cycle].length - 1].code;
+                    setNouvelleSerie(false);
+                    setClasse({ ...classe, cycle, niveau, serie: '' });
+                  }}
+                  className={field}
+                >
+                  <option value="COLLEGE">Collège (6e à 3e)</option>
+                  <option value="LYCEE">Lycée (2nde à Tle)</option>
+                </select>
               </Field>
-              <Field label="Titulaire" className="lg:col-span-2">
+              <Field label="Niveau">
+                <select value={classe.niveau} onChange={(e) => setClasse({ ...classe, niveau: e.target.value })} className={field}>
+                  {NIVEAUX[classe.cycle].map((n) => <option key={n.code} value={n.code}>{n.label}</option>)}
+                </select>
+              </Field>
+              {classe.cycle === 'LYCEE' && (
+                <Field label="Série">
+                  <select
+                    required
+                    value={nouvelleSerie ? NOUVELLE_SERIE : classe.serie}
+                    onChange={(e) => {
+                      if (e.target.value === NOUVELLE_SERIE) { setNouvelleSerie(true); return; }
+                      setNouvelleSerie(false);
+                      setClasse({ ...classe, serie: e.target.value });
+                    }}
+                    className={field}
+                  >
+                    <option value="">Choisir une série</option>
+                    {grouperSeries(series.filter((item) => item.actif || item.code === classe.serie)).map((groupe) => (
+                      <optgroup key={groupe.famille} label={groupe.label}>
+                        {groupe.items.map((item) => <option key={item.id} value={item.code}>{item.code} — {item.libelle}</option>)}
+                      </optgroup>
+                    ))}
+                    <option value={NOUVELLE_SERIE}>+ Nouvelle série…</option>
+                  </select>
+                </Field>
+              )}
+              <Field label="Nom de la classe" className={classe.cycle === 'LYCEE' ? '' : 'lg:col-span-2'}>
+                <input
+                  placeholder={nomClasseSuggere(classe.niveau, classe.cycle === 'LYCEE' ? classe.serie : '') || 'Tle D'}
+                  value={classe.nom}
+                  onChange={(e) => setClasse({ ...classe, nom: e.target.value })}
+                  className={field}
+                />
+              </Field>
+              {classe.cycle === 'LYCEE' && nouvelleSerie && (
+                <div className="col-span-full space-y-1">
+                  <p className="text-[12px] text-[#444651]">Nouvelle série pour l’établissement : elle sera ajoutée au référentiel puis sélectionnée pour cette classe.</p>
+                  <SerieForm
+                    compact
+                    defaultFamille="TECHNIQUE"
+                    onCancel={() => setNouvelleSerie(false)}
+                    onSaved={(saved) => {
+                      setNouvelleSerie(false);
+                      setClasse((courant) => ({ ...courant, serie: saved.code }));
+                      void load().then(() => onDataChanged?.()).catch((err: Error) => void showError('Actualisation impossible', err.message));
+                    }}
+                  />
+                </div>
+              )}
+              <Field label="Titulaire" className="lg:col-span-4">
                 <select value={classe.titulaireId} onChange={(e) => setClasse({ ...classe, titulaireId: e.target.value })} className={field}>
                   <option value="">Sans titulaire</option>
                   {profs.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}
@@ -815,6 +1078,17 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             </form>
             )}
           </SectionCard>
+          )}
+
+          {droits('series').voir && (
+          <SeriesPanel
+            series={series}
+            usage={usageSeries}
+            onChanged={() => load().then(() => onDataChanged?.())}
+            canCreate={droits('series').creer}
+            canEdit={droits('series').modifier}
+            canDelete={droits('series').supprimer}
+          />
           )}
 
           {droits('affectations').voir && (
@@ -875,7 +1149,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
 
       {/* ---------------------------------------------------------- */}
       {groupeCourant === 'eleves' && (
-        <SectionCard id="eleves" icon="school" title="Élèves" description="Inscriptions des candidats avec matricule, classe et session d’examen." count={eleves.length}>
+        <SectionCard id="eleves" icon="school" title="Élèves" description="Inscriptions des candidats par classe et session d’examen ; le matricule est attribué automatiquement." count={eleves.length}>
           <DataTable<Eleve>
             rows={eleves}
             editingId={eleveEdit?.id}
@@ -886,7 +1160,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             emptyText="Aucun élève inscrit pour l’instant"
             columns={[
               { header: 'Nom complet', render: (r) => <span className="font-semibold">{r.nomComplet}</span> },
-              { header: 'Matricule', render: (r) => <span className="font-mono text-[12px]">{r.matricule}</span> },
+              { header: 'Matricule', render: (r) => <Badge tone="blue"><span className="font-mono normal-case">{r.matricule}</span></Badge> },
               { header: 'Genre', render: (r) => <Badge tone={r.genre === 'F' ? 'blue' : 'grey'}>{r.genre}</Badge>, className: 'w-20' },
               { header: 'Classe', render: (r) => nom(classes, r.classeId) },
               { header: 'Session', render: (r) => r.sessionId ? nom(sessions, r.sessionId) : <span className="text-[#757682]">—</span> },
@@ -894,32 +1168,38 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             ]}
             onEdit={(r) => void open<Eleve>(`/api/eleves/${r.id}`, (detail) => {
               setEleveEdit(detail);
-              setEleve({ nomComplet: detail.nomComplet, matricule: detail.matricule, genre: detail.genre, classeId: String(detail.classeId), sessionId: detail.sessionId ? String(detail.sessionId) : '', numeroTable: detail.numeroTable ? String(detail.numeroTable) : '' });
+              setEleve({ nomComplet: detail.nomComplet, genre: detail.genre, classeId: String(detail.classeId), sessionId: detail.sessionId ? String(detail.sessionId) : '', numeroTable: detail.numeroTable ? String(detail.numeroTable) : '' });
             })}
             onDelete={(r) => void remove(`/api/eleves/${r.id}`, r.nomComplet, reset.eleve)}
           />
-          {eleveEdit && <EditBanner id={eleveEdit.id} summary={<>{eleveEdit.nomComplet} · {eleveEdit.genre} · table {eleveEdit.numeroTable ?? '—'} · {eleveEdit.lieuNaissance || 'lieu non renseigné'}</>} />}
+          {eleveEdit && <EditBanner id={eleveEdit.id} summary={<>{eleveEdit.nomComplet} · <span className="font-mono">{eleveEdit.matricule}</span> · {eleveEdit.genre} · table {eleveEdit.numeroTable ?? '—'} · {eleveEdit.lieuNaissance || 'lieu non renseigné'}</>} />}
           {(droits('eleves').creer || (eleveEdit && droits('eleves').modifier)) && (
           <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3" onSubmit={(e) => {
             e.preventDefault();
             if (eleve.genre !== 'M' && eleve.genre !== 'F') { toastError('Le genre doit être M ou F.'); return; }
             const body = {
               nomComplet: eleve.nomComplet.trim(),
-              matricule: eleve.matricule.trim(),
               genre: eleve.genre,
               classeId: Number(eleve.classeId),
               sessionId: eleve.sessionId ? Number(eleve.sessionId) : null,
               numeroTable: eleve.numeroTable ? Number(eleve.numeroTable) : null,
             };
+            let matriculeAttribue = '';
             void run(() => eleveEdit
               ? apiSend(`/api/eleves/${eleveEdit.id}`, 'PUT', body).then(() => undefined)
-              : apiSend('/api/eleves', 'POST', body).then(() => undefined), eleveEdit ? 'Élève mis à jour.' : 'Élève inscrit.', reset.eleve);
+              : apiSend<Eleve>('/api/eleves', 'POST', body).then((cree) => { matriculeAttribue = cree.matricule; }),
+            () => (eleveEdit ? 'Élève mis à jour.' : `Élève inscrit — matricule ${matriculeAttribue}.`),
+              // Après une inscription, classe et session restent choisies pour saisir la liste d’une classe ; nom et genre sont vidés,
+              // le matricule n’étant jamais saisi (attribué par le serveur).
+              () => reset.eleve(eleveEdit ? {} : { classeId: eleve.classeId, sessionId: eleve.sessionId }));
           }}>
             <Field label="Nom complet" className="lg:col-span-2">
               <input required placeholder="Nom Prénom" value={eleve.nomComplet} onChange={(e) => setEleve({ ...eleve, nomComplet: e.target.value })} className={field} />
             </Field>
             <Field label="Matricule">
-              <input required placeholder="MAT-0001" value={eleve.matricule} onChange={(e) => setEleve({ ...eleve, matricule: e.target.value })} className={field} />
+              {eleveEdit
+                ? <span className="inline-flex items-center h-[34px]"><Badge tone="blue"><span className="font-mono normal-case">{eleveEdit.matricule}</span></Badge></span>
+                : <span className="w-full text-[13px] py-2 px-3 rounded border border-dashed border-[#dce1ff] bg-[#faf8ff] text-[#757682] italic">Attribué automatiquement</span>}
             </Field>
             <Field label="Genre">
               <select value={eleve.genre} onChange={(e) => setEleve({ ...eleve, genre: e.target.value })} className={field}>
@@ -1007,7 +1287,9 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             const body = { eleveId: Number(note.eleveId), matiereId: Number(note.matiereId), sessionId: Number(note.sessionId), valeur, absent: note.absent };
             void run(() => noteEdit
               ? apiSend(`/api/notes/${noteEdit.id}`, 'PUT', body).then(() => undefined)
-              : apiSend('/api/notes', 'POST', body).then(() => undefined), noteEdit ? 'Note mise à jour.' : 'Note enregistrée.', reset.note);
+              : apiSend('/api/notes', 'POST', body).then(() => undefined), noteEdit ? 'Note mise à jour.' : 'Note enregistrée.',
+              // Après une saisie, la session reste choisie ; élève, matière, valeur et absence sont vidés.
+              () => reset.note(noteEdit ? {} : { sessionId: note.sessionId }));
           }}>
             <Field label="Élève">
               <select required value={note.eleveId} onChange={(e) => setNote({ ...note, eleveId: e.target.value })} className={field}>

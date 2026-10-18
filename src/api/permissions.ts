@@ -7,7 +7,7 @@ import { getSession, onSessionChange } from './client';
  */
 
 export type Ressource =
-  | 'ANNEES' | 'CENTRES' | 'SESSIONS' | 'MATIERES' | 'COEFFICIENTS' | 'ENSEIGNANTS' | 'CLASSES'
+  | 'ANNEES' | 'CENTRES' | 'SESSIONS' | 'MATIERES' | 'COEFFICIENTS' | 'ENSEIGNANTS' | 'CLASSES' | 'SERIES'
   | 'AFFECTATIONS' | 'ELEVES' | 'NOTES' | 'BULLETINS' | 'PARAMETRES' | 'UTILISATEURS'
   | 'ETABLISSEMENTS' | 'GESTIONNAIRES';
 
@@ -41,6 +41,7 @@ export const RESSOURCE_LABELS: Record<Ressource, string> = {
   COEFFICIENTS: 'Coefficients',
   ENSEIGNANTS: 'Enseignants',
   CLASSES: 'Classes',
+  SERIES: 'Séries du lycée',
   AFFECTATIONS: 'Affectations',
   ELEVES: 'Élèves',
   NOTES: 'Notes',
@@ -53,7 +54,7 @@ export const RESSOURCE_LABELS: Record<Ressource, string> = {
 
 /** Ressources d’établissement dont l’écriture rend l’écran Administration utile. */
 export const RESSOURCES_ETABLISSEMENT: Ressource[] = [
-  'ANNEES', 'CENTRES', 'SESSIONS', 'MATIERES', 'COEFFICIENTS', 'ENSEIGNANTS', 'CLASSES', 'AFFECTATIONS', 'ELEVES', 'NOTES', 'BULLETINS', 'PARAMETRES', 'UTILISATEURS',
+  'ANNEES', 'CENTRES', 'SESSIONS', 'MATIERES', 'COEFFICIENTS', 'ENSEIGNANTS', 'CLASSES', 'SERIES', 'AFFECTATIONS', 'ELEVES', 'NOTES', 'BULLETINS', 'PARAMETRES', 'UTILISATEURS',
 ];
 
 export const code = (ressource: Ressource, action: Action) => `${ressource}:${action}`;

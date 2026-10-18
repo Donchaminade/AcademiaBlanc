@@ -90,7 +90,7 @@ public class DemoDataSeeder implements CommandLineRunner {
     long yearId = year(schoolId);
     long centreId = centre(schoolId, "Lycée Moderne de Tokoin (Centre 01)", "C01");
     long sessionId = session(schoolId, yearId, centreId, "BAC II Blanc 2025 - Série D");
-    long classeId = classe(schoolId, yearId, "Terminale D", "Terminale", "Série D");
+    long classeId = classe(schoolId, yearId, "Tle D", "Tle", "D");
     long[] subjectIds = subjects(schoolId, classeId);
     eleve(schoolId, classeId, sessionId, subjectIds, "CISSE Fatoumata", "24-BACD-09414", "F", 138,
         new String[]{"14.0", "13.5", "14.0", "12.5", "11.5", "14.0", "13.0", "15.0"});
@@ -109,7 +109,7 @@ public class DemoDataSeeder implements CommandLineRunner {
     long year2 = year(protestant);
     long centre2 = centre(protestant, "Collège Protestant Lomé (Centre 02)", "C02");
     long session2 = session(protestant, year2, centre2, "Session Régionale du Baccalauréat Blanc");
-    long classe2 = classe(protestant, year2, "Terminale D", "Terminale", "Série D");
+    long classe2 = classe(protestant, year2, "Tle D", "Tle", "D");
     long[] subjects2 = subjects(protestant, classe2);
     eleve(protestant, classe2, session2, subjects2, "ADJOLOU Kokouvi Chaminade", "24-BACD-08101", "M", 101,
         new String[]{"18.5", "17.0", "16.5", "15.0", "14.0", "17.5", "15.5", "16.0"});

@@ -87,7 +87,8 @@ export const ImportElevesPanel: React.FC<Props> = ({ classes, sessions, onImport
       <p className="text-[13px] font-semibold text-[#00236f]">Importer une liste</p>
       <p className="text-[12px] text-[#444651]">
         Une ligne par élève : <code>NOM Prénoms;Genre;JJ/MM/AAAA;Lieu</code> (genre M ou F ; date et lieu facultatifs).
-        Les élèves déjà présents dans la classe sont ignorés, le matricule est généré automatiquement.
+        Les élèves déjà présents dans la classe sont ignorés. Le matricule n’est pas à saisir : il est attribué
+        automatiquement par le serveur (format <code>AA-CODE_ETAB-NNNNN</code>).
       </p>
       <textarea
         required

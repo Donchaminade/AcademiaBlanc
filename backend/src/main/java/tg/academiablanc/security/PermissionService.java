@@ -180,7 +180,8 @@ public class PermissionService {
       }
       case ENSEIGNANT -> {
         for (Ressource r : List.of(Ressource.ANNEES, Ressource.CENTRES, Ressource.SESSIONS, Ressource.MATIERES,
-            Ressource.COEFFICIENTS, Ressource.ENSEIGNANTS, Ressource.CLASSES, Ressource.AFFECTATIONS, Ressource.ELEVES)) {
+            Ressource.COEFFICIENTS, Ressource.ENSEIGNANTS, Ressource.CLASSES, Ressource.SERIES, Ressource.AFFECTATIONS,
+            Ressource.ELEVES)) {
           droits.add(new Droit(r, Action.VOIR));
         }
         // Saisie des notes limitée à ses propres affectations : règle complémentaire dans SchoolController.
