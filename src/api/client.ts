@@ -124,6 +124,14 @@ export function isPlatformAccount(session: AuthSession | null = getSession()): b
   return session?.role === PLATFORM_ROLE || session?.role === PLATFORM_MANAGER_ROLE;
 }
 
+/**
+ * Compte plateforme sans établissement rattaché (propriétaire créé au démarrage, gestionnaire) :
+ * aucun espace de travail d’établissement à charger ni à afficher.
+ */
+export function isPlatformOnlyAccount(session: AuthSession | null = getSession()): boolean {
+  return isPlatformAccount(session) && !session?.etablissementId;
+}
+
 export function clearToken(): void {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(SESSION_KEY);

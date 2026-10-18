@@ -19,6 +19,11 @@ interface SidebarProps {
   centerOptions?: string[];
   /** Compte de niveau plateforme (propriétaire du logiciel ou gestionnaire) : affiche l’entrée « Plateforme ». */
   platformOwner?: boolean;
+  /**
+   * Compte plateforme sans établissement rattaché : seules les fonctions de la plateforme sont proposées
+   * (aucun sélecteur de session ou de centre, aucun menu d’établissement, aucune donnée locale).
+   */
+  platformOnly?: boolean;
   /** Vrai quand l'établissement est connecté à l'API : plus aucune valeur de démonstration n'est affichée. */
   usingApi?: boolean;
   /** Utilisateur connecté à l'API (nom et rôle) pour le pied de la barre latérale. */
@@ -68,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sessionOptions,
   centerOptions,
   platformOwner = false,
+  platformOnly = false,
   usingApi = false,
   apiUser,
   onOpenAdmin,
@@ -77,6 +83,100 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const centerChoices = usingApi ? (centerOptions || []) : (centerOptions && centerOptions.length > 0 ? centerOptions : DEMO_CENTERS);
   const footerName = apiUser?.name || settings.jurySignerName;
   const footerRole = apiUser ? apiUser.role : 'Proviseure & Jury';
+
+  const platformEntry = (
+    <button
+      type="button"
+      onClick={() => onViewChange('plateforme')}
+      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium ${
+        currentView === 'plateforme'
+          ? 'bg-[#1e3a8a] text-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
+          : 'text-[#00236f] bg-[#f2f3ff] hover:bg-[#eaedff]'
+      }`}
+    >
+      <span className="material-symbols-outlined text-lg">domain</span>
+      <span>{platformOnly ? 'Établissements & gestionnaires' : 'Plateforme : établissements & gestionnaires'}</span>
+    </button>
+  );
+
+  const accountIdentity = (
+    <div className="flex items-center gap-2.5 min-w-0">
+      {apiUser ? (
+        <span
+          aria-hidden="true"
+          className="w-8 h-8 shrink-0 rounded-full bg-[#00236f] text-white text-[11px] font-bold flex items-center justify-center ring-2 ring-[#0051d5]/20"
+        >
+          {initials(apiUser.name)}
+        </span>
+      ) : (
+        <img
+          alt="Profile"
+          className="w-8 h-8 rounded-full object-cover ring-2 ring-[#0051d5]/20"
+          src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfMWADhnssFAqE2_oiXq8p3ziGlR17RS02-06FWHwjbMygfyusLAV36M1EG2uCbGXuWNCGEPd8C6nGTKb3fW-U8Apqss4V5P64HFdCLMzMEmlqzvmXBzNqlVL54U47x1K1ehLyuJf1wQeV4My4oFYO9TadSpl9izIImu_z6xQGAPGbIf5QnrjI9WiRC-uaJpFrn5VzJZH7kRYei1Q2hQ3VyeGg-M-Q6lxyewt1Xt3LK6L-OucXQU9hew"
+        />
+      )}
+      <div className="min-w-0">
+        <p className="text-[12px] text-[#131b2e] font-semibold truncate leading-tight" title={footerName}>
+          {footerName}
+        </p>
+        <p className="text-[11px] text-[#444651] truncate leading-tight" title={footerRole}>
+          {footerRole}
+        </p>
+      </div>
+    </div>
+  );
+
+  const logoutButton = apiUser && onLogout && (
+    <button
+      type="button"
+      onClick={onLogout}
+      className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded bg-white text-red-700 text-[12px] font-bold border border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors"
+      title="Fermer la session et revenir à l'écran de connexion"
+    >
+      <span className="material-symbols-outlined text-base">logout</span>
+      <span>Se déconnecter</span>
+    </button>
+  );
+
+  // Session plateforme sans établissement : ni sélecteurs, ni recherche d'élève, ni menus d'établissement,
+  // ni bloc « Base de l'établissement » — rien qui renvoie à des données d'établissement ou de démonstration.
+  if (platformOnly) {
+    return (
+      <aside className="fixed left-0 top-0 h-full w-80 bg-[#ffffff] z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-[#eaedff]">
+        <div className="flex flex-col">
+          <div className="px-6 pt-6 pb-5 bg-[#f2f3ff] border-b border-[#eaedff]">
+            <div className="flex items-center gap-3">
+              <img
+                alt="Logo AcademiaBlanc"
+                className="h-8 w-auto max-w-[40px] object-contain rounded-xs"
+                src={settings.logoUrl}
+              />
+              <div className="flex flex-col min-w-0">
+                <span className="font-bold text-[#00236f] tracking-tight truncate text-[16px] leading-[22px]">
+                  {settings.institutionName}
+                </span>
+                <span className="text-[12px] text-[#444651] font-medium leading-[16px]">
+                  Administration du logiciel
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <nav className="px-4 py-3 space-y-1" aria-label="Plateforme">
+            <p className="px-3.5 pt-1 pb-2 text-[11px] font-semibold text-[#444651] uppercase tracking-wider">
+              Plateforme
+            </p>
+            {platformEntry}
+          </nav>
+        </div>
+
+        <div className="p-4 bg-[#f2f3ff] space-y-3 border-t border-[#eaedff]">
+          {accountIdentity}
+          {logoutButton}
+        </div>
+      </aside>
+    );
+  }
 
   const renderEmptyChoice = (label: string, action: string) => (
     <div className="flex items-center justify-between gap-2 bg-[#f2f3ff] text-[12px] py-2 px-3 rounded">
@@ -200,20 +300,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           )}
 
-          {platformOwner && (
-            <button
-              type="button"
-              onClick={() => onViewChange('plateforme')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium ${
-                currentView === 'plateforme'
-                  ? 'bg-[#1e3a8a] text-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
-                  : 'text-[#00236f] bg-[#f2f3ff] hover:bg-[#eaedff]'
-              }`}
-            >
-              <span className="material-symbols-outlined text-lg">domain</span>
-              <span>Plateforme : établissements &amp; gestionnaires</span>
-            </button>
-          )}
+          {platformOwner && platformEntry}
 
           {/* Dashboard */}
           <button
@@ -381,30 +468,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <div className="flex items-center justify-between gap-3 pt-1">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {apiUser ? (
-              <span
-                aria-hidden="true"
-                className="w-8 h-8 shrink-0 rounded-full bg-[#00236f] text-white text-[11px] font-bold flex items-center justify-center ring-2 ring-[#0051d5]/20"
-              >
-                {initials(apiUser.name)}
-              </span>
-            ) : (
-              <img
-                alt="Profile"
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-[#0051d5]/20"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfMWADhnssFAqE2_oiXq8p3ziGlR17RS02-06FWHwjbMygfyusLAV36M1EG2uCbGXuWNCGEPd8C6nGTKb3fW-U8Apqss4V5P64HFdCLMzMEmlqzvmXBzNqlVL54U47x1K1ehLyuJf1wQeV4My4oFYO9TadSpl9izIImu_z6xQGAPGbIf5QnrjI9WiRC-uaJpFrn5VzJZH7kRYei1Q2hQ3VyeGg-M-Q6lxyewt1Xt3LK6L-OucXQU9hew"
-              />
-            )}
-            <div className="min-w-0">
-              <p className="text-[12px] text-[#131b2e] font-semibold truncate leading-tight" title={footerName}>
-                {footerName}
-              </p>
-              <p className="text-[11px] text-[#444651] truncate leading-tight" title={footerRole}>
-                {footerRole}
-              </p>
-            </div>
-          </div>
+          {accountIdentity}
           <button
             className="p-1.5 rounded hover:bg-[#dae2fd] text-[#444651] hover:text-[#0051d5] transition-colors"
             title="Paramètres de l'application"
@@ -415,17 +479,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {apiUser && onLogout && (
-          <button
-            type="button"
-            onClick={onLogout}
-            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded bg-white text-red-700 text-[12px] font-bold border border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors"
-            title="Fermer la session et revenir à l'écran de connexion"
-          >
-            <span className="material-symbols-outlined text-base">logout</span>
-            <span>Se déconnecter</span>
-          </button>
-        )}
+        {logoutButton}
       </div>
     </aside>
   );
