@@ -447,11 +447,11 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                   </div>
                   <div className="bulletin-signature-stamp relative w-11 h-11 my-0 flex items-center justify-center">
                     <div className="absolute inset-0 rounded-full border border-dashed border-[#0051d5]/40 flex items-center justify-center">
-                      <div className="bulletin-signature-stamp-inner w-9 h-9 rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none">
-                        <span className="text-[6px] font-bold uppercase text-center leading-none">
+                      <div className="bulletin-signature-stamp-inner w-9 h-9 rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none overflow-hidden">
+                        <span className="max-w-full text-[4px] font-bold uppercase text-center leading-none">
                           MEPST • TOGO<br />LOMÉ
                         </span>
-                        <span className="text-[6.5px] font-bold uppercase leading-none">
+                        <span className="max-w-full text-[4px] font-bold uppercase text-center leading-none">
                           CERTIFIÉ
                         </span>
                       </div>

@@ -244,6 +244,12 @@
   height: 100%;
 }
 
+/* Le cachet réduit ne peut pas garder l'icône Material à 20px. */
+.bulletin-signature-stamp-inner .material-symbols-outlined {
+  font-size: 8px;
+  line-height: 1;
+}
+
 /* Print Styles for official ISO 216 / A4 output */
 @media print {
   @page {
@@ -435,6 +441,11 @@
 
   .bulletin-sheet .material-symbols-outlined {
     font-size: 14px !important;
+  }
+
+  .bulletin-sheet .bulletin-signature-stamp-inner .material-symbols-outlined {
+    font-size: 7px !important;
+    line-height: 1 !important;
   }
 
   .bulletin-sheet .text-\[28px\] { font-size: 16px !important; line-height: 1 !important; }

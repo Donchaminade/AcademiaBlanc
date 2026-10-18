@@ -560,8 +560,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               {/* Official Stamp / Cachet Humide Virtuel */}
               <div className="bulletin-signature-stamp relative w-12 h-12 my-0 flex items-center justify-center">
                 <div className="absolute inset-0 rounded-full border-2 border-dashed border-[#0051d5]/40 flex items-center justify-center">
-                  <div className="bulletin-signature-stamp-inner w-10 h-10 rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none">
-                    <span className="text-[6.5px] font-bold uppercase tracking-wider text-center leading-none">
+                  <div className="bulletin-signature-stamp-inner w-10 h-10 rounded-full border border-[#0051d5]/30 flex flex-col items-center justify-center text-[#0051d5] transform -rotate-12 select-none overflow-hidden">
+                    <span className="max-w-full text-[3.5px] font-bold uppercase text-center leading-none">
                       {settings.countryName.includes('TOGO') ? (
                         <>
                           MEPST • TOGO<br />
@@ -569,16 +569,18 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                         </>
                       ) : (
                         <>
-                          MINISTÈRE ÉDUCATION<br />
+                          MINISTÈRE<br />
+                          ÉDUCATION<br />
                           YAMOUSSOUKRO
                         </>
                       )}
                     </span>
-                    <span className="material-symbols-outlined text-[11px] leading-none my-0 text-[#0051d5]">
+                    <span className="material-symbols-outlined leading-none text-[#0051d5]">
                       verified
                     </span>
-                    <span className="text-[6.5px] font-bold uppercase tracking-tight leading-none">
-                      CERTIFIÉ CONFORME
+                    <span className="max-w-full text-[3.5px] font-bold uppercase text-center leading-none">
+                      CERTIFIÉ<br />
+                      CONFORME
                     </span>
                   </div>
                 </div>
