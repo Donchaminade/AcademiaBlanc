@@ -10,4 +10,8 @@ public interface EleveRepository extends JpaRepository<Eleve, Long> {
   List<Eleve> findByEtablissementIdAndSessionId(Long etablissementId, Long sessionId);
 
   long countByEtablissementId(Long etablissementId);
+
+  List<Eleve> findByEtablissementIdAndClasseId(Long etablissementId, Long classeId);
+
+  boolean existsByEtablissementIdAndMatricule(Long etablissementId, String matricule);
 }

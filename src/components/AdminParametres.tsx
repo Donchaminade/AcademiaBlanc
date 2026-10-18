@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiSend, getSession, getToken } from '../api/client';
 import { confirmDelete, showError, toastError, toastSuccess } from '../utils/alerts';
+import { ImportElevesPanel } from './ImportElevesPanel';
 import { AdminSection } from '../types';
 
 interface Annee { id: number; libelle: string; courante: boolean; dateDebut?: string; dateFin?: string; }
@@ -824,6 +825,13 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             </Field>
             <FormActions editing={!!eleveEdit} createLabel="Inscrire l’élève" updateLabel="Mettre à jour l’élève" onCancel={reset.eleve} />
           </form>
+          <ImportElevesPanel
+            classes={classes}
+            sessions={sessions}
+            onImported={() => load()
+              .then(() => onDataChanged?.())
+              .catch((err: Error) => void showError('Rechargement des listes impossible', err.message))}
+          />
         </SectionCard>
       )}
 
