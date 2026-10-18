@@ -155,8 +155,8 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
         <tbody>
           {rows.map((row) => (
             <tr key={row.id} className={`border-t border-[#eaedff] transition-colors ${editingId === row.id ? 'bg-[#eaedff]/60' : 'hover:bg-[#faf8ff]'}`}>
-              {columns.map((col) => <td key={col.header} className={`px-3 py-2 text-[#131b2e] whitespace-nowrap ${col.className ?? ''}`}>{col.render(row)}</td>)}
-              <td className="px-3 py-1.5">
+              {columns.map((col) => <td key={col.header} className={`px-3 py-2 text-[#131b2e] ${col.className ?? ''}`}>{col.render(row)}</td>)}
+              <td className="px-3 py-1.5 whitespace-nowrap">
                 <div className="flex items-center justify-end gap-1">
                   <button
                     type="button"
