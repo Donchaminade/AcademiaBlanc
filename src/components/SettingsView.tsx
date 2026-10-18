@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { AppSettings, Candidate, CandidateComputedStats } from '../types';
+import { AppSettings, Candidate, CandidateComputedStats, AdminSection } from '../types';
 import { DEFAULT_SETTINGS, TOGO_SETTINGS, CI_SETTINGS } from '../data/mockData';
 import { ArchivedSessionsSection } from './ArchivedSessionsSection';
 import { AdminParametres } from './AdminParametres';
@@ -17,6 +17,14 @@ interface SettingsViewProps {
   allStats?: Record<string, CandidateComputedStats>;
   /** Recharge l'espace de travail (matières, élèves…) après une saisie dans l'onglet Administration (API). */
   onAdminDataChanged?: () => void;
+  /** Session API active : l'onglet Archives n'affiche alors que les archives réelles de l'établissement. */
+  usingApi?: boolean;
+  /** Session d'examen actuellement chargée depuis l'API. */
+  activeSessionId?: number | null;
+  /** Ouvre une session archivée dans l'application (bouton « Consulter » des archives). */
+  onOpenSession?: (sessionId: number) => void;
+  /** Ouvre l'écran Administration (API) sur une section donnée. */
+  onOpenAdmin?: (section?: AdminSection) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -27,6 +35,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   candidates = [],
   allStats = {},
   onAdminDataChanged,
+  usingApi = false,
+  activeSessionId = null,
+  onOpenSession,
+  onOpenAdmin,
 }) => {
   const [activeTab, setActiveTab] = useState<'branding' | 'archives' | 'admin'>('branding');
   const [formData, setFormData] = useState<AppSettings>(settings);
@@ -233,6 +245,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           candidates={candidates}
           allStats={allStats}
           onNavigateToBulletin={() => onNavigate('bulletin')}
+          usingApi={usingApi}
+          activeSessionId={activeSessionId}
+          onOpenSession={onOpenSession}
+          onOpenAdmin={onOpenAdmin}
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
