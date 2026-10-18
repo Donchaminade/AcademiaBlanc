@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiSend, getSession, getToken } from '../api/client';
 import { confirmDelete, showError, toastError, toastSuccess } from '../utils/alerts';
 import { ImportElevesPanel } from './ImportElevesPanel';
+import { FamilleBadge, SerieForm, SeriesPanel } from './SeriesPanel';
+import { Serie, grouperSeries } from '../api/series';
 import { AdminSection } from '../types';
 
 interface Annee { id: number; libelle: string; courante: boolean; dateDebut?: string; dateFin?: string; }
@@ -62,12 +64,55 @@ const EMPTY = {
   session: { nom: '', typeExamen: 'BACCALAURÉAT II', statut: 'OUVERTE', serie: 'Série D', anneeScolaireId: '', centreId: '' },
   matiere: { nom: '', code: '' },
   prof: { nom: '', email: '' },
-  classe: { nom: '', niveau: 'Terminale', serie: 'Série D', titulaireId: '', anneeScolaireId: '' },
+  classe: { nom: '', cycle: 'LYCEE' as Cycle, niveau: 'Tle', serie: '', titulaireId: '', anneeScolaireId: '' },
   affectation: { professeurId: '', matiereId: '', classeId: '' },
   coefficient: { matiereId: '', classeId: '', serie: '', valeur: '2' },
   eleve: { nomComplet: '', matricule: '', genre: 'F', classeId: '', sessionId: '', numeroTable: '' },
   note: { eleveId: '', matiereId: '', sessionId: '', valeur: '', absent: false },
 };
+
+/** Cycle d’une classe : collège (6e–3e, sans série) ou lycée (2nde–Tle, avec série). */
+type Cycle = 'COLLEGE' | 'LYCEE';
+
+const NIVEAUX: Record<Cycle, { code: string; label: string }[]> = {
+  COLLEGE: [
+    { code: '6e', label: '6e — Sixième' },
+    { code: '5e', label: '5e — Cinquième' },
+    { code: '4e', label: '4e — Quatrième' },
+    { code: '3e', label: '3e — Troisième' },
+  ],
+  LYCEE: [
+    { code: '2nde', label: '2nde — Seconde' },
+    { code: '1ère', label: '1ère — Première' },
+    { code: 'Tle', label: 'Tle — Terminale' },
+  ],
+};
+
+const NIVEAU_ALIAS: Record<string, string> = {
+  '6E': '6e', '6EME': '6e', SIXIEME: '6e',
+  '5E': '5e', '5EME': '5e', CINQUIEME: '5e',
+  '4E': '4e', '4EME': '4e', QUATRIEME: '4e',
+  '3E': '3e', '3EME': '3e', TROISIEME: '3e',
+  '2NDE': '2nde', '2DE': '2nde', SECONDE: '2nde',
+  '1ERE': '1ère', '1RE': '1ère', PREMIERE: '1ère',
+  TLE: 'Tle', TERMINALE: 'Tle',
+};
+
+/** Code canonique d’un niveau saisi librement (« Troisième » → « 3e »), ou la valeur d’origine. */
+const niveauCanonique = (niveau: string): string => {
+  const compact = niveau.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return NIVEAU_ALIAS[compact] ?? niveau;
+};
+
+const cycleDeNiveau = (niveau: string): Cycle =>
+  NIVEAUX.COLLEGE.some((n) => n.code === niveauCanonique(niveau)) ? 'COLLEGE' : 'LYCEE';
+
+/** Nom de classe proposé : « 3e », « Tle D », « 1ère G2 ». */
+const nomClasseSuggere = (niveau: string, serie: string): string =>
+  serie ? `${niveau} ${serie}` : niveau;
+
+/** Valeur spéciale du sélecteur de série qui ouvre le formulaire « Nouvelle série ». */
+const NOUVELLE_SERIE = '__nouvelle__';
 
 /* ------------------------------------------------------------------ */
 /* Briques d’interface                                                 */
@@ -218,6 +263,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const [matieres, setMatieres] = useState<Matiere[]>([]);
   const [profs, setProfs] = useState<Professeur[]>([]);
   const [classes, setClasses] = useState<Classe[]>([]);
+  const [series, setSeries] = useState<Serie[]>([]);
   const [affectations, setAffectations] = useState<Affectation[]>([]);
   const [coefficients, setCoefficients] = useState<Coefficient[]>([]);
   const [eleves, setEleves] = useState<Eleve[]>([]);
@@ -234,6 +280,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const [profEdit, setProfEdit] = useState<Professeur | null>(null);
   const [classe, setClasse] = useState(EMPTY.classe);
   const [classeEdit, setClasseEdit] = useState<Classe | null>(null);
+  const [nouvelleSerie, setNouvelleSerie] = useState(false);
   const [affectation, setAffectation] = useState(EMPTY.affectation);
   const [affectationEdit, setAffectationEdit] = useState<Affectation | null>(null);
   const [coefficient, setCoefficient] = useState(EMPTY.coefficient);
@@ -257,7 +304,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
     matiere: () => { setMatiereEdit(null); setMatiere(EMPTY.matiere); },
     coefficient: (keep: Partial<typeof EMPTY.coefficient> = {}) => { setCoefficientEdit(null); setCoefficient({ ...EMPTY.coefficient, ...keep }); },
     prof: () => { setProfEdit(null); setProf(EMPTY.prof); },
-    classe: () => { setClasseEdit(null); setClasse(EMPTY.classe); },
+    classe: () => { setClasseEdit(null); setClasse(EMPTY.classe); setNouvelleSerie(false); },
     affectation: () => { setAffectationEdit(null); setAffectation(EMPTY.affectation); },
     eleve: (keep: Partial<typeof EMPTY.eleve> = {}) => { setEleveEdit(null); setEleve({ ...EMPTY.eleve, ...keep }); },
     note: (keep: Partial<typeof EMPTY.note> = {}) => { setNoteEdit(null); setNote({ ...EMPTY.note, ...keep }); },
@@ -269,9 +316,15 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
     || liste.find((item) => item.id === id)?.nomComplet
     || (id ? String(id) : '—');
 
+  const serieParCode = (code?: string) => code ? series.find((item) => item.code.toUpperCase() === code.toUpperCase()) : undefined;
+  const usageSeries = classes.reduce<Record<string, number>>((acc, item) => {
+    if (item.serie) acc[item.serie.toUpperCase()] = (acc[item.serie.toUpperCase()] ?? 0) + 1;
+    return acc;
+  }, {});
+
   const load = async () => {
     if (!getToken()) return;
-    const [a, c, s, m, p, k, af, coef, el] = await Promise.all([
+    const [a, c, s, m, p, k, af, coef, el, se] = await Promise.all([
       apiGet<Annee[]>('/api/annees-scolaires'),
       apiGet<Centre[]>('/api/centres'),
       apiGet<Session[]>('/api/sessions'),
@@ -281,8 +334,10 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
       apiGet<Affectation[]>('/api/affectations'),
       apiGet<Coefficient[]>('/api/coefficients'),
       apiGet<Eleve[]>('/api/eleves'),
+      apiGet<Serie[]>('/api/series'),
     ]);
     setAnnees(a);
+    setSeries(se);
     setCentres(c);
     setSessions(s);
     setMatieres(m);
@@ -686,7 +741,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             </form>
           </SectionCard>
 
-          <SectionCard id="classes" icon="meeting_room" title="Classes & titulaires" description="Classes de l’année scolaire et enseignant titulaire de chacune." count={classes.length}>
+          <SectionCard id="classes" icon="meeting_room" title="Classes & titulaires" description="Collège (6e à 3e) sans série ; lycée (2nde à Tle) avec une série du référentiel. Enseignant titulaire de chaque classe." count={classes.length}>
             <DataTable<Classe>
               rows={classes}
               editingId={classeEdit?.id}
@@ -694,30 +749,108 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               emptyText="Aucune classe pour l’instant"
               columns={[
                 { header: 'Classe', render: (r) => <span className="font-semibold">{r.nom}</span> },
-                { header: 'Niveau / série', render: (r) => <>{r.niveau}{r.serie ? ` · ${r.serie}` : ''}</> },
+                { header: 'Cycle', render: (r) => <Badge tone={cycleDeNiveau(r.niveau) === 'LYCEE' ? 'blue' : 'grey'}>{cycleDeNiveau(r.niveau) === 'LYCEE' ? 'Lycée' : 'Collège'}</Badge>, className: 'w-24' },
+                { header: 'Niveau', render: (r) => niveauCanonique(r.niveau) },
+                { header: 'Série', render: (r) => r.serie ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-[#00236f]">{r.serie}</span>
+                    <FamilleBadge famille={serieParCode(r.serie)?.famille} />
+                  </span>
+                ) : <span className="text-[#757682]">—</span> },
                 { header: 'Titulaire', render: (r) => r.titulaireId ? nom(profs, r.titulaireId) : <span className="text-[#757682]">non désigné</span> },
                 { header: 'Année', render: (r) => nom(annees, r.anneeScolaireId) },
               ]}
               onEdit={(r) => void open<Classe>(`/api/classes/${r.id}`, (detail) => {
                 setClasseEdit(detail);
-                setClasse({ nom: detail.nom, niveau: detail.niveau, serie: detail.serie || '', titulaireId: detail.titulaireId ? String(detail.titulaireId) : '', anneeScolaireId: String(detail.anneeScolaireId) });
+                setNouvelleSerie(false);
+                setClasse({ nom: detail.nom, cycle: cycleDeNiveau(detail.niveau), niveau: niveauCanonique(detail.niveau), serie: detail.serie || '', titulaireId: detail.titulaireId ? String(detail.titulaireId) : '', anneeScolaireId: String(detail.anneeScolaireId) });
               })}
               onDelete={(r) => void remove(`/api/classes/${r.id}`, r.nom, reset.classe)}
             />
-            {classeEdit && <EditBanner id={classeEdit.id} summary={<>{classeEdit.niveau} · {classeEdit.serie || 'série non renseignée'} · année {nom(annees, classeEdit.anneeScolaireId)}</>} />}
+            {classeEdit && <EditBanner id={classeEdit.id} summary={<>{niveauCanonique(classeEdit.niveau)} · {classeEdit.serie ? `série ${classeEdit.serie}` : 'sans série'} · année {nom(annees, classeEdit.anneeScolaireId)}</>} />}
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               const anneeId = Number(classe.anneeScolaireId || annees[0]?.id);
               if (!anneeId) { toastError('Créez d’abord une année scolaire.'); return; }
-              const body = { anneeScolaireId: anneeId, nom: classe.nom, niveau: classe.niveau, serie: classe.serie, titulaireId: classe.titulaireId ? Number(classe.titulaireId) : null };
+              const lycee = classe.cycle === 'LYCEE';
+              if (lycee && !classe.serie) { toastError('Choisissez la série de la classe (ou créez-la avec « + Nouvelle série »).'); return; }
+              const body = {
+                anneeScolaireId: anneeId,
+                nom: (classe.nom.trim() || nomClasseSuggere(classe.niveau, lycee ? classe.serie : '')),
+                niveau: classe.niveau,
+                serie: lycee ? classe.serie : null,
+                titulaireId: classe.titulaireId ? Number(classe.titulaireId) : null,
+              };
               void run(() => classeEdit
                 ? apiSend(`/api/classes/${classeEdit.id}`, 'PUT', body).then(() => undefined)
                 : apiSend('/api/classes', 'POST', body).then(() => undefined), classeEdit ? 'Classe mise à jour.' : 'Classe créée.', reset.classe);
             }}>
-              <Field label="Nom de la classe" className="lg:col-span-2">
-                <input required placeholder="Tle D1" value={classe.nom} onChange={(e) => setClasse({ ...classe, nom: e.target.value })} className={field} />
+              <Field label="Cycle">
+                <select
+                  value={classe.cycle}
+                  onChange={(e) => {
+                    const cycle = e.target.value as Cycle;
+                    const niveau = NIVEAUX[cycle][NIVEAUX[cycle].length - 1].code;
+                    setNouvelleSerie(false);
+                    setClasse({ ...classe, cycle, niveau, serie: '' });
+                  }}
+                  className={field}
+                >
+                  <option value="COLLEGE">Collège (6e à 3e)</option>
+                  <option value="LYCEE">Lycée (2nde à Tle)</option>
+                </select>
               </Field>
-              <Field label="Titulaire" className="lg:col-span-2">
+              <Field label="Niveau">
+                <select value={classe.niveau} onChange={(e) => setClasse({ ...classe, niveau: e.target.value })} className={field}>
+                  {NIVEAUX[classe.cycle].map((n) => <option key={n.code} value={n.code}>{n.label}</option>)}
+                </select>
+              </Field>
+              {classe.cycle === 'LYCEE' && (
+                <Field label="Série">
+                  <select
+                    required
+                    value={nouvelleSerie ? NOUVELLE_SERIE : classe.serie}
+                    onChange={(e) => {
+                      if (e.target.value === NOUVELLE_SERIE) { setNouvelleSerie(true); return; }
+                      setNouvelleSerie(false);
+                      setClasse({ ...classe, serie: e.target.value });
+                    }}
+                    className={field}
+                  >
+                    <option value="">Choisir une série</option>
+                    {grouperSeries(series.filter((item) => item.actif || item.code === classe.serie)).map((groupe) => (
+                      <optgroup key={groupe.famille} label={groupe.label}>
+                        {groupe.items.map((item) => <option key={item.id} value={item.code}>{item.code} — {item.libelle}</option>)}
+                      </optgroup>
+                    ))}
+                    <option value={NOUVELLE_SERIE}>+ Nouvelle série…</option>
+                  </select>
+                </Field>
+              )}
+              <Field label="Nom de la classe" className={classe.cycle === 'LYCEE' ? '' : 'lg:col-span-2'}>
+                <input
+                  placeholder={nomClasseSuggere(classe.niveau, classe.cycle === 'LYCEE' ? classe.serie : '') || 'Tle D'}
+                  value={classe.nom}
+                  onChange={(e) => setClasse({ ...classe, nom: e.target.value })}
+                  className={field}
+                />
+              </Field>
+              {classe.cycle === 'LYCEE' && nouvelleSerie && (
+                <div className="col-span-full space-y-1">
+                  <p className="text-[12px] text-[#444651]">Nouvelle série pour l’établissement : elle sera ajoutée au référentiel puis sélectionnée pour cette classe.</p>
+                  <SerieForm
+                    compact
+                    defaultFamille="TECHNIQUE"
+                    onCancel={() => setNouvelleSerie(false)}
+                    onSaved={(saved) => {
+                      setNouvelleSerie(false);
+                      setClasse((courant) => ({ ...courant, serie: saved.code }));
+                      void load().then(() => onDataChanged?.()).catch((err: Error) => void showError('Actualisation impossible', err.message));
+                    }}
+                  />
+                </div>
+              )}
+              <Field label="Titulaire" className="lg:col-span-4">
                 <select value={classe.titulaireId} onChange={(e) => setClasse({ ...classe, titulaireId: e.target.value })} className={field}>
                   <option value="">Sans titulaire</option>
                   {profs.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}
@@ -726,6 +859,12 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               <FormActions editing={!!classeEdit} createLabel="Créer la classe" updateLabel="Mettre à jour la classe" onCancel={reset.classe} />
             </form>
           </SectionCard>
+
+          <SeriesPanel
+            series={series}
+            usage={usageSeries}
+            onChanged={() => load().then(() => onDataChanged?.())}
+          />
 
           <SectionCard id="affectations" icon="assignment_ind" title="Affectations" description="Qui enseigne quelle matière dans quelle classe." count={affectations.length}>
             <DataTable<Affectation>
