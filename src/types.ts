@@ -66,9 +66,11 @@ export type AdminSection =
   | 'coefficients'
   | 'enseignants'
   | 'classes'
+  | 'series'
   | 'affectations'
   | 'eleves'
-  | 'notes';
+  | 'notes'
+  | 'utilisateurs';
 
 export interface AppSettings {
   logoUrl: string;

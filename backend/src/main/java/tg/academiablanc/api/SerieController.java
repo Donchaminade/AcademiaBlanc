@@ -16,9 +16,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import tg.academiablanc.domain.Action;
 import tg.academiablanc.domain.FamilleSerie;
+import tg.academiablanc.domain.Ressource;
 import tg.academiablanc.domain.Serie;
 import tg.academiablanc.repo.SerieRepository;
+import tg.academiablanc.security.PermissionService;
 import tg.academiablanc.security.Tenant;
 
 /** Référentiel des séries du lycée (générales et techniques), géré par l'établissement. */
@@ -27,10 +30,12 @@ import tg.academiablanc.security.Tenant;
 public class SerieController {
   private final SerieService service;
   private final SerieRepository series;
+  private final PermissionService droits;
 
-  public SerieController(SerieService service, SerieRepository series) {
+  public SerieController(SerieService service, SerieRepository series, PermissionService droits) {
     this.service = service;
     this.series = series;
+    this.droits = droits;
   }
 
   public record SerieRequest(
@@ -43,37 +48,39 @@ public class SerieController {
 
   @GetMapping
   public List<Serie> lister() {
+    droits.exiger(Ressource.SERIES, Action.VOIR);
     return service.lister(Tenant.current().etablissementId());
   }
 
   @GetMapping("/{id}")
   public Serie lire(@PathVariable Long id) {
+    droits.exiger(Ressource.SERIES, Action.DETAILS);
     return charger(id);
   }
 
   @PostMapping
   public Serie creer(@Valid @RequestBody SerieRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.SERIES, Action.CREER);
     return service.creer(Tenant.current().etablissementId(), request.code(), request.libelle(), request.famille(), request.actif(), request.ordre());
   }
 
   @PutMapping("/{id}")
   public Serie modifier(@PathVariable Long id, @Valid @RequestBody SerieRequest request) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.SERIES, Action.MODIFIER);
     return service.modifier(charger(id), request.code(), request.libelle(), request.famille(), request.actif(), request.ordre());
   }
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void supprimer(@PathVariable Long id) {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.SERIES, Action.SUPPRIMER);
     service.supprimer(charger(id));
   }
 
   /** (Re)charge les séries par défaut manquantes ; les séries déjà présentes ne sont pas modifiées. */
   @PostMapping("/defauts")
   public List<Serie> chargerDefauts() {
-    Tenant.requireAdmin();
+    droits.exiger(Ressource.SERIES, Action.CREER);
     return service.chargerDefauts(Tenant.current().etablissementId());
   }
 

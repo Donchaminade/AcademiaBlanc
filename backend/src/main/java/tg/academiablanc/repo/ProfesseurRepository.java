@@ -8,4 +8,6 @@ public interface ProfesseurRepository extends JpaRepository<Professeur, Long> {
   List<Professeur> findByEtablissementIdOrderByNomAsc(Long etablissementId);
 
   long countByEtablissementId(Long etablissementId);
+
+  List<Professeur> findByUtilisateurId(Long utilisateurId);
 }

@@ -70,7 +70,7 @@ public class EleveImportService {
 
   @Transactional
   public Resultat importer(Demande demande) {
-    Tenant.requireStaff();
+    // Le droit ELEVES:CREER est vérifié par le contrôleur.
     Long etab = Tenant.current().etablissementId();
     MatriculeService.Sequence sequence = matricules.sequence(etab);
 

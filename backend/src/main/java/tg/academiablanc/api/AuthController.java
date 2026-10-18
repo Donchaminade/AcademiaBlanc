@@ -4,24 +4,22 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.time.LocalDate;
-import java.util.Locale;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
-import tg.academiablanc.domain.AnneeScolaire;
 import tg.academiablanc.domain.Etablissement;
 import tg.academiablanc.domain.Role;
 import tg.academiablanc.domain.Utilisateur;
-import tg.academiablanc.repo.AnneeScolaireRepository;
 import tg.academiablanc.repo.EtablissementRepository;
 import tg.academiablanc.repo.UtilisateurRepository;
 import tg.academiablanc.security.JwtService;
+import tg.academiablanc.security.PermissionService;
 import tg.academiablanc.security.PlatformOwnerService;
 
 @RestController
@@ -29,25 +27,28 @@ import tg.academiablanc.security.PlatformOwnerService;
 public class AuthController {
   private final EtablissementRepository etablissements;
   private final UtilisateurRepository utilisateurs;
-  private final AnneeScolaireRepository annees;
+  private final EtablissementService creation;
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
   private final PlatformOwnerService platformOwners;
+  private final PermissionService droits;
 
   public AuthController(
       EtablissementRepository etablissements,
       UtilisateurRepository utilisateurs,
-      AnneeScolaireRepository annees,
+      EtablissementService creation,
       PasswordEncoder passwordEncoder,
       JwtService jwtService,
-      PlatformOwnerService platformOwners
+      PlatformOwnerService platformOwners,
+      PermissionService droits
   ) {
     this.etablissements = etablissements;
     this.utilisateurs = utilisateurs;
-    this.annees = annees;
+    this.creation = creation;
     this.passwordEncoder = passwordEncoder;
     this.jwtService = jwtService;
     this.platformOwners = platformOwners;
+    this.droits = droits;
   }
 
   public record SignupRequest(
@@ -66,60 +67,36 @@ public class AuthController {
       @NotBlank @Size(max = 80) String motDePasse
   ) {}
 
+  /** Réponse de connexion. {@code permissions} = codes « RESSOURCE:ACTION » détenus, pour masquer l’interface. */
   public record AuthResponse(
       String token,
+      Long utilisateurId,
       Long etablissementId,
       String role,
       String nomEtablissement,
       String email,
-      String nomUtilisateur
+      String nomUtilisateur,
+      List<String> permissions
+  ) {}
+
+  /** Compte courant, relu en base : rôle, établissement et permissions à jour. */
+  public record MeResponse(
+      Long utilisateurId,
+      Long etablissementId,
+      String role,
+      String nomEtablissement,
+      String email,
+      String nomUtilisateur,
+      boolean actif,
+      List<String> permissions
   ) {}
 
   @PostMapping("/signup")
-  @Transactional
   public AuthResponse signup(@Valid @RequestBody SignupRequest request) {
-    String email = request.email().trim().toLowerCase(Locale.ROOT);
-    if (utilisateurs.findByEmailIgnoreCase(email).isPresent() || etablissements.findByEmailIgnoreCase(email).isPresent()) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT, "Cet email est déjà utilisé.");
-    }
-    String code = codeFrom(request.nom(), request.ville());
-    int suffix = 1;
-    String unique = code;
-    while (etablissements.existsByCode(unique)) {
-      suffix++;
-      unique = code + "-" + suffix;
-    }
-
-    Etablissement school = new Etablissement();
-    school.setNom(request.nom().trim());
-    school.setCode(unique);
-    school.setVille(request.ville().trim());
-    school.setRegion(blankToNull(request.region()));
-    school.setTypeEtablissement(blankToNull(request.typeEtablissement()));
-    school.setEmail(email);
-    school.setTelephone(blankToNull(request.telephone()));
-    school.setNomResponsable(request.nomResponsable().trim());
-    school = etablissements.save(school);
-
-    Utilisateur owner = new Utilisateur();
-    owner.setEtablissementId(school.getId());
-    owner.setEmail(email);
-    owner.setMotDePasseHash(passwordEncoder.encode(request.motDePasse()));
-    owner.setNom(request.nomResponsable().trim());
-    // L'inscription crée toujours un compte d'établissement. SUPER_ADMIN ne s'obtient pas ici.
-    owner.setRole(Role.OWNER);
-    owner = utilisateurs.save(owner);
-
-    AnneeScolaire annee = new AnneeScolaire();
-    annee.setEtablissementId(school.getId());
-    annee.setLibelle("2024-2025");
-    annee.setDateDebut(LocalDate.of(2024, 9, 1));
-    annee.setDateFin(LocalDate.of(2025, 7, 31));
-    annee.setCourante(true);
-    annees.save(annee);
-
-    return new AuthResponse(
-        jwtService.create(owner), school.getId(), owner.getRole().name(), school.getNom(), owner.getEmail(), owner.getNom());
+    EtablissementService.Creation created = creation.creer(
+        request.nom(), request.ville(), request.email(), request.motDePasse(), request.nomResponsable(),
+        request.telephone(), request.region(), request.typeEtablissement(), null);
+    return reponse(created.owner(), created.etablissement());
   }
 
   @PostMapping("/login")
@@ -129,25 +106,47 @@ public class AuthController {
     if (!passwordEncoder.matches(request.motDePasse(), user.getMotDePasseHash())) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email ou mot de passe incorrect.");
     }
+    if (!user.isActif()) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Compte désactivé. Contactez le responsable de l’établissement.");
+    }
     user = platformOwners.alignOnLogin(user);
-    Etablissement school = etablissements.findById(user.getEtablissementId())
+    Etablissement school = etablissementDe(user);
+    if (school != null && !school.isActif() && user.getRole() != Role.SUPER_ADMIN) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Établissement désactivé par la plateforme.");
+    }
+    return reponse(user, school);
+  }
+
+  @GetMapping("/me")
+  public MeResponse me() {
+    Utilisateur user = droits.courant();
+    Etablissement school = etablissementDe(user);
+    return new MeResponse(
+        user.getId(),
+        user.getEtablissementId(),
+        user.getRole().name(),
+        school == null ? null : school.getNom(),
+        user.getEmail(),
+        user.getNom(),
+        user.isActif(),
+        droits.codesDe(user));
+  }
+
+  private Etablissement etablissementDe(Utilisateur user) {
+    if (user.getEtablissementId() == null) return null;
+    return etablissements.findById(user.getEtablissementId())
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Établissement introuvable."));
+  }
+
+  private AuthResponse reponse(Utilisateur user, Etablissement school) {
     return new AuthResponse(
-        jwtService.create(user), school.getId(), user.getRole().name(), school.getNom(), user.getEmail(), user.getNom());
-  }
-
-  private static String codeFrom(String nom, String ville) {
-    String left = nom.replaceAll("[^A-Za-z]", "").toUpperCase(Locale.ROOT);
-    String right = ville.replaceAll("[^A-Za-z]", "").toUpperCase(Locale.ROOT);
-    left = left.length() > 4 ? left.substring(0, 4) : left;
-    right = right.length() > 4 ? right.substring(0, 4) : right;
-    if (left.isBlank()) left = "ETAB";
-    if (right.isBlank()) right = "VILLE";
-    return left + "-" + right + "-01";
-  }
-
-  private static String blankToNull(String value) {
-    if (value == null || value.isBlank()) return null;
-    return value.trim();
+        jwtService.create(user),
+        user.getId(),
+        school == null ? null : school.getId(),
+        user.getRole().name(),
+        school == null ? "Plateforme AcademiaBlanc" : school.getNom(),
+        user.getEmail(),
+        user.getNom(),
+        droits.codesDe(user));
   }
 }

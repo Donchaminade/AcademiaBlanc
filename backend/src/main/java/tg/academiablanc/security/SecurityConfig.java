@@ -41,8 +41,8 @@ public class SecurityConfig {
             // erreur (404, 409, 400…) ressortait en 403 au corps vide.
             .requestMatchers("/error").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
-            .requestMatchers(HttpMethod.GET, "/api/plateforme/etablissements").hasRole("SUPER_ADMIN")
-            .requestMatchers("/api/plateforme/**").denyAll()
+            // Plateforme : SUPER_ADMIN et gestionnaires ; le détail par action est contrôlé par PermissionService.
+            .requestMatchers("/api/plateforme/**").hasAnyRole("SUPER_ADMIN", "GESTIONNAIRE_PLATEFORME")
             .anyRequest().authenticated())
         .exceptionHandling(handling -> handling
             .authenticationEntryPoint((request, response, ex) -> refuser(response, "Authentification requise. Reconnectez-vous."))

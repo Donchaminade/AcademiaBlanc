@@ -3,8 +3,11 @@ package tg.academiablanc.security;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
-import tg.academiablanc.domain.Role;
 
+/**
+ * Cloisonnement par établissement à partir du jeton.
+ * Les droits par action sont vérifiés par {@link PermissionService}.
+ */
 public final class Tenant {
   private Tenant() {}
 
@@ -16,30 +19,10 @@ public final class Tenant {
     return user;
   }
 
+  /** 404 si la ressource n’appartient pas à l’établissement du jeton (un gestionnaire plateforme n’en a aucun). */
   public static void same(Long etablissementId) {
     if (etablissementId == null || !etablissementId.equals(current().etablissementId())) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ressource introuvable.");
-    }
-  }
-
-  public static void requireAdmin() {
-    Role role = current().role();
-    if (role != Role.OWNER && role != Role.ADMIN) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Réservé au responsable de l'établissement.");
-    }
-  }
-
-  public static void requireStaff() {
-    Role role = current().role();
-    if (role != Role.OWNER && role != Role.ADMIN && role != Role.SECRETAIRE) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Droit insuffisant.");
-    }
-  }
-
-  /** Rôle plateforme, indépendant de l'établissement porté par le jeton. */
-  public static void requirePlatform() {
-    if (current().role() != Role.SUPER_ADMIN) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Réservé au propriétaire du logiciel.");
     }
   }
 }

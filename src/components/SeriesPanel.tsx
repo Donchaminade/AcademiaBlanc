@@ -135,10 +135,14 @@ interface SeriesPanelProps {
   usage?: Record<string, number>;
   /** Appelé après toute modification réussie afin de recharger les listes. */
   onChanged: () => void | Promise<void>;
+  /** Droits CREER / MODIFIER / SUPPRIMER sur les séries : les boutons absents ne sont pas rendus. */
+  canCreate?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
 /** Carte compacte « Séries » : liste par famille, Modifier / Supprimer, chargement des défauts. */
-export const SeriesPanel: React.FC<SeriesPanelProps> = ({ series, usage = {}, onChanged }) => {
+export const SeriesPanel: React.FC<SeriesPanelProps> = ({ series, usage = {}, onChanged, canCreate = true, canEdit = true, canDelete = true }) => {
   const [editing, setEditing] = useState<Serie | null>(null);
   const [adding, setAdding] = useState(false);
   const [loadingDefaults, setLoadingDefaults] = useState(false);
@@ -226,6 +230,7 @@ export const SeriesPanel: React.FC<SeriesPanelProps> = ({ series, usage = {}, on
                         {n > 0 && <span className="shrink-0 text-[10px] text-[#757682]">{n} classe{n > 1 ? 's' : ''}</span>}
                       </div>
                       <div className="flex items-center gap-0.5 shrink-0">
+                        {canEdit && (
                         <button
                           type="button"
                           onClick={() => { setAdding(false); setEditing(serie); }}
@@ -236,6 +241,8 @@ export const SeriesPanel: React.FC<SeriesPanelProps> = ({ series, usage = {}, on
                           <span className="material-symbols-outlined text-base">edit</span>
                           <span className="hidden xl:inline">Modifier</span>
                         </button>
+                        )}
+                        {canDelete && (
                         <button
                           type="button"
                           onClick={() => void remove(serie)}
@@ -247,6 +254,7 @@ export const SeriesPanel: React.FC<SeriesPanelProps> = ({ series, usage = {}, on
                           <span className="material-symbols-outlined text-base">delete</span>
                           <span className="hidden xl:inline">Supprimer</span>
                         </button>
+                        )}
                       </div>
                     </li>
                   );
@@ -275,6 +283,7 @@ export const SeriesPanel: React.FC<SeriesPanelProps> = ({ series, usage = {}, on
         <SerieForm onCancel={() => setAdding(false)} onSaved={() => void refresh()} />
       )}
 
+      {canCreate && (
       <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
         <button type="button" onClick={() => void loadDefaults()} className={ghost} disabled={loadingDefaults}>
           <span className={`material-symbols-outlined text-base ${loadingDefaults ? 'animate-spin' : ''}`}>{loadingDefaults ? 'progress_activity' : 'library_add'}</span>
@@ -287,6 +296,7 @@ export const SeriesPanel: React.FC<SeriesPanelProps> = ({ series, usage = {}, on
           </button>
         )}
       </div>
+      )}
     </section>
   );
 };

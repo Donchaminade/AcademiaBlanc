@@ -42,7 +42,6 @@ public class CharteService {
 
   @Transactional
   public Charte update(Charte request) {
-    Tenant.requireAdmin();
     Etablissement school = school();
     school.setSceauUrl(normalise(request.sceauUrl(), "sceau"));
     school.setSignatureProviseurUrl(normalise(request.signatureProviseurUrl(), "signature du proviseur"));

@@ -1,5 +1,6 @@
 package tg.academiablanc.repo;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,4 +13,8 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
   List<Utilisateur> findByRole(Role role);
 
   long countByEtablissementId(Long etablissementId);
+
+  List<Utilisateur> findByEtablissementIdOrderByNomAsc(Long etablissementId);
+
+  List<Utilisateur> findByRoleInOrderByNomAsc(Collection<Role> roles);
 }

@@ -58,7 +58,6 @@ public class ReferentielMatieresService {
 
   @Transactional
   public Resultat charger(Demande demande) {
-    Tenant.requireAdmin();
     Long etab = Tenant.current().etablissementId();
     Demande d = demande != null ? demande : new Demande(null, null, null);
 
