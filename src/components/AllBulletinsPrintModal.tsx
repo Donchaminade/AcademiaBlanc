@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
-import { getBulletinHeaderInfo, ministrySigle } from '../utils/bulletinHeader';
+import { establishmentCaption, getBulletinHeaderInfo, ministrySigle } from '../utils/bulletinHeader';
 import {
   appreciationFromAverage,
   computeSubjectRank,
@@ -27,6 +27,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
   selectedSession,
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'admis' | 'rattrapage'>('all');
+  const sealCaption = establishmentCaption(settings.institutionName);
 
   const filteredCandidates = candidates.filter((c) => {
     const stats = allStats[c.id];
@@ -179,9 +180,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       </span>
                     </div>
                   )}
-                  <span className="font-mono text-[9px] text-[#444651] mt-0.5 tracking-wider uppercase font-semibold">
-                    SCEAU DU JURY
-                  </span>
+                  <span className="bulletin-seal-caption">{sealCaption}</span>
                 </div>
 
                 <div className="bulletin-header-right">

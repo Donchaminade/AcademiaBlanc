@@ -143,6 +143,21 @@
   padding-inline: 0.25rem;
 }
 
+.bulletin-seal-caption {
+  display: block;
+  max-width: 34mm;
+  margin-top: 0.15rem;
+  color: #444651;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.03em;
+  text-align: center;
+  text-transform: uppercase;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
 .bulletin-ribbon {
   display: flex;
   align-items: center;
@@ -348,6 +363,14 @@
   .bulletin-sheet .bulletin-seal-mark {
     width: 16mm !important;
     height: 16mm !important;
+  }
+
+  .bulletin-sheet .bulletin-seal-caption {
+    max-width: 32mm !important;
+    margin-top: 0.4mm !important;
+    font-size: 7px !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0.02em !important;
   }
 
   .bulletin-sheet .bulletin-ribbon {

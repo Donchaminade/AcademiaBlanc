@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
-import { getBulletinHeaderInfo, ministrySigle } from '../utils/bulletinHeader';
+import { establishmentCaption, getBulletinHeaderInfo, ministrySigle } from '../utils/bulletinHeader';
 import { appreciationFromAverage, computeSubjectRank, formatSubjectRank } from '../utils/bulletinMetrics';
 import { printDocument } from '../utils/printDocument';
 
@@ -33,6 +33,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const ministryMark = ministrySigle(settings.ministryName);
+  const sealCaption = establishmentCaption(settings.institutionName);
 
   const headerInfo = useMemo(() => {
     return getBulletinHeaderInfo(
@@ -259,9 +260,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   </span>
                 </div>
               )}
-              <span className="font-mono text-[10px] text-[#444651] mt-1 tracking-wider uppercase font-semibold">
-                SCEAU DU JURY
-              </span>
+              <span className="bulletin-seal-caption">{sealCaption}</span>
             </div>
 
             <div className="bulletin-header-right">
