@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -39,4 +40,8 @@ public class SessionExamen implements TenantOwned {
 
   @Column(nullable = false)
   private String statut;
+
+  /** Renseignée quand la session est archivée ou clôturée ; vide tant qu'elle est ouverte. */
+  @Column(name = "archivee_le")
+  private Instant archiveeLe;
 }
