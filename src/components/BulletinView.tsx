@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
-import { PROMO_AVERAGES } from '../data/mockData';
 import { getBulletinHeaderInfo } from '../utils/bulletinHeader';
 import { appreciationFromAverage, computeSubjectRank, formatSubjectRank } from '../utils/bulletinMetrics';
 import { printDocument } from '../utils/printDocument';
@@ -389,7 +388,6 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   <th className="py-2 px-2 font-semibold text-center">Coef</th>
                   <th className="py-2 px-2 font-semibold text-right">Note /20</th>
                   <th className="py-2 px-2 font-semibold text-right">Total Coef</th>
-                  <th className="py-2 px-2 font-semibold text-right">Moy. Promo</th>
                   <th className="py-2 px-2 font-semibold text-center">Rang</th>
                   <th className="py-2 px-3 font-semibold text-left">Appréciation du professeur</th>
                 </tr>
@@ -398,7 +396,6 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 {subjects.map((subj, idx) => {
                   const gradeData = selectedCandidate.grades[subj.id];
                   const scoreTotal = gradeData ? (gradeData.score * subj.coef).toFixed(2) : '—';
-                  const promoInfo = PROMO_AVERAGES[subj.id] || { avg: 10.0, rankRatio: '138' };
                   const isEven = idx % 2 === 0;
                   const subjectRankValue = computeSubjectRank(selectedCandidate.id, subj.id, candidates);
                   const subjectRank = subjectRankValue === null ? '—' : formatSubjectRank(subjectRankValue);
@@ -423,9 +420,6 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                       </td>
                       <td className="py-1.5 px-2 font-mono text-[13px] text-right font-bold text-[#131b2e]">
                         {scoreTotal}
-                      </td>
-                      <td className="py-1.5 px-2 font-mono text-[13px] text-right text-[#444651]">
-                        {promoInfo.avg.toFixed(2)}
                       </td>
                       <td className="py-1.5 px-2 font-mono text-[11px] text-center font-semibold text-[#0051d5]">
                         {subjectRank}
@@ -453,7 +447,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   <td className="py-2.5 px-2 font-mono text-[15px] text-right font-bold text-[#0051d5]">
                     {computedStats.totalPoints.toFixed(2)}
                   </td>
-                  <td className="py-2.5 px-3 text-right text-[11px] text-[#444651] uppercase font-semibold" colSpan={3}>
+                  <td className="py-2.5 px-3 text-right text-[11px] text-[#444651] uppercase font-semibold" colSpan={2}>
                     Barème Total Éligibilité : {(computedStats.totalCoef * 20).toFixed(2)} PTS
                   </td>
                 </tr>
