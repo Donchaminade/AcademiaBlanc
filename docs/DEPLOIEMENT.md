@@ -1,12 +1,12 @@
-# Déploiement (fichiers seulement)
+# Déploiement
 
-Rien n’est déployé par cet outillage. Les fichiers préparent Vercel pour le front et Render pour l’API et Postgres, région Francfort.
+Le front de la branche `feat/backend-spring-admin` est en production Vercel : https://academia-chaminadegithubs-projects.vercel.app (alias https://academia-ochre-chi.vercel.app). Le nom `academia.vercel.app` est déjà pris par un autre compte Vercel. L’API Render n’est pas encore créée : le connecteur Render n’est pas authentifié ici. Le blueprint reste à appliquer à la main. Base de production : PostgreSQL 16. H2 sert aux tests locaux. MySQL n’est pas utilisé.
 
 ## Front sur Vercel
 
 1. Importer le dépôt. Framework : Vite. Commande de build : `npm run build`. Dossier publié : `dist`.
 2. `vercel.json` renvoie toutes les routes vers `index.html` pour que le routeur de l’écran survive au rechargement.
-3. Variable d’environnement **Production** et **Preview** : `VITE_API_URL` = URL publique de l’API Render, par exemple `https://academiablanc-api.onrender.com`. Pas de secret dans cette variable.
+3. Variable déjà posée en Production et Preview : `VITE_API_URL` = `https://academiablanc-api.onrender.com`. Pas de secret dans cette variable.
 4. `GEMINI_API_KEY` n’est pas utilisé par l’écran actuel. Ne pas le committer.
 
 Les aperçus Vercel ont des domaines `*.vercel.app`. Les ajouter, avec le domaine de production, dans `CORS_ALLOWED_ORIGINS` de l’API (virgules, sans espace superflu).
