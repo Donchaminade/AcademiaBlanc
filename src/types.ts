@@ -92,6 +92,11 @@ export interface AppSettings {
   logoUrl: string;
   sealUrl: string;
   institutionName: string;
+  /**
+   * Devise propre à l'établissement (`Etablissement.devise`, fiche du profil), imprimée en pied de page
+   * après le nom ; vide = nom seul. Distincte de `motto`, la devise nationale de l'en-tête.
+   */
+  institutionMotto?: string;
   countryName: string;
   motto: string;
   ministryName: string;

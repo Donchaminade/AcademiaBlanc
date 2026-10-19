@@ -26,6 +26,9 @@
   --color-tertiary-container: #653400;
   --color-on-tertiary-container: #fc922b;
 
+  /* Accent doré : filet du pied de page du bulletin. */
+  --color-or: #e3b443;
+
   --color-surface: #faf8ff;
   --color-surface-dim: #d2d9f4;
   --color-surface-bright: #faf8ff;
@@ -466,9 +469,18 @@
     gap: 1.5mm !important;
   }
 
+  /* Pied de page : filet doré de 1 px puis « NOM • Devise » en ≈ 8 pt, dernier élément de la page. */
   .bulletin-sheet .bulletin-footer {
-    margin-top: 2mm !important;
-    padding-top: 1.5mm !important;
+    margin-top: 1.5mm !important;
+    padding-top: 1mm !important;
+    border-top-width: 1px !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .bulletin-sheet .bulletin-footer-text {
+    font-size: 8px !important;
+    line-height: 1.2 !important;
   }
 
   .bulletin-sheet .material-symbols-outlined {
