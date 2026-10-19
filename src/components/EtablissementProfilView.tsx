@@ -86,10 +86,13 @@ const Carte: React.FC<{ titre: string; icon: string; actions?: React.ReactNode; 
   </section>
 );
 
-const Champ: React.FC<{ label: string; className?: string; children: React.ReactNode }> = ({ label, className = '', children }) => (
+const Champ: React.FC<{ label: string; aide?: string; className?: string; children: React.ReactNode }> = ({
+  label, aide, className = '', children,
+}) => (
   <label className={`flex flex-col gap-1 min-w-0 ${className}`}>
     <span className="text-[11px] font-bold uppercase tracking-wide text-[#444651]">{label}</span>
     {children}
+    {aide ? <span className="text-[10.5px] text-[#757682] leading-snug">{aide}</span> : null}
   </label>
 );
 
@@ -121,7 +124,7 @@ function profilDemo(school: SchoolAccount | null | undefined, settings: AppSetti
     telephone: school?.phone || null,
     email: school?.email || '—',
     nomResponsable: school?.principalName || settings.jurySignerName,
-    devise: null,
+    devise: settings.institutionMotto || null,
     actif: true,
     creeLe: school?.createdAt || null,
     enTete: enTeteDepuisSettings(settings),
@@ -393,8 +396,8 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
                     <input required maxLength={180} className={field} value={form.nomResponsable}
                       onChange={(e) => setForm({ ...form, nomResponsable: e.target.value })} />
                   </Champ>
-                  <Champ label="Devise de l’établissement">
-                    <input maxLength={160} className={field} value={form.devise} placeholder="Facultative"
+                  <Champ label="Devise de l’établissement" aide="Imprimée en pied de page des bulletins après le nom ; facultative.">
+                    <input maxLength={160} className={field} value={form.devise} placeholder="Discipline – Excellence – Réussite"
                       onChange={(e) => setForm({ ...form, devise: e.target.value })} />
                   </Champ>
                 </div>
