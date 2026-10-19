@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { AppSettings, SchoolAccount } from '../types';
 import { getSession, roleLabel } from '../api/client';
 import type { MeResponse } from '../api/client';
-import { CharteField } from '../api/charte';
 import {
   ModificationProfil,
   ProfilEtablissement,
@@ -18,7 +17,8 @@ import {
 import { usePermissions } from '../api/permissions';
 import { showError, toastSuccess } from '../utils/alerts';
 import { enTeteDepuisSettings } from '../utils/prereglages';
-import { CharteAssetUpload } from './CharteAssetUpload';
+import { CharteImagesPanel, ImageCharte } from './CharteImagesPanel';
+import { LogoEtablissement } from './LogoEtablissement';
 
 interface EtablissementProfilViewProps {
   /** Session API active : fiche, statistiques et compte viennent du serveur. Sinon, espace de démonstration local. */
@@ -37,6 +37,10 @@ interface EtablissementProfilViewProps {
   onLogout?: () => void;
   /** Hors connexion : mène à la page `/connexion`. */
   onConnexion?: () => void;
+  /** Dernière modification du logo, du cachet ou des signatures sur le serveur (ISO 8601). */
+  charteModifieeLe?: string | null;
+  /** Hors connexion : réactive le sceau de démonstration du logiciel. */
+  onRetablirSceauDemo?: () => void;
 }
 
 type Formulaire = Record<keyof ModificationProfil, string>;
@@ -137,6 +141,8 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
   onProfilChanged,
   onLogout,
   onConnexion,
+  charteModifieeLe = null,
+  onRetablirSceauDemo,
 }) => {
   const { can } = usePermissions();
   const peutModifier = usingApi && can('PARAMETRES', 'MODIFIER');
@@ -252,13 +258,20 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
     }
   };
 
-  const applyCharteAsset = async (champ: CharteField, dataUrl: string) => {
+  const applyCharteAsset = async (champ: ImageCharte, dataUrl: string): Promise<boolean> => {
     // La confirmation n'apparaît qu'après l'enregistrement (sur le serveur en session connectée).
     const ok = await onUpdateSettings({ ...settings, [champ]: dataUrl });
-    if (ok === false) return;
-    toastSuccess(dataUrl
-      ? 'Image enregistrée : elle apparaît désormais sur le bulletin.'
-      : 'Image retirée : l’emplacement reste vide pour une apposition à la main.');
+    if (ok === false) return false;
+    if (champ === 'logoUrl') {
+      toastSuccess(dataUrl
+        ? (usingApi ? 'Logo enregistré dans la base de l’établissement : il sera retrouvé à chaque connexion.' : 'Logo enregistré.')
+        : 'Logo retiré : les initiales de l’établissement sont affichées.');
+    } else {
+      toastSuccess(dataUrl
+        ? 'Image enregistrée : elle apparaît désormais sur le bulletin.'
+        : 'Image retirée : l’emplacement reste vide pour une apposition à la main.');
+    }
+    return true;
   };
 
   const nomAffiche = profil?.nom || settings.institutionName;
@@ -291,13 +304,13 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
       <header className="bg-white rounded p-6 shadow-sm border border-[#eaedff]">
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
           <div className="w-24 h-24 shrink-0 rounded-full bg-[#f2f3ff] border border-[#eaedff] flex items-center justify-center overflow-hidden p-2">
-            {settings.sceauUrl ? (
-              <img src={settings.sceauUrl} alt={`Cachet de ${nomAffiche}`} className="max-h-full max-w-full object-contain" />
-            ) : (
-              <span className="text-[28px] font-bold text-[#00236f] tracking-tight" aria-label="Initiales">
-                {initiales(nomAffiche)}
-              </span>
-            )}
+            <LogoEtablissement
+              src={settings.logoUrl || settings.sceauUrl}
+              nom={nomAffiche}
+              alt={settings.logoUrl ? `Logo de ${nomAffiche}` : settings.sceauUrl ? `Cachet de ${nomAffiche}` : 'Initiales'}
+              className="w-full h-full rounded-full"
+              initialesClassName="text-[28px] bg-transparent text-[#00236f]"
+            />
           </div>
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -534,59 +547,34 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
             )}
           </Carte>
 
-          {/* Charte graphique */}
-          <Carte titre="Charte graphique" icon="approval">
+          {/* Charte graphique : point unique de gestion des images de l'établissement */}
+          <Carte
+            titre="Charte graphique"
+            icon="approval"
+            actions={usingApi ? (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#dcfce7] text-[#166534]">
+                Base de l’établissement
+              </span>
+            ) : <BadgeDemo />}
+          >
             <p className="text-[11px] text-[#444651] leading-snug">
-              Cachet et signatures affichés dans les cartes « {settings.principalTeacherTitle || 'Le Titulaire'} » et
-              « {settings.jurySignerTitle || 'Le Proviseur'} » du bulletin. Sans image, l’emplacement reste vide pour
-              le cachet humide et les signatures à la main.
+              Logo de l’établissement (barre latérale), sceau officiel du bulletin, puis cachet et signatures des cartes
+              « {settings.principalTeacherTitle || 'Le Titulaire'} » et « {settings.jurySignerTitle || 'Le Proviseur'} ».
+              {usingApi
+                ? ' Enregistrées dans la base de l’établissement, ces images sont relues à chaque connexion depuis tout poste.'
+                : ' Sans image, l’emplacement reste vide pour le cachet humide et les signatures à la main.'}
             </p>
-            {usingApi && !peutModifier ? (
-              <ul className="space-y-2">
-                {[
-                  { label: 'Sceau / cachet', value: settings.sceauUrl },
-                  { label: 'Signature du proviseur', value: settings.signatureProviseurUrl },
-                  { label: 'Signature du titulaire', value: settings.signatureTitulaireUrl },
-                ].map((item) => (
-                  <li key={item.label} className="flex items-center gap-3 text-[12px]">
-                    <span className="w-16 h-10 shrink-0 bg-white border border-dashed border-[#a0a5b5] rounded flex items-center justify-center overflow-hidden p-1">
-                      {item.value
-                        ? <img src={item.value} alt={item.label} className="max-h-full max-w-full object-contain" />
-                        : <span className="text-[8.5px] text-[#9ca3af] uppercase font-bold">Vide</span>}
-                    </span>
-                    <span className="font-semibold text-[#131b2e]">{item.label}</span>
-                  </li>
-                ))}
-                <li className="text-[11px] text-[#444651] pt-1">Lecture seule : la modification requiert le droit PARAMETRES : MODIFIER.</li>
-              </ul>
-            ) : (
-            <div className="space-y-1">
-              <CharteAssetUpload
-                label="Sceau / cachet de l’établissement"
-                hint="Cachet rond ou rectangulaire, idéalement PNG détouré (fond transparent)."
-                icon="approval"
-                shape="round"
-                value={settings.sceauUrl}
-                onChange={(dataUrl) => void applyCharteAsset('sceauUrl', dataUrl)}
-                onError={(message) => void showError('Image refusée', message)}
-              />
-              <CharteAssetUpload
-                label={`Signature du ${(settings.jurySignerTitle || 'Proviseur').replace(/^le\s+/i, '')}`}
-                hint="Signature manuscrite scannée, affichée à côté du cachet."
-                icon="draw"
-                value={settings.signatureProviseurUrl}
-                onChange={(dataUrl) => void applyCharteAsset('signatureProviseurUrl', dataUrl)}
-                onError={(message) => void showError('Image refusée', message)}
-              />
-              <CharteAssetUpload
-                label={`Signature du ${(settings.principalTeacherTitle || 'Titulaire').replace(/^le\s+/i, '')}`}
-                hint="Optionnelle : signature scannée du titulaire de la classe."
-                icon="draw"
-                value={settings.signatureTitulaireUrl}
-                onChange={(dataUrl) => void applyCharteAsset('signatureTitulaireUrl', dataUrl)}
-                onError={(message) => void showError('Image refusée', message)}
-              />
-            </div>
+            <CharteImagesPanel
+              settings={settings}
+              usingApi={usingApi}
+              modifieLe={charteModifieeLe}
+              readOnly={usingApi && !peutModifier}
+              onChange={applyCharteAsset}
+              onError={(message) => void showError('Image refusée', message)}
+              onRetablirSceauDemo={onRetablirSceauDemo}
+            />
+            {usingApi && !peutModifier && (
+              <p className="text-[11px] text-[#444651]">Lecture seule : la modification requiert le droit PARAMETRES : MODIFIER.</p>
             )}
           </Carte>
         </div>
