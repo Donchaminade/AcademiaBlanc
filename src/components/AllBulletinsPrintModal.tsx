@@ -7,6 +7,7 @@ import {
   decisionBucket,
   formatSubjectRank,
 } from '../utils/bulletinMetrics';
+import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
 
@@ -285,7 +286,8 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                   <tbody className="divide-y-0 text-[#131b2e]">
                     {subjects.map((subj, sIdx) => {
                       const gradeData = candidate.grades[subj.id];
-                      const scoreTotal = gradeData ? (gradeData.score * subj.coef).toFixed(2) : '—';
+                      const coef = coefDuCandidat(candidate, subj);
+                      const scoreTotal = gradeData ? (gradeData.score * coef).toFixed(2) : '—';
                       const isEven = sIdx % 2 === 0;
                       const subjectRankValue = computeSubjectRank(candidate.id, subj.id, candidates);
                       const professorAppreciation = appreciationFromAverage(stats?.average ?? 0);
@@ -302,7 +304,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                             {subj.teacher}
                           </td>
                           <td className="py-1 px-2 font-mono text-center font-bold">
-                            {subj.coef}
+                            {coef}
                           </td>
                           <td className="py-1 px-2 font-mono text-right font-bold text-[#00236f]">
                             {gradeData ? gradeData.score.toFixed(2) : '—'}

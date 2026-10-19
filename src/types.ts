@@ -35,6 +35,11 @@ export interface Candidate {
   parentPhone: string;
   parentEmail: string;
   grades: Record<string, CandidateGrade>;
+  /**
+   * Coefficient effectif par matière pour la classe de l’élève (le coefficient saisi pour sa classe
+   * prime sur le coefficient « toutes classes »). Absent hors API : `Subject.coef` s’applique.
+   */
+  coefs?: Record<string, number>;
   generalObservation: string;
   isDeliberated?: boolean;
   juryBonus?: number; // Repêchage points
