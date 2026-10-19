@@ -40,7 +40,7 @@ Une permission s’écrit `RESSOURCE:ACTION` (par exemple `MATIERES:SUPPRIMER`).
 | `ELEVES` | idem (`CREER` couvre l’import) | `/api/eleves`, `/api/eleves/import` |
 | `NOTES` | idem | `/api/notes` |
 | `BULLETINS` | Voir, Créer (générer), Imprimer | `/api/bulletins`, `/api/bulletins/generer` |
-| `PARAMETRES` | Voir, Modifier | écran Paramètres, charte graphique `/api/etablissement/charte` (lecture aussi ouverte avec `BULLETINS:VOIR`), fiche de l’établissement `PUT /api/etablissement` (lecture `GET /api/etablissement` et `GET /api/etablissement/statistiques` ouverte à tout utilisateur de l’établissement) |
+| `PARAMETRES` | Voir, Modifier | écran Paramètres, charte graphique `/api/etablissement/charte` (lecture aussi ouverte avec `BULLETINS:VOIR`), fiche de l’établissement `PUT /api/etablissement` (lecture `GET /api/etablissement` et `GET /api/etablissement/statistiques` ouverte à tout utilisateur de l’établissement), en-tête officiel du bulletin `PUT /api/etablissement/en-tete` et application d’un préréglage national `POST /api/etablissement/prereglage-national/{id}` (la liste `GET /api/prereglages-nationaux` est ouverte à tout utilisateur connecté) |
 | `UTILISATEURS` | Voir, Détails, Créer, Modifier, Supprimer | `/api/utilisateurs` |
 
 Plateforme :
@@ -49,6 +49,7 @@ Plateforme :
 | --- | --- | --- |
 | `ETABLISSEMENTS` | Voir, Détails, Créer, Modifier (réactiver), Supprimer (désactiver) | `/api/plateforme/etablissements` |
 | `GESTIONNAIRES` | Voir, Détails, Créer, Modifier, Supprimer | `/api/plateforme/gestionnaires` |
+| `PREREGLAGES` | Voir, Détails, Créer, Modifier (dont réactiver, définir par défaut), Supprimer (dont désactiver) | `/api/plateforme/prereglages-nationaux` — voir [PLATEFORME.md](PLATEFORME.md) |
 
 Règle complémentaire inchangée : un `ENSEIGNANT` ne saisit ou ne modifie une note que pour une matière et une classe qui lui sont affectées (fiche enseignant reliée à son compte).
 
@@ -73,7 +74,10 @@ Le secrétariat ne supprime rien par défaut. Seul `OWNER` gère les utilisateur
 | --- | --- | --- |
 | ETABLISSEMENTS | tout | Voir, Détails |
 | GESTIONNAIRES | tout | Voir |
+| PREREGLAGES | tout | Voir |
 | ressources d’établissement | tout (sur son propre établissement) | — |
+
+Un gestionnaire dont la matrice a été enregistrée avant l’ajout de `PREREGLAGES` n’a aucune case sur cette ressource : le propriétaire la lui accorde depuis l’onglet Gestionnaires si besoin.
 
 `OWNER` et `SUPER_ADMIN` ont toujours tout : leur matrice n’est pas stockée, ne se modifie pas et leur compte ne peut être ni désactivé ni supprimé par un autre utilisateur.
 
@@ -117,6 +121,7 @@ API : `GET/POST /api/utilisateurs`, `GET /api/utilisateurs/referentiel`, `GET/PU
 2. Onglet **Gestionnaires** → **Ajouter un gestionnaire** : nom, email, mot de passe temporaire, droits (préréglage `Voir` + `Détails` sur les établissements, ou matrice personnalisée).
 3. Un gestionnaire n’est rattaché à aucun établissement (`etablissement_id` nul) : il n’a accès à aucune donnée pédagogique, uniquement à `/api/plateforme/**` selon ses droits.
 4. Onglet **Établissements** : la liste demande `ETABLISSEMENTS:VOIR` ; les contacts et effectifs demandent `DETAILS` ; **Ajouter un établissement** (crée l’école et son `OWNER` avec un mot de passe temporaire) demande `CREER` ; **Désactiver** demande `SUPPRIMER` ; **Réactiver** demande `MODIFIER`. On ne désactive pas l’établissement qui porte le compte `SUPER_ADMIN`.
+5. Onglet **Pays & ministères** (`PREREGLAGES:VOIR`) : référentiel des préréglages nationaux (république, devise, ministère, sigle) proposés aux établissements ; créer demande `CREER`, modifier / réactiver / définir par défaut `MODIFIER`, désactiver et supprimer `SUPPRIMER`. Détails dans [PLATEFORME.md](PLATEFORME.md).
 
 API : `GET/POST /api/plateforme/etablissements`, `GET /api/plateforme/etablissements/{id}`, `DELETE /api/plateforme/etablissements/{id}` (désactivation), `PUT /api/plateforme/etablissements/{id}/reactiver`, `GET/POST /api/plateforme/gestionnaires`, `GET /api/plateforme/gestionnaires/referentiel`, `GET/PUT/DELETE /api/plateforme/gestionnaires/{id}`, `PUT …/{id}/permissions`, `POST …/{id}/permissions/prereglage`, `POST …/{id}/reinitialiser-mot-de-passe`.
 
@@ -131,6 +136,8 @@ Migration `V10__permissions_utilisateurs.sql` :
 - `utilisateur.etablissement_id` devient nullable (gestionnaires de la plateforme) ; ajout de `actif` (défaut vrai) et `cree_par` (créateur, nullable).
 - `etablissement.actif` (défaut vrai) pour la désactivation douce.
 - Table `permission_utilisateur (id, utilisateur_id, ressource, action, accorde)` avec unicité `(utilisateur_id, ressource, action)` et suppression en cascade avec l’utilisateur.
+
+Migration `V13__prereglage_national.sql` : table `prereglage_national` (ressource `PREREGLAGES`) et colonnes d’en-tête officiel sur `etablissement` ; voir [PLATEFORME.md](PLATEFORME.md).
 
 ## Variables d’environnement
 
