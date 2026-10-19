@@ -229,22 +229,49 @@
   border-collapse: collapse;
 }
 
-.bulletin-grades .col-subject { width: 28%; }
-.bulletin-grades .col-teacher { width: 16%; }
-.bulletin-grades .col-coef { width: 7%; }
-.bulletin-grades .col-note { width: 10%; }
-.bulletin-grades .col-total { width: 11%; }
-.bulletin-grades .col-rank { width: 8%; }
-.bulletin-grades .col-appreciation { width: 20%; }
+.bulletin-grades .col-subject { width: 25%; }
+.bulletin-grades .col-teacher { width: 14%; }
+.bulletin-grades .col-coef { width: 6%; }
+.bulletin-grades .col-note { width: 9%; }
+.bulletin-grades .col-total { width: 10%; }
+.bulletin-grades .col-rank { width: 7%; }
+.bulletin-grades .col-minmax { width: 13%; }
+.bulletin-grades .col-appreciation { width: 16%; }
 
-/* Le total pondéré reste sous « Total Coef » (11 %) alors que la cellule
-   couvre aussi Rang (8 %) et Appréciation (20 %), soit 39 % du tableau. */
+/* Le total pondéré reste sous « Total Coef » (10 %) alors que la cellule couvre aussi
+   Rang (7 %), Min / Max (13 %) et Appréciation (16 %), soit 46 % du tableau ;
+   le total maximal (20 × Σ coef du programme) suit sur la même ligne. */
+.bulletin-grades tfoot td:last-child {
+  display: table-cell;
+}
+
 .bulletin-grades tfoot .bulletin-weighted-total {
-  display: block;
+  display: inline-block;
   box-sizing: border-box;
-  width: calc(100% * 11 / 39);
+  width: calc(100% * 10 / 46);
   padding-right: 0.5rem;
   text-align: right;
+  vertical-align: baseline;
+}
+
+.bulletin-grades tfoot .bulletin-weighted-max {
+  display: inline-block;
+  padding-left: 0.25rem;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+/* Visa des parents : lignes pointillées à remplir à la main, champs nom / date / signature. */
+.bulletin-visa-line {
+  height: 1.05rem;
+  border-bottom: 1px dotted #9aa3bd;
+}
+
+.bulletin-visa-field {
+  display: block;
+  padding-bottom: 0.15rem;
+  border-bottom: 1px dotted #9aa3bd;
+  white-space: nowrap;
 }
 
 .bulletin-grades th,
@@ -376,7 +403,35 @@
   }
 
   .bulletin-sheet .bulletin-metric {
-    padding: 1mm 1.4mm !important;
+    padding: 0.8mm 1.2mm !important;
+  }
+
+  .bulletin-sheet .bulletin-metrics {
+    gap: 1.2mm !important;
+  }
+
+  .bulletin-sheet .bulletin-visa-parents {
+    margin-top: 1.5mm !important;
+    padding: 1.2mm 2.5mm !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .bulletin-sheet .bulletin-visa-lines {
+    margin-top: 0.6mm !important;
+  }
+
+  .bulletin-sheet .bulletin-visa-line {
+    height: 4.2mm !important;
+  }
+
+  .bulletin-sheet .bulletin-visa-fields {
+    margin-top: 1mm !important;
+    column-gap: 4mm !important;
+  }
+
+  .bulletin-sheet .bulletin-visa-field {
+    padding-bottom: 3.5mm !important;
   }
 
   .print\:break-after-page {

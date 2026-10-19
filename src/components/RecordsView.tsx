@@ -50,7 +50,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   };
 
   const exportCSV = () => {
-    const lines = ['Rang,Table,Matricule,Nom et Prenoms,Genre,Etablissement,Total Points,Moyenne,Mention,Decision'];
+    const lines = ['Rang,Table,Matricule,Nom et Prenoms,Genre,Etablissement,Total Points,Total Maximum,Moyenne,Mention,Decision'];
     sorted.forEach((c) => {
       const s = allStats[c.id];
       lines.push([
@@ -61,6 +61,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
         csvCell(c.gender),
         csvCell(c.originSchool),
         csvCell(s?.totalPoints ?? 0),
+        csvCell(s?.pointsMax ?? 0),
         csvCell(s?.average ?? 0),
         csvCell(s?.mention ?? ''),
         csvCell(s?.decision ?? ''),
@@ -193,7 +194,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
                 <th className="py-2.5 px-3 font-semibold">Candidat &amp; Matricule</th>
                 <th className="py-2.5 px-3 font-semibold">Établissement d'Origine</th>
                 <th className="py-2.5 px-2 font-semibold text-center">Genre</th>
-                <th className="py-2.5 px-2 font-semibold text-right">Points /420</th>
+                <th className="py-2.5 px-2 font-semibold text-right">Points / max</th>
                 <th className="py-2.5 px-2 font-semibold text-right">Moyenne</th>
                 <th className="py-2.5 px-3 font-semibold text-center">Mention</th>
                 <th className="py-2.5 px-3 font-semibold">Décision du Jury</th>
@@ -237,8 +238,11 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
                     <td className="py-2.5 px-2 text-center font-medium">
                       {cand.gender === 'M' ? 'M' : 'F'}
                     </td>
-                    <td className="py-2.5 px-2 font-mono text-right font-bold text-[#131b2e]">
+                    <td className="py-2.5 px-2 font-mono text-right font-bold text-[#131b2e] whitespace-nowrap">
                       {s?.totalPoints.toFixed(2) || '0.00'}
+                      <span className="block text-[10px] font-medium text-[#444651]" title="20 × Σ coefficients du programme de la classe">
+                        / {s?.pointsMax.toFixed(0) || '—'}
+                      </span>
                     </td>
                     <td className="py-2.5 px-2 font-mono text-right font-bold text-[#00236f] text-[13px]">
                       {s?.average.toFixed(2) || '0.00'}
