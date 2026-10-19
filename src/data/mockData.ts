@@ -28,7 +28,8 @@ export const TOGO_SETTINGS: AppSettings = {
   academicYear: 'ANNÉE ACADÉMIQUE 2024-2025',
   sessionName: 'SESSION NATIONALE JUIN 2025',
   examType: DEMO_TYPE_EXAMEN_LIBELLE,
-  jurySignerTitle: 'Le Proviseur',
+  // Titre du chef d'établissement automatique (Directeur au collège, Proviseur au lycée) ; voir utils/titreChef.ts.
+  jurySignerTitle: '',
   jurySignerName: 'Dr. Aminata Traoré',
   startTableNumber: 138,
   autoAssignTables: true,
@@ -43,7 +44,8 @@ export const CI_SETTINGS: AppSettings = {
   academicYear: 'ANNÉE ACADÉMIQUE 2024-2025',
   sessionName: 'SESSION NATIONALE MAI 2025',
   examType: DEMO_TYPE_EXAMEN_LIBELLE,
-  jurySignerTitle: 'Le Proviseur',
+  // Titre du chef d'établissement automatique (Directeur au collège, Proviseur au lycée) ; voir utils/titreChef.ts.
+  jurySignerTitle: '',
   jurySignerName: 'Dr. Aminata Traoré',
   startTableNumber: 138,
   autoAssignTables: true,

@@ -19,6 +19,7 @@ export interface CharteEtablissement {
   signatureTitulaireUrl: string | null;
   /** Chaîne vide = emplacement volontairement laissé vierge (tampon manuel), à ne pas confondre avec `null`. */
   sceauOfficielUrl?: string | null;
+  /** Titre du chef d'établissement saisi dans le profil ; null = automatique (Directeur au collège, Proviseur au lycée). */
   titreSignataireJury?: string | null;
   premierNumeroTable?: number | null;
   numerotationAutomatique?: boolean | null;
@@ -76,7 +77,8 @@ export function versCharte(settings: Pick<AppSettings, ParametrePersiste>): Char
     signatureTitulaireUrl: image(settings.signatureTitulaireUrl),
     // Le sceau officiel vide est un choix (zone vierge) : il part en chaîne vide, pas en null.
     sceauOfficielUrl: image(settings.sealUrl) ?? '',
-    titreSignataireJury: settings.jurySignerTitle || null,
+    // Titre du chef d'établissement : vide = automatique (Directeur au collège, Proviseur au lycée) → null.
+    titreSignataireJury: settings.jurySignerTitle?.trim() || null,
     premierNumeroTable: Number.isFinite(settings.startTableNumber) ? settings.startTableNumber : null,
     numerotationAutomatique: settings.autoAssignTables,
   };
@@ -93,7 +95,8 @@ export function charteChanged(before: AppSettings, after: AppSettings): boolean 
 
 /**
  * Applique la charte reçue de l'API aux paramètres : image absente → emplacement vide (jamais l'image de
- * démonstration pour un vrai compte), texte null → valeur locale conservée.
+ * démonstration pour un vrai compte), titre du chef d'établissement null → automatique (vide), autre texte
+ * null → valeur locale conservée.
  */
 export function applyCharte(settings: AppSettings, charte: CharteEtablissement): AppSettings {
   return {
@@ -103,7 +106,7 @@ export function applyCharte(settings: AppSettings, charte: CharteEtablissement):
     signatureProviseurUrl: charte.signatureProviseurUrl || '',
     signatureTitulaireUrl: charte.signatureTitulaireUrl || '',
     sealUrl: charte.sceauOfficielUrl || '',
-    jurySignerTitle: charte.titreSignataireJury || settings.jurySignerTitle,
+    jurySignerTitle: charte.titreSignataireJury || '',
     startTableNumber: charte.premierNumeroTable ?? settings.startTableNumber,
     autoAssignTables: charte.numerotationAutomatique ?? settings.autoAssignTables,
   };

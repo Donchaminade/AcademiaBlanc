@@ -5,15 +5,21 @@ interface SignatureModalProps {
   candidate: Candidate;
   onClose: () => void;
   onSign: (signedAt: string, signer: string, shaHash: string) => void;
+  /** Nom proposé : le chef d'établissement de la fiche (`settings.jurySignerName`). */
+  defaultSigner?: string;
+  /** Titre proposé : « Le Directeur » (collège) / « Le Proviseur » (lycée) ou le titre saisi dans le profil. */
+  defaultRole?: string;
 }
 
 export const SignatureModal: React.FC<SignatureModalProps> = ({
   candidate,
   onClose,
   onSign,
+  defaultSigner = '',
+  defaultRole = '',
 }) => {
-  const [signerName, setSignerName] = useState('Dr. Aminata Traoré');
-  const [role, setRole] = useState('Proviseure de l\'Établissement');
+  const [signerName, setSignerName] = useState(defaultSigner);
+  const [role, setRole] = useState(defaultRole);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleConfirm = async () => {

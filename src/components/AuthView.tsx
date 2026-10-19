@@ -143,7 +143,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
       return;
     }
     if (!formData.principalName.trim()) {
-      setRegError('Le nom du Proviseur ou Chef d\'établissement est obligatoire.');
+      setRegError('Le nom du chef d\'établissement (Directeur ou Proviseur) est obligatoire.');
       return;
     }
     if (!isPlausibleEmail(formData.email)) {
@@ -390,16 +390,18 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 >
                   <option value="Lycée Public d'Enseignement Général">Lycée Public d'Enseignement Général</option>
                   <option value="Lycée d'Enseignement Technique & Professionnel">Lycée d'Enseignement Technique &amp; Professionnel</option>
+                  <option value="Collège d'Enseignement Général (CEG)">Collège d'Enseignement Général (CEG)</option>
+                  <option value="Collège Privé">Collège Privé</option>
                   <option value="Collège / Lycée Privé Laïc">Collège / Lycée Privé Laïc</option>
                   <option value="Établissement Confessionnel (Protestant / Catholique / Islamique)">Établissement Confessionnel</option>
                   <option value="Complexe Scolaire International">Complexe Scolaire International</option>
                 </select>
               </div>
 
-              {/* Proviseur */}
+              {/* Chef d'établissement : Directeur au collège, Proviseur au lycée */}
               <div>
                 <label className={labelStrong}>
-                  Proviseur <span className="text-red-500">*</span>
+                  Chef d'établissement (Directeur / Proviseur) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"

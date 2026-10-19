@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface BulletinSignatureZoneProps {
-  /** Cachet téléversé (carte du proviseur). Absent = rien n'est dessiné. */
+  /** Cachet téléversé (carte du chef d'établissement). Absent = rien n'est dessiné. */
   stampUrl?: string;
   /** Signature manuscrite téléversée. Absent = rien n'est dessiné. */
   signatureUrl?: string;

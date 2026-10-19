@@ -222,7 +222,8 @@ describe('ecritures : écritures de l’espace de travail', () => {
     assert.equal(envoye.logoUrl, null);
     // Sceau officiel volontairement vide : chaîne vide (zone vierge), pas null (valeur par défaut).
     assert.equal(envoye.sceauOfficielUrl, '');
-    assert.equal(envoye.titreSignataireJury, DEFAULT_SETTINGS.jurySignerTitle);
+    // Titre du chef d'établissement automatique (vide) : null sur le serveur, le niveau de la classe décide.
+    assert.equal(envoye.titreSignataireJury, null);
     assert.equal(envoye.premierNumeroTable, 201);
     assert.equal(envoye.numerotationAutomatique, false);
     // Ni les libellés de la session / du profil, ni l'en-tête officiel (porté par la fiche de l'établissement),

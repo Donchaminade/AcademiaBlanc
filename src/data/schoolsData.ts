@@ -129,6 +129,8 @@ export const INITIAL_SCHOOLS: SchoolAccount[] = [
     settings: {
       ...TOGO_SETTINGS,
       institutionName: 'Lycée Moderne de Tokoin',
+      // Lycée : le chef d'établissement signe « Le Proviseur » (titre automatique, voir utils/titreChef.ts).
+      typeEtablissement: 'Lycée Public d\'Enseignement Général',
       jurySignerName: 'Mme le Proviseur Dr. A. KOUAME',
       startTableNumber: 138,
       autoAssignTables: true,
@@ -141,7 +143,7 @@ export const INITIAL_SCHOOLS: SchoolAccount[] = [
     code: 'CPL-LOMÉ-02',
     city: 'Lomé',
     region: 'Maritime (Grand Lomé)',
-    type: 'Établissement Confessionnel d\'Enseignement Général',
+    type: 'Collège Confessionnel d\'Enseignement Général',
     principalName: 'M. le Directeur Général Pasteur E. ADJOLOU',
     email: 'administration@collegeprotestant-lome.tg',
     phone: '+228 22 22 34 56',
@@ -150,6 +152,8 @@ export const INITIAL_SCHOOLS: SchoolAccount[] = [
     settings: {
       ...TOGO_SETTINGS,
       institutionName: 'Collège Protestant de Lomé',
+      // Collège : le chef d'établissement signe « Le Directeur » (titre automatique, voir utils/titreChef.ts).
+      typeEtablissement: 'Collège Confessionnel d\'Enseignement Général',
       jurySignerName: 'M. le Directeur Général Pasteur E. ADJOLOU',
       sessionName: 'Session Régionale du Baccalauréat Blanc',
       academicYear: 'Année Scolaire 2024-2025',
@@ -278,16 +282,15 @@ export function createSchoolAccount(params: {
     ? params.code.trim() 
     : `${params.name.replace(/[^a-zA-Z]/g, '').substring(0, 4).toUpperCase()}-${params.city.substring(0, 4).toUpperCase()}-01`;
 
-  const defaultTitle = params.type?.includes('Collège') || params.type?.includes('CEG')
-    ? 'Le Principal'
-    : params.name.toLowerCase().includes('collège')
-    ? 'Le Directeur'
-    : 'Le Proviseur';
+  const type = params.type || 'Lycée d\'Enseignement Général';
 
+  // Titre du chef d'établissement automatique : Directeur au collège, Proviseur au lycée (utils/titreChef.ts),
+  // déduit du type de l'établissement et du niveau des classes ; modifiable dans le profil.
   const settings: AppSettings = {
     ...TOGO_SETTINGS,
     institutionName: params.name,
-    jurySignerTitle: defaultTitle,
+    typeEtablissement: type,
+    jurySignerTitle: '',
     jurySignerName: params.principalName,
     startTableNumber: 101,
     autoAssignTables: true,
@@ -312,7 +315,7 @@ export function createSchoolAccount(params: {
     code,
     city: params.city,
     region: params.region || 'Maritime (Togo)',
-    type: params.type || 'Lycée d\'Enseignement Général',
+    type,
     principalName: params.principalName,
     email: params.email,
     phone: params.phone,

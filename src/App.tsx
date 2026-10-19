@@ -38,6 +38,7 @@ import type { ProfilEtablissement } from './api/etablissement';
 import { appliquerEnTeteAuxSettings, enTeteChanged, enTeteDepuisSettings } from './utils/prereglages';
 import { usePermissions } from './api/permissions';
 import { confirmAction, showError, toastSuccess } from './utils/alerts';
+import { titreChefDepuisSettings } from './utils/titreChef';
 import { loadSchoolWorkspace, ExamOption, WorkspaceOptions } from './api/workspace';
 import { horsProgramme } from './utils/programme';
 import { APPRECIATION_LONGUEUR_MAX, appreciationManuelleValide, normaliserAppreciationManuelle } from './utils/appreciation';
@@ -281,7 +282,7 @@ export default function App() {
       const avecCharte = charte ? applyCharte(avecEnTete, charte) : avecEnTete;
       // Le signataire officiel est le responsable de la fiche de l'établissement (page Profil), jamais la valeur
       // de démonstration ; le titulaire n'est pas un paramètre : il vient de la classe de chaque élève.
-      return { ...avecCharte, jurySignerName: profil ? profil.nomResponsable : '' };
+      return { ...avecCharte, jurySignerName: profil ? profil.nomResponsable : '', typeEtablissement: profil?.typeEtablissement ?? '' };
     });
     // Les libellés viennent exclusivement de l'API : vide tant qu'aucune session / aucun centre n'existe.
     setSelectedSession(workspace.sessionName);
@@ -830,7 +831,7 @@ export default function App() {
   // Fiche enregistrée depuis le profil : le nom et le signataire officiel suivent dans la barre latérale, les bulletins
   // et la session ; la devise propre alimente le pied de page du bulletin.
   const handleProfilChanged = (profil: ProfilEtablissement) => {
-    setSettings((prev) => ({ ...prev, institutionName: profil.nom, jurySignerName: profil.nomResponsable, institutionMotto: profil.devise ?? '' }));
+    setSettings((prev) => ({ ...prev, institutionName: profil.nom, jurySignerName: profil.nomResponsable, institutionMotto: profil.devise ?? '', typeEtablissement: profil.typeEtablissement ?? '' }));
     const session = getSession();
     if (session) setSession({ ...session, nomEtablissement: profil.nom });
   };
@@ -1185,6 +1186,8 @@ export default function App() {
           candidate={selectedCandidate}
           onClose={() => setIsSignatureModalOpen(false)}
           onSign={handleSign}
+          defaultSigner={settings.jurySignerName}
+          defaultRole={titreChefDepuisSettings(settings, [selectedCandidate])}
         />
       )}
 

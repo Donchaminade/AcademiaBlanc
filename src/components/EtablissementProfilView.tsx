@@ -17,6 +17,7 @@ import {
 import { usePermissions } from '../api/permissions';
 import { showError, toastSuccess } from '../utils/alerts';
 import { enTeteDepuisSettings } from '../utils/prereglages';
+import { LIBELLE_TITRE_AUTOMATIQUE, TITRES_CHEF_PROPOSES, titreChefEtablissement } from '../utils/titreChef';
 import { CharteImagesPanel, ImageCharte } from './CharteImagesPanel';
 import { LogoEtablissement } from './LogoEtablissement';
 
@@ -47,6 +48,28 @@ type Formulaire = Record<keyof ModificationProfil, string>;
 
 const FORMULAIRE_VIDE: Formulaire = {
   nom: '', typeEtablissement: '', ville: '', region: '', adresse: '', telephone: '', email: '', nomResponsable: '', devise: '',
+};
+
+/** Valeur du menu « Titre du chef d'établissement » pour un titre libre (hors liste proposée). */
+const TITRE_AUTRE = '__autre__';
+
+/** Choix du menu correspondant à un titre enregistré : automatique (vide), un titre proposé ou « Autre ». */
+const choixTitre = (titre: string): string => {
+  const propre = titre.trim();
+  if (!propre) return '';
+  return (TITRES_CHEF_PROPOSES as readonly string[]).includes(propre) ? propre : TITRE_AUTRE;
+};
+
+/**
+ * Titre du chef d'établissement de la fiche : la surcharge saisie, sinon le titre automatique déduit du type de
+ * l'établissement (sur le bulletin, le niveau de la classe de chaque élève tranche quand le type ne dit rien).
+ */
+const titreChefDeLaFiche = (surcharge: string | undefined, profil: Pick<ProfilEtablissement, 'typeEtablissement' | 'nom'>) => {
+  const propre = (surcharge ?? '').trim();
+  return {
+    titre: propre || titreChefEtablissement({ typeEtablissement: profil.typeEtablissement, nomEtablissement: profil.nom }),
+    automatique: !propre,
+  };
 };
 
 const field = 'w-full bg-[#f2f3ff] text-[13px] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5] disabled:opacity-60';
@@ -158,6 +181,9 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
 
   const [edition, setEdition] = useState(false);
   const [form, setForm] = useState<Formulaire>(FORMULAIRE_VIDE);
+  // Titre du chef d'établissement : surcharge facultative de la charte (vide = automatique), enregistrée avec la fiche.
+  const [titreChoix, setTitreChoix] = useState('');
+  const [titreLibre, setTitreLibre] = useState('');
   const [enregistrement, setEnregistrement] = useState(false);
 
   const [mdpOuvert, setMdpOuvert] = useState(false);
@@ -207,6 +233,9 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
   const commencerEdition = () => {
     if (!profil) return;
     setForm(versFormulaire(profil));
+    const titreActuel = (settings.jurySignerTitle ?? '').trim();
+    setTitreChoix(choixTitre(titreActuel));
+    setTitreLibre(choixTitre(titreActuel) === TITRE_AUTRE ? titreActuel : '');
     setEdition(true);
   };
 
@@ -215,11 +244,19 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
     setForm(FORMULAIRE_VIDE);
   };
 
+  /** Titre saisi dans le formulaire : vide = automatique. */
+  const titreSaisi = (): string => (titreChoix === TITRE_AUTRE ? titreLibre.trim() : titreChoix);
+
   const enregistrer = async (e: React.FormEvent) => {
     e.preventDefault();
     setEnregistrement(true);
     try {
       const fiche = await saveProfil(versModification(form));
+      const titre = titreSaisi();
+      if (titre !== (settings.jurySignerTitle ?? '').trim()) {
+        const ok = await onUpdateSettings({ ...settings, jurySignerTitle: titre });
+        if (ok === false) return;
+      }
       setProfil(fiche);
       setEdition(false);
       setForm(FORMULAIRE_VIDE);
@@ -278,6 +315,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
   };
 
   const nomAffiche = profil?.nom || settings.institutionName;
+  const titreChef = profil ? titreChefDeLaFiche(settings.jurySignerTitle, profil) : null;
   const creation = dateLongue(profil?.creeLe);
   const localisation = [profil?.ville, profil?.region].filter((part) => part && part !== '—').join(' · ');
 
@@ -405,11 +443,27 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
                     <input required type="email" maxLength={180} className={field} value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })} />
                   </Champ>
-                  <Champ label="Proviseur / Directeur">
+                  <Champ label="Chef d’établissement (nom)" aide="Signe les bulletins et le PV ; son titre suit la ligne ci-dessous.">
                     <input required maxLength={180} className={field} value={form.nomResponsable}
                       onChange={(e) => setForm({ ...form, nomResponsable: e.target.value })} />
                   </Champ>
-                  <Champ label="Devise de l’établissement" aide="Imprimée en pied de page des bulletins après le nom ; facultative.">
+                  <Champ
+                    label="Titre du chef d’établissement"
+                    aide="Automatique : « Le Directeur » pour une classe de collège (6e–3e), « Le Proviseur » au lycée (2nde–Tle). Choisissez un titre pour la féminisation ou un cas particulier."
+                  >
+                    <select className={field} value={titreChoix} onChange={(e) => setTitreChoix(e.target.value)} data-testid="profil-titre-chef">
+                      <option value="">{LIBELLE_TITRE_AUTOMATIQUE}</option>
+                      {TITRES_CHEF_PROPOSES.map((titre) => (
+                        <option key={titre} value={titre}>{titre}</option>
+                      ))}
+                      <option value={TITRE_AUTRE}>Autre titre…</option>
+                    </select>
+                    {titreChoix === TITRE_AUTRE && (
+                      <input required maxLength={120} className={field} value={titreLibre} placeholder="Ex : Le Principal, La Fondatrice"
+                        onChange={(e) => setTitreLibre(e.target.value)} aria-label="Titre libre du chef d’établissement" />
+                    )}
+                  </Champ>
+                  <Champ label="Devise de l’établissement" aide="Imprimée en pied de page des bulletins après le nom ; facultative." className="sm:col-span-2">
                     <input maxLength={160} className={field} value={form.devise} placeholder="Discipline – Excellence – Réussite"
                       onChange={(e) => setForm({ ...form, devise: e.target.value })} />
                   </Champ>
@@ -434,8 +488,9 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
                 <Ligne label="Adresse" value={profil.adresse} className="sm:col-span-2" />
                 <Ligne label="Téléphone" value={profil.telephone} />
                 <Ligne label="Email de contact" value={profil.email} />
-                <Ligne label="Proviseur / Directeur" value={profil.nomResponsable} />
-                <Ligne label="Devise de l’établissement" value={profil.devise} />
+                <Ligne label="Chef d’établissement (nom)" value={profil.nomResponsable} />
+                <Ligne label="Titre du chef d’établissement" value={titreChef ? `${titreChef.titre}${titreChef.automatique ? ' (automatique)' : ''}` : null} />
+                <Ligne label="Devise de l’établissement" value={profil.devise} className="sm:col-span-2" />
               </dl>
             )}
             {!usingApi && (
@@ -562,7 +617,8 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
           >
             <p className="text-[11px] text-[#444651] leading-snug">
               Logo de l’établissement (barre latérale), sceau officiel du bulletin, puis cachet et signatures des cartes
-              « Le Titulaire » et « {settings.jurySignerTitle || 'Le Proviseur'} ».
+              « Le Titulaire » et « {titreChef?.titre} ».
+              {titreChef?.automatique && ' Le titre du chef d’établissement suit le niveau de la classe de chaque élève (Directeur au collège, Proviseur au lycée).'}
               {usingApi
                 ? ' Enregistrées dans la base de l’établissement, ces images sont relues à chaque connexion depuis tout poste.'
                 : ' Sans image, l’emplacement reste vide pour le cachet humide et les signatures à la main.'}

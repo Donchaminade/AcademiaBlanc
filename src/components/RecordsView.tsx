@@ -3,6 +3,7 @@ import { AppSettings, Candidate, CandidateComputedStats } from '../types';
 import { decisionBucket } from '../utils/bulletinMetrics';
 import { ligneTitreBulletin } from '../utils/bulletinEntete';
 import { printDocument } from '../utils/printDocument';
+import { titreChefDepuisSettings } from '../utils/titreChef';
 import {
   TITRE_CHEF_CENTRE,
   TITRE_PRESIDENT_JURY,
@@ -81,8 +82,11 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   const anneeScolaire = (settings?.academicYear ?? '').trim();
   const nomEtablissement = (settings?.institutionName ?? '').trim() || selectedCenter;
   const nomCentre = (centreExamen || '').trim() || nomEtablissement;
-  // En inter-établissements, le PV est signé par le chef du centre (responsable de l'établissement hôte).
-  const signataireTitre = sessionInter ? TITRE_CHEF_CENTRE : (settings?.jurySignerTitle?.trim() || "Le Chef d'établissement");
+  // En inter-établissements, le PV est signé par le chef du centre (responsable de l'établissement hôte) ; sinon par le
+  // chef d'établissement : Le Directeur si la session est de collège, Le Proviseur au lycée (ou le titre saisi dans le profil).
+  const signataireTitre = sessionInter
+    ? TITRE_CHEF_CENTRE
+    : titreChefDepuisSettings({ jurySignerTitle: settings?.jurySignerTitle, typeEtablissement: settings?.typeEtablissement, institutionName: nomEtablissement }, candidates);
   const signataireNom = (settings?.jurySignerName ?? '').trim();
   const dateEdition = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   const origine = (cand: Candidate): string => (sessionInter ? etablissementOrigineAffiche(cand, nomCentre) : cand.originSchool);
