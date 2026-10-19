@@ -31,18 +31,18 @@ class PlateformeSurveillanceTest {
     JsonNode inscription = json.readTree(mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
-                {"nom":"Compte Proprietaire","ville":"Lome","email":"proprio@logiciel.tg","motDePasse":"secret1","nomResponsable":"Proprietaire Logiciel"}
+                {"nom":"Compte Proprietaire","ville":"Lome","email":"proprio@logiciel.tg","motDePasse":"secret1","nomResponsable":"Proprietaire Logiciel","acceptationConditions":true}
                 """))
-        .andExpect(status().isOk())
+        .andExpect(status().isCreated())
         .andReturn().getResponse().getContentAsString());
     assertEquals("OWNER", inscription.get("role").asText(), "l'inscription ne doit pas accorder SUPER_ADMIN");
 
     String ecoleToken = token(mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
-                {"nom":"Lycee Isole","ville":"Kara","email":"isole@ecole.tg","motDePasse":"secret1","nomResponsable":"Proviseur Isole"}
+                {"nom":"Lycee Isole","ville":"Kara","email":"isole@ecole.tg","motDePasse":"secret1","nomResponsable":"Proviseur Isole","acceptationConditions":true}
                 """))
-        .andExpect(status().isOk())
+        .andExpect(status().isCreated())
         .andReturn().getResponse().getContentAsString());
 
     mvc.perform(get("/api/plateforme/etablissements").header("Authorization", "Bearer " + ecoleToken))

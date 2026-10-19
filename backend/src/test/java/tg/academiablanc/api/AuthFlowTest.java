@@ -36,9 +36,9 @@ class AuthFlowTest {
     String raw = mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
-                {"nom":"Lycee Test Isolation","ville":"Lome","email":"isolation@ecole.tg","motDePasse":"secret1","nomResponsable":"Proviseur Test"}
+                {"nom":"Lycee Test Isolation","ville":"Lome","email":"isolation@ecole.tg","motDePasse":"secret1","nomResponsable":"Proviseur Test","acceptationConditions":true}
                 """))
-        .andExpect(status().isOk())
+        .andExpect(status().isCreated())
         .andExpect(jsonPath("$.token").isNotEmpty())
         .andReturn()
         .getResponse()

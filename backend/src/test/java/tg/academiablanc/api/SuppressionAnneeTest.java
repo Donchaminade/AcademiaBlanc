@@ -129,8 +129,8 @@ class SuppressionAnneeTest {
     String raw = mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"" + nom + "\",\"ville\":\"Lome\",\"email\":\"" + email
-                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Direction\"}"))
-        .andExpect(status().isOk())
+                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Direction\",\"acceptationConditions\":true}"))
+        .andExpect(status().isCreated())
         .andExpect(jsonPath("$.role").value("OWNER"))
         .andReturn().getResponse().getContentAsString();
     return json.readTree(raw).get("token").asText();

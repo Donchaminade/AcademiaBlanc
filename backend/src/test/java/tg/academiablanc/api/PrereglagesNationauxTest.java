@@ -187,7 +187,7 @@ class PrereglagesNationauxTest {
     mvc.perform(post("/api/auth/signup")
         .contentType(MediaType.APPLICATION_JSON)
         .content("{\"nom\":\"Compte Proprio Pays\",\"ville\":\"Lome\",\"email\":\"proprio-pays@logiciel.tg\","
-            + "\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proprietaire\"}"));
+            + "\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proprietaire\",\"acceptationConditions\":true}"));
     return connecter("proprio-pays@logiciel.tg", "secret1");
   }
 
@@ -208,8 +208,8 @@ class PrereglagesNationauxTest {
     return json.readTree(corps(mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"" + nom + "\",\"ville\":\"Lome\",\"email\":\"" + email
-                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\"}"))
-        .andExpect(status().isOk()))).get("token").asText();
+                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\",\"acceptationConditions\":true}"))
+        .andExpect(status().isCreated()))).get("token").asText();
   }
 
   private JsonNode connecter(String email, String motDePasse) throws Exception {

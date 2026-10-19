@@ -13,6 +13,9 @@ import {
 import { isPlausibleEmail } from '../utils/safeUrl';
 import { usePrereglageDefaut } from '../api/prereglages';
 import { bandeauNational, drapeau } from '../utils/prereglages';
+import { AcceptationConditions } from './legal/AcceptationConditions';
+import { MESSAGE_ACCEPTATION_REQUISE, boutonInscriptionDesactive } from '../legal/acceptation';
+import { VERSION_CONDITIONS } from '../legal/versions';
 
 /** Au-delà de ce délai sans réponse, l’écran prévient que le serveur gratuit est sans doute en train de redémarrer. */
 const DELAI_NOTE_REVEIL_MS = 3_000;
@@ -127,6 +130,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [regError, setRegError] = useState('');
+  // Case « J’ai lu et j’accepte… » : non cochée par défaut, obligatoire (vérifiée aussi par le serveur).
+  const [acceptationConditions, setAcceptationConditions] = useState(false);
   const connexion = useAppelServeur();
   const inscription = useAppelServeur();
 
@@ -155,6 +160,10 @@ export const AuthView: React.FC<AuthViewProps> = ({
       setRegError('Les deux mots de passe ne correspondent pas.');
       return;
     }
+    if (!acceptationConditions) {
+      setRegError(MESSAGE_ACCEPTATION_REQUISE);
+      return;
+    }
 
     try {
       const session = await inscription.executer(() => apiSignup({
@@ -166,6 +175,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
         telephone: formData.phone.trim(),
         region: formData.region.trim(),
         typeEtablissement: formData.type.trim(),
+        acceptationConditions,
+        versionConditions: VERSION_CONDITIONS,
       }));
       // Le compte vit sur le serveur : aucun double local (et surtout pas le mot de passe) n'est écrit dans le
       // navigateur, sinon il serait relu plus tard comme un espace de démonstration ou par un autre compte.
@@ -463,13 +474,18 @@ export const AuthView: React.FC<AuthViewProps> = ({
               </div>
             </div>
 
+            {/* Acceptation des documents légaux : obligatoire, le bouton reste désactivé tant qu’elle n’est pas cochée */}
+            <AcceptationConditions checked={acceptationConditions} onChange={setAcceptationConditions} disabled={inscription.enCours} />
+
             {inscription.attenteLongue && noteReveil}
 
             <div className="pt-1 flex justify-end">
               <button
                 type="submit"
-                disabled={inscription.enCours}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#00236f] text-white text-[13px] font-bold hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95 disabled:opacity-60 disabled:cursor-wait disabled:active:scale-100"
+                disabled={boutonInscriptionDesactive({ accepte: acceptationConditions, enCours: inscription.enCours })}
+                aria-disabled={!acceptationConditions || undefined}
+                title={acceptationConditions ? undefined : 'Cochez la case d’acceptation des conditions pour continuer'}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#00236f] text-white text-[13px] font-bold hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 aria-busy:cursor-wait"
               >
                 <span className={`material-symbols-outlined text-lg ${inscription.enCours ? 'animate-spin' : ''}`} aria-hidden="true">
                   {inscription.enCours ? 'progress_activity' : 'check_circle'}

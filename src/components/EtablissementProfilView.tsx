@@ -15,6 +15,10 @@ import {
   versModification,
 } from '../api/etablissement';
 import { usePermissions } from '../api/permissions';
+import { loadAcceptations } from '../api/acceptations';
+import type { AcceptationConditions } from '../api/acceptations';
+import { phraseAcceptation } from '../legal/versions';
+import { peutAccepterConditions } from './legal/ReacceptationConditions';
 import { showError, toastSuccess } from '../utils/alerts';
 import { enTeteDepuisSettings } from '../utils/prereglages';
 import { LIBELLE_TITRE_AUTOMATIQUE, TITRES_CHEF_PROPOSES, titreChefEtablissement } from '../utils/titreChef';
@@ -176,6 +180,8 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
   const [profil, setProfil] = useState<ProfilEtablissement | null>(null);
   const [stats, setStats] = useState<StatistiquesEtablissement | null>(null);
   const [compte, setCompte] = useState<MeResponse | null>(null);
+  // Historique des acceptations des conditions (OWNER / ADMIN uniquement ; null si non autorisé ou indisponible).
+  const [acceptations, setAcceptations] = useState<AcceptationConditions[] | null>(null);
   const [chargement, setChargement] = useState(usingApi);
   const [erreurChargement, setErreurChargement] = useState('');
 
@@ -196,6 +202,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
       setProfil(profilDemo(demoSchool, settings));
       setStats(null);
       setCompte(null);
+      setAcceptations(null);
       setChargement(false);
       return;
     }
@@ -206,12 +213,14 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
       loadProfil(),
       loadStatistiques().catch(() => null),
       loadMonCompte().catch(() => null),
+      loadAcceptations().catch(() => null),
     ])
-      .then(([fiche, effectifs, moi]) => {
+      .then(([fiche, effectifs, moi, preuves]) => {
         if (!actif) return;
         setProfil(fiche);
         setStats(effectifs);
         setCompte(moi);
+        setAcceptations(preuves);
       })
       .catch((err: unknown) => {
         if (actif) setErreurChargement(messageErreur(err, 'Impossible de charger le profil de l’établissement.'));
@@ -492,6 +501,16 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
                 <Ligne label="Titre du chef d’établissement" value={titreChef ? `${titreChef.titre}${titreChef.automatique ? ' (automatique)' : ''}` : null} />
                 <Ligne label="Devise de l’établissement" value={profil.devise} className="sm:col-span-2" />
               </dl>
+            )}
+            {usingApi && peutAccepterConditions(compte?.role || session?.role) && (
+              <p className="text-[11px] text-[#444651] leading-snug pt-2 border-t border-[#eaedff] flex items-start gap-1.5" data-testid="profil-acceptation-conditions">
+                <span className="material-symbols-outlined text-[15px] text-[#0051d5] shrink-0" aria-hidden="true">verified</span>
+                <span>
+                  {phraseAcceptation(acceptations?.[0]) ?? 'Aucune acceptation des conditions enregistrée pour cet établissement.'}
+                  {acceptations && acceptations.length > 1 && ` (${acceptations.length} acceptations enregistrées)`}
+                  {acceptations?.[0]?.email && ` — par ${acceptations[0].email}`}
+                </span>
+              </p>
             )}
             {!usingApi && (
               <p className="text-[11px] text-[#444651] leading-snug pt-2 border-t border-[#eaedff]">

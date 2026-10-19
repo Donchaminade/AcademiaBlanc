@@ -41,6 +41,10 @@ management:
 app:
   seed:
     enabled: true
+  conditions:
+    # Version des documents légaux enregistrée quand le client n'en indique pas (doit suivre
+    # VERSION_CONDITIONS dans src/legal/versions.ts).
+    version: "2026-10-19"
   platform:
     super-admin-email: ${SUPER_ADMIN_EMAIL:}
     # Mot de passe initial du propriétaire : sert à créer le compte au démarrage s'il n'existe pas,

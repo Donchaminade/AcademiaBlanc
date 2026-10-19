@@ -4,6 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ROUTE_PATHS } from '../../utils/router';
 import { usePrereglageDefaut } from '../../api/prereglages';
 import { bandeauNational } from '../../utils/prereglages';
+import { LiensLegaux } from '../legal/LiensLegaux';
 import { economieAnnuelle, formatMontant, lienAppel, lienWhatsapp } from './offrePublique';
 import { useOffrePublique } from './useOffrePublique';
 // Photo : Santi Vedrí (Unsplash, https://unsplash.com/photos/O5EMzfdxedg), licence Unsplash — voir CREDITS.md.
@@ -22,13 +23,6 @@ const CONTACT_EMAIL: string =
   (typeof import.meta.env?.VITE_CONTACT_EMAIL === 'string' && import.meta.env.VITE_CONTACT_EMAIL) || 'contact@academiablanc.app';
 
 const MESSAGE_WHATSAPP = 'Bonjour, je souhaite des informations sur AcademiaBlanc pour mon établissement.';
-
-/** Pages légales (routes publiques de l’application). */
-const LIENS_LEGAUX: { href: string; label: string }[] = [
-  { href: '/cgu', label: 'Conditions générales d’utilisation' },
-  { href: '/confidentialite', label: 'Politique de confidentialité' },
-  { href: '/conditions', label: 'Conditions d’utilisation' },
-];
 
 const NAV_LINKS: { href: string; label: string }[] = [
   { href: '#fonctionnalites', label: 'Fonctionnalités' },
@@ -992,7 +986,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
 
       {/* Pied de page */}
       <footer className="border-t border-[#eaedff] bg-white">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
           <div className="max-w-sm">
             <div className="flex items-center gap-2.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#00236f] text-white">
@@ -1037,20 +1031,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                 </li>
               </ul>
             </div>
-            <div className="text-[13px]">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#757682]">Informations légales</p>
-              <ul className="mt-3 space-y-2">
-                {LIENS_LEGAUX.map((lien) => (
-                  <li key={lien.href}>
-                    <a href={lien.href} className={lienTexte}>{lien.label}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
           </nav>
         </div>
-        <div className="border-t border-[#eaedff] bg-[#faf8ff] px-4 py-4 text-center text-[11px] text-[#444651] sm:px-6">
-          © {new Date().getFullYear()} AcademiaBlanc • {bandeau}
+        <div className="space-y-1.5 border-t border-[#eaedff] bg-[#faf8ff] px-4 py-4 text-center text-[11px] text-[#444651] sm:px-6">
+          {/* Documents légaux : CGU, confidentialité, conditions d’utilisation + © année AcademiaBlanc */}
+          <LiensLegaux />
+          <p>AcademiaBlanc • {bandeau}</p>
         </div>
       </footer>
     </div>

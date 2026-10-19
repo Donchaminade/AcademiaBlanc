@@ -54,7 +54,8 @@ import {
 } from './data/schoolsData';
 import { Candidate, Subject, ViewMode, AppSettings, SchoolAccount, AdminSection } from './types';
 import { printDocument } from './utils/printDocument';
-import { usePublicRoute } from './utils/router';
+import { isLegalRoute, usePublicRoute } from './utils/router';
+import { ReacceptationConditions } from './components/legal/ReacceptationConditions';
 import { MODE_SESSION_DEFAUT, estSessionInter } from './utils/sessionMode';
 import type { ModeSession } from './utils/sessionMode';
 import { TIROIR_FERME, fermerTiroir, ouvrirTiroir, tiroirApresChangementDeVue } from './utils/mobileNav';
@@ -62,6 +63,8 @@ import type { EtatTiroir } from './utils/mobileNav';
 
 // Site vitrine (GSAP, Three.js) chargé à la demande : l’application connectée n’embarque pas ces bibliothèques.
 const LandingPage = lazy(() => import('./components/landing/LandingPage'));
+// Documents légaux (`/cgu`, `/confidentialite`, `/conditions`) : publics, chargés à la demande.
+const PagesLegales = lazy(() => import('./components/legal/PagesLegales'));
 
 /** Nouvelles tentatives de chargement de l'espace quand le serveur est injoignable ou en cours de réveil. */
 const REPRISES_SERVEUR = 3;
@@ -463,8 +466,9 @@ export default function App() {
 
   // Une fois dans l’application, `/connexion`, `/inscription` et `/admin` n’ont plus de sens : l’URL revient
   // sur `/` (une session plateforme déjà active ouvre donc directement la vue Plateforme depuis `/admin`).
+  // Les documents légaux restent consultables à tout moment, connecté ou non.
   useEffect(() => {
-    if (currentView !== 'auth' && route !== 'vitrine') navigate('vitrine', { replace: true });
+    if (currentView !== 'auth' && route !== 'vitrine' && !isLegalRoute(route)) navigate('vitrine', { replace: true });
   }, [currentView, route, navigate]);
 
   // Un compte plateforme sans établissement n'a aucune vue d'établissement : tout écart revient sur la vue Plateforme.
@@ -841,6 +845,15 @@ export default function App() {
     if (session) setSession({ ...session, nomEtablissement: profil.nom });
   };
 
+  // Pages légales publiques : rendues avant tout le reste, sans authentification ni espace chargé.
+  if (isLegalRoute(route)) {
+    return (
+      <Suspense fallback={<div className="min-h-dvh bg-[#faf8ff]" aria-busy="true" />}>
+        <PagesLegales route={route} onRetour={() => navigate('vitrine')} />
+      </Suspense>
+    );
+  }
+
   // Jeton présent : état de chargement jusqu'à la réponse de l'API, sans aucune donnée de démonstration à l'écran.
   if (workspaceLoading && currentView !== 'auth') {
     return (
@@ -1184,6 +1197,11 @@ export default function App() {
         platformOnly={sessionPlateformeSeule}
         platformOwner={platformOwner}
       />
+
+      {/* Conditions mises à jour : ré-acceptation bloquante pour OWNER / ADMIN, information pour les autres (jamais pour la plateforme) */}
+      {usingApi && !sessionPlateformeSeule && !isPlatformAccount(getSession()) && (
+        <ReacceptationConditions key={getSession()?.etablissementId ?? 'etab'} role={accountRole} />
+      )}
 
       {/* Signature Modal */}
       {isSignatureModalOpen && selectedCandidate && (
