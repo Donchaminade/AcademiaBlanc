@@ -31,8 +31,8 @@ Une permission s’écrit `RESSOURCE:ACTION` (par exemple `MATIERES:SUPPRIMER`).
 | `ANNEES` | Voir, Détails, Créer, Modifier, Supprimer | `/api/annees-scolaires` |
 | `CENTRES` | idem | `/api/centres` |
 | `SESSIONS` | idem | `/api/sessions` |
-| `MATIERES` | idem (`CREER` couvre le chargement du référentiel) | `/api/matieres`, `/api/matieres/referentiel` |
-| `COEFFICIENTS` | idem | `/api/coefficients` |
+| `MATIERES` | idem (`CREER` couvre le chargement des matières de base) | `/api/matieres`, `/api/matieres/referentiel` |
+| `COEFFICIENTS` | idem (`VOIR` couvre la lecture du programme d’une classe et ses suggestions, `MODIFIER` son remplacement et sa copie) | `/api/coefficients`, `/api/classes/{id}/programme`, `/api/classes/{id}/programme/copier-de/{autreId}`, `/api/classes/{id}/programme/suggestions` |
 | `ENSEIGNANTS` | idem | `/api/professeurs` |
 | `CLASSES` | idem (`MODIFIER` couvre le titulaire) | `/api/classes` |
 | `SERIES` | idem (`CREER` couvre le chargement des séries par défaut) | `/api/series`, `/api/series/defauts` |
@@ -137,7 +137,7 @@ Migration `V10__permissions_utilisateurs.sql` :
 - `etablissement.actif` (défaut vrai) pour la désactivation douce.
 - Table `permission_utilisateur (id, utilisateur_id, ressource, action, accorde)` avec unicité `(utilisateur_id, ressource, action)` et suppression en cascade avec l’utilisateur.
 
-Migration `V13__prereglage_national.sql` : table `prereglage_national` (ressource `PREREGLAGES`) et colonnes d’en-tête officiel sur `etablissement` ; voir [PLATEFORME.md](PLATEFORME.md).
+Migration `V14__prereglage_national.sql` : table `prereglage_national` (ressource `PREREGLAGES`) et colonnes d’en-tête officiel sur `etablissement` ; voir [PLATEFORME.md](PLATEFORME.md).
 
 ## Variables d’environnement
 

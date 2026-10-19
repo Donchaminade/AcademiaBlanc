@@ -1,4 +1,5 @@
 import { Subject, Candidate, CandidateComputedStats, MentionType, DecisionType, AppSettings } from '../types';
+import { subjectsFor } from '../utils/programme';
 import { coefDuCandidat } from '../utils/coefficients';
 import { PREREGLAGES_DEMONSTRATION } from './prereglagesDemo';
 
@@ -271,9 +272,10 @@ export function computeCandidateStats(
   let totalCoef = 0;
   let totalPoints = 0;
 
-  // Même règle que l’API : total = Σ(note × coef), moyenne = total / Σ coef, avec le coefficient
-  // de la classe de l’élève quand il existe (sinon le coefficient commun de la matière).
-  subjects.forEach(subject => {
+  // Même règle que l’API : seules les matières du programme de la classe du candidat comptent
+  // (toutes si aucun programme) ; total = Σ(note × coef), moyenne = total / Σ coef, avec le
+  // coefficient de la classe de l’élève quand il existe (sinon le coefficient commun de la matière).
+  subjectsFor(candidate, subjects).forEach(subject => {
     const coef = coefDuCandidat(candidate, subject);
     totalCoef += coef;
     const grade = candidate.grades[subject.id]?.score || 0;
@@ -288,7 +290,7 @@ export function computeCandidateStats(
   const allAverages = allCandidates.map(c => {
     let tCoef = 0;
     let tPts = 0;
-    subjects.forEach(s => {
+    subjectsFor(c, subjects).forEach(s => {
       const coef = coefDuCandidat(c, s);
       tCoef += coef;
       tPts += (c.grades[s.id]?.score || 0) * coef;

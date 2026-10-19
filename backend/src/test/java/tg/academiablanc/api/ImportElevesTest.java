@@ -130,6 +130,65 @@ class ImportElevesTest {
         .andExpect(status().isBadRequest());
   }
 
+  /**
+   * Scénario de l'écran : import rattaché à la session active, puis rechargement de la page
+   * (`GET /api/eleves`). La liste du serveur n'est filtrée ni par session ni par année scolaire :
+   * les 11 élèves sont relus, qu'ils aient une session, aucune session, ou une classe d'une autre année.
+   */
+  @Test
+  void lesElevesImportesSontRelusApresRechargementQuelleQueSoitLaSession() throws Exception {
+    String token = inscrire("import-session@ecole.tg", "College Session");
+    long anneeCourante = json.readTree(lire(token, "/api/annees-scolaires")).get(0).get("id").asLong();
+    long centreId = json.readTree(envoyer(token, post("/api/centres"),
+        "{\"nom\":\"Centre Agoe\",\"code\":\"AG1\",\"ville\":\"Lome\"}").andReturn().getResponse().getContentAsString())
+        .get("id").asLong();
+    long sessionId = json.readTree(envoyer(token, post("/api/sessions"),
+        "{\"anneeScolaireId\":" + anneeCourante + ",\"centreId\":" + centreId
+            + ",\"nom\":\"BEPC blanc\",\"typeExamen\":\"BEPC\",\"statut\":\"OUVERTE\"}")
+        .andReturn().getResponse().getContentAsString()).get("id").asLong();
+
+    // 11 élèves de 3e rattachés à la session active (sélecteur prérempli dans l'écran).
+    String corps = demande("3e").replaceFirst("\\{", "{\"sessionId\":" + sessionId + ",");
+    envoyer(token, post("/api/eleves/import"), corps)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.crees").value(11))
+        .andExpect(jsonPath("$.ignores").value(0));
+
+    JsonNode apresImport = json.readTree(lire(token, "/api/eleves"));
+    assertThat(apresImport).hasSize(11);
+    for (JsonNode eleve : apresImport) {
+      assertThat(eleve.get("sessionId").asLong()).isEqualTo(sessionId);
+    }
+
+    // Un élève sans session, et un autre dans une classe d'une année scolaire non courante.
+    long anneePassee = json.readTree(envoyer(token, post("/api/annees-scolaires"),
+        "{\"libelle\":\"2019-2020\",\"courante\":false}").andReturn().getResponse().getContentAsString()).get("id").asLong();
+    long classeAncienne = json.readTree(envoyer(token, post("/api/classes"),
+        "{\"anneeScolaireId\":" + anneePassee + ",\"nom\":\"3e 2020\",\"niveau\":\"Troisième\"}")
+        .andReturn().getResponse().getContentAsString()).get("id").asLong();
+    envoyer(token, post("/api/eleves/import"),
+        "{\"classeNom\":\"3e\",\"eleves\":[{\"nomComplet\":\"SANS Session\",\"genre\":\"F\"},"
+            + "{\"nomComplet\":\"ANCIENNE Annee\",\"genre\":\"M\",\"classeId\":" + classeAncienne + "}]}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.crees").value(2))
+        .andExpect(jsonPath("$.classesCreees").isEmpty());
+
+    // Relecture après « actualisation » : tout le monde est là, le compteur « en base » vaut 13.
+    JsonNode apresRechargement = json.readTree(lire(token, "/api/eleves"));
+    assertThat(apresRechargement).hasSize(13);
+    List<String> noms = new ArrayList<>();
+    for (JsonNode eleve : apresRechargement) noms.add(eleve.get("nomComplet").asText());
+    assertThat(noms).contains("ADOUGBA Komlan Bruno", "WOBOTI Nadjat", "SANS Session", "ANCIENNE Annee");
+
+    // Relancer l'import de la 3e, cette fois sans session : les 11 sont reconnus comme déjà inscrits.
+    envoyer(token, post("/api/eleves/import"), demande("3e"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.crees").value(0))
+        .andExpect(jsonPath("$.ignores").value(11));
+    assertThat(json.readTree(lire(token, "/api/eleves"))).hasSize(13);
+    assertThat(json.readTree(lire(token, "/api/classes"))).hasSize(2);
+  }
+
   private String demande(String classeNom) {
     StringBuilder sb = new StringBuilder("{\"classeNom\":\"").append(classeNom).append("\",\"eleves\":[");
     for (int i = 0; i < TROISIEME.length; i++) {

@@ -5,6 +5,11 @@ export interface Subject {
   coef: number;
   /** Vrai quand aucun coefficient n'a été saisi sur l'API : la valeur 1 est appliquée par défaut. */
   coefDefault?: boolean;
+  /**
+   * Coefficient de la matière dans le programme de chaque classe (clé : id de classe).
+   * Une classe absente de cette table n'a pas la matière à son programme.
+   */
+  coefParClasse?: Record<string, number>;
 }
 
 export type MentionType = 'TRÈS BIEN' | 'BIEN' | 'ASSEZ BIEN' | 'PASSABLE' | 'RATTRAPAGE' | 'AJOURNÉ';
@@ -29,7 +34,10 @@ export interface Candidate {
   birthPlace: string;
   originSchool: string;
   gender: 'M' | 'F';
+  /** Série de la classe (lycée uniquement) ; vide au collège. */
   serie: string;
+  /** Identifiant de la classe sur l'API ; absent pour les données de démonstration. */
+  classeId?: string;
   examCenter: string;
   examCenterName: string;
   parentPhone: string;
@@ -68,6 +76,7 @@ export type AdminSection =
   | 'centres'
   | 'sessions'
   | 'matieres'
+  | 'programme'
   | 'coefficients'
   | 'enseignants'
   | 'classes'
