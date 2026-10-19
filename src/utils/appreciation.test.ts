@@ -16,9 +16,9 @@ describe('appreciationSelonNote : barème unique sur la note /20 de la matière'
     [5, 'Insuffisant'],
     [7, 'Insuffisant'],
     [7.99, 'Insuffisant'],
-    [8, 'Médiocre'],
-    [9, 'Médiocre'],
-    [9.99, 'Médiocre'],
+    [8, 'Mauvais'],
+    [9, 'Mauvais'],
+    [9.99, 'Mauvais'],
     [10, 'Passable'],
     [11, 'Passable'],
     [11.99, 'Passable'],
@@ -65,7 +65,7 @@ describe('appreciationAffichee : texte libre de l’enseignant sinon automatique
 
   it('retombe sur l’automatique quand le texte est vide ou fait d’espaces', () => {
     assert.equal(appreciationAffichee({ score: 7, appreciation: '' }), 'Insuffisant');
-    assert.equal(appreciationAffichee({ score: 9, appreciation: '   ' }), 'Médiocre');
+    assert.equal(appreciationAffichee({ score: 9, appreciation: '   ' }), 'Mauvais');
     assert.equal(appreciationAffichee({ score: 14, appreciation: undefined as unknown as string }), 'Bien');
   });
 

@@ -79,7 +79,7 @@ class GradeCalculatorTest {
     assertEquals("Bien", GradeCalculator.appreciation(new BigDecimal("14")));
     assertEquals("Assez bien", GradeCalculator.appreciation(new BigDecimal("12")));
     assertEquals("Passable", GradeCalculator.appreciation(new BigDecimal("10")));
-    assertEquals("Médiocre", GradeCalculator.appreciation(new BigDecimal("9.99")));
+    assertEquals("Mauvais", GradeCalculator.appreciation(new BigDecimal("9.99")));
     assertEquals("Insuffisant", GradeCalculator.appreciation(new BigDecimal("7")));
     assertEquals("Très insuffisant", GradeCalculator.appreciation(new BigDecimal("4")));
     assertEquals("TRÈS BIEN", GradeCalculator.mention(new BigDecimal("16")));

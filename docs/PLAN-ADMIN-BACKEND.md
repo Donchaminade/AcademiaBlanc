@@ -51,7 +51,7 @@ Formules retenues, notes sur 20 :
 - moyenne générale = Σ(note × coef) / Σ(coef) ;
 - une absence ou une note manquante est exclue des deux sommes, elle ne vaut pas zéro ;
 - rang par matière et rang général : tri décroissant, ex æquo au même rang, le suivant saute (1, 2, 2, 4) ;
-- appréciation du professeur : calculée sur la note /20 de chaque matière (`calc/Appreciation.java`, `src/utils/appreciation.ts`) : [0;5[ Très insuffisant, [5;8[ Insuffisant, [8;10[ Médiocre, [10;12[ Passable, [12;14[ Assez bien, [14;16[ Bien, [16;18[ Très bien, [18;20] Excellent ; absence → Absent, sans note → Non noté. L'enseignant peut la remplacer par un texte libre (≤ 60 caractères, colonne `note.appreciation`, vide = automatique).
+- appréciation du professeur : calculée sur la note /20 de chaque matière (`calc/Appreciation.java`, `src/utils/appreciation.ts`) : [0;5[ Très insuffisant, [5;8[ Insuffisant, [8;10[ Mauvais, [10;12[ Passable, [12;14[ Assez bien, [14;16[ Bien, [16;18[ Très bien, [18;20] Excellent ; absence → Absent, sans note → Non noté. L'enseignant peut la remplacer par un texte libre (≤ 60 caractères, colonne `note.appreciation`, vide = automatique).
 
 Le bulletin (`computeCandidateStats` dans `src/data/mockData.ts`, qui s’appuie sur `moyenneReelle` de `src/utils/bulletinMetrics.ts`) applique exactement ces règles, comme `GradeCalculator` côté API :
 
