@@ -12,9 +12,9 @@ import tg.academiablanc.domain.FamilleSerie;
  * <p>Collège : 6e, 5e, 4e, 3e — sans série. Lycée : 2nde, 1ère, Tle — avec une série du
  * référentiel de l'établissement (générale A4, C, D… ou technique G1, F4…).</p>
  *
- * <p>Les coefficients par défaut sont indexés par niveau et par série : une série technique
- * sans ligne spécifique retombe sur les valeurs « scientifiques » (série D), voir
- * {@link #serieDeReference(String, FamilleSerie)}.</p>
+ * <p>Les coefficients suggérés dans le programme d'une classe sont indexés par niveau et par
+ * série : une série technique sans grille spécifique retombe sur les valeurs « scientifiques »
+ * (série D), voir {@link #serieDeReference(String, FamilleSerie)}.</p>
  */
 public final class ClasseNiveauUtil {
   public enum Cycle { COLLEGE, LYCEE }
