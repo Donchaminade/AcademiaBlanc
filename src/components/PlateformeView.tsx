@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { apiDelete, apiGet, apiSend, isPlatformAccount } from '../api/client';
+import { apiDelete, apiGet, apiSend, isPlatformAccount, isPlatformOwner } from '../api/client';
 import { usePermissions } from '../api/permissions';
 import { confirmAction, showError, toastSuccess } from '../utils/alerts';
 import { UtilisateursSection } from './UtilisateursSection';
 import { TypesExamenPanel } from './TypesExamenPanel';
 import { PrereglagesNationauxPanel } from './plateforme/PrereglagesNationauxPanel';
+import { AnalytiquePanel } from './plateforme/AnalytiquePanel';
 
 /** Champs de contact et effectifs absents sans ETABLISSEMENTS:DETAILS. */
 interface EtablissementSurveillance {
@@ -26,7 +27,23 @@ interface EtablissementSurveillance {
   notes?: number;
 }
 
-type Onglet = 'etablissements' | 'gestionnaires' | 'types-examen' | 'prereglages';
+export type OngletPlateforme = 'analytique' | 'etablissements' | 'gestionnaires' | 'types-examen' | 'prereglages';
+type Onglet = OngletPlateforme;
+
+/**
+ * Demande d'ouverture d'un onglet depuis l'extérieur (entrée « Analytique » de la barre latérale).
+ * Le jeton change à chaque demande pour qu'une même cible puisse être redemandée.
+ */
+export interface DemandeOnglet {
+  onglet: OngletPlateforme;
+  jeton: number;
+}
+
+interface PlateformeViewProps {
+  ongletDemande?: DemandeOnglet | null;
+  /** Signale l'onglet affiché (mise en évidence dans la barre latérale). */
+  onOngletChange?: (onglet: OngletPlateforme | null) => void;
+}
 
 const format = (value: number | undefined) => (value == null ? '—' : new Intl.NumberFormat('fr-FR').format(value));
 const field = 'w-full bg-[#f2f3ff] text-[13px] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]';
@@ -42,9 +59,11 @@ const Field: React.FC<{ label: string; className?: string; children: React.React
 
 const EMPTY_FORM = { nom: '', ville: '', email: '', motDePasse: '', nomResponsable: '', telephone: '', region: '', typeEtablissement: '' };
 
-export const PlateformeView: React.FC = () => {
+export const PlateformeView: React.FC<PlateformeViewProps> = ({ ongletDemande = null, onOngletChange }) => {
   const { can, permissions } = usePermissions();
   const allowed = isPlatformAccount();
+  // L'analytique (revenus, churn, inscriptions) n'est jamais proposée aux gestionnaires : propriétaire seulement.
+  const proprietaire = isPlatformOwner();
   const canVoir = can('ETABLISSEMENTS', 'VOIR');
   const canDetails = can('ETABLISSEMENTS', 'DETAILS');
   const canCreer = can('ETABLISSEMENTS', 'CREER');
@@ -54,7 +73,7 @@ export const PlateformeView: React.FC = () => {
   const canTypesExamen = can('TYPES_EXAMEN', 'VOIR');
   const canPrereglages = can('PREREGLAGES', 'VOIR');
 
-  const [onglet, setOnglet] = useState<Onglet>('etablissements');
+  const [onglet, setOnglet] = useState<Onglet>(ongletDemande?.onglet ?? 'etablissements');
   const [etablissements, setEtablissements] = useState<EtablissementSurveillance[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -76,6 +95,25 @@ export const PlateformeView: React.FC = () => {
 
   // Recharge quand les droits changent (rafraîchissement de session).
   useEffect(load, [allowed, canVoir, permissions.join(',')]);
+
+  // Ouverture d'un onglet demandée depuis la barre latérale (ex. « Analytique »).
+  useEffect(() => {
+    if (ongletDemande) setOnglet(ongletDemande.onglet);
+  }, [ongletDemande]);
+
+  const onglets: { key: Onglet; label: string; icon: string; visible: boolean }[] = [
+    { key: 'analytique', label: 'Analytique', icon: 'monitoring', visible: proprietaire },
+    { key: 'etablissements', label: 'Établissements', icon: 'domain', visible: canVoir },
+    { key: 'gestionnaires', label: 'Gestionnaires', icon: 'manage_accounts', visible: canGestionnaires },
+    { key: 'types-examen', label: 'Types d’examen', icon: 'workspace_premium', visible: canTypesExamen },
+    { key: 'prereglages', label: 'Pays & ministères', icon: 'public', visible: canPrereglages },
+  ];
+  const ongletsVisibles = onglets.filter((o) => o.visible);
+  const ongletCourant: Onglet | null = ongletsVisibles.some((o) => o.key === onglet) ? onglet : (ongletsVisibles[0]?.key ?? null);
+
+  useEffect(() => {
+    onOngletChange?.(allowed ? ongletCourant : null);
+  }, [allowed, ongletCourant, onOngletChange]);
 
   if (!allowed) {
     return (
@@ -153,29 +191,32 @@ export const PlateformeView: React.FC = () => {
     ] : []),
   ];
 
-  const onglets: { key: Onglet; label: string; icon: string; visible: boolean }[] = [
-    { key: 'etablissements', label: 'Établissements', icon: 'domain', visible: canVoir },
-    { key: 'gestionnaires', label: 'Gestionnaires', icon: 'manage_accounts', visible: canGestionnaires },
-    { key: 'types-examen', label: 'Types d’examen', icon: 'workspace_premium', visible: canTypesExamen },
-    { key: 'prereglages', label: 'Pays & ministères', icon: 'public', visible: canPrereglages },
-  ];
-  const ongletsVisibles = onglets.filter((o) => o.visible);
-  const ongletCourant: Onglet | null = ongletsVisibles.some((o) => o.key === onglet) ? onglet : (ongletsVisibles[0]?.key ?? null);
-
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-4 md:space-y-6">
       <div className="bg-white rounded p-4 md:p-6 shadow-sm border border-[#eaedff]">
         <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5] bg-[#eaedff] px-2.5 py-1 rounded">
           Plateforme
         </span>
-        <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">
-          Établissements, gestionnaires &amp; types d’examen
-        </h2>
-        <p className="text-[13px] text-[#444651] mt-0.5 max-w-3xl">
-          Vue de l’ensemble des établissements inscrits, des gestionnaires du logiciel et du référentiel des types d’examen proposé à tous.
-          Chaque action (voir, détails, créer, modifier, supprimer) dépend des droits de votre compte. Ce n’est pas l’administration
-          d’un établissement : aucune donnée pédagogique n’est modifiée ici.
-        </p>
+        {ongletCourant === 'analytique' ? (
+          <>
+            <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">Tableau de bord analytique</h2>
+            <p className="text-[13px] text-[#444651] mt-0.5 max-w-3xl">
+              Indicateurs de la plateforme réservés au propriétaire du logiciel : établissements inscrits et évolution des inscriptions
+              sur 12 mois glissants. Lecture seule, calculée par le serveur en temps universel (UTC).
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">
+              Établissements, gestionnaires &amp; types d’examen
+            </h2>
+            <p className="text-[13px] text-[#444651] mt-0.5 max-w-3xl">
+              Vue de l’ensemble des établissements inscrits, des gestionnaires du logiciel et du référentiel des types d’examen proposé à tous.
+              Chaque action (voir, détails, créer, modifier, supprimer) dépend des droits de votre compte. Ce n’est pas l’administration
+              d’un établissement : aucune donnée pédagogique n’est modifiée ici.
+            </p>
+          </>
+        )}
       </div>
 
       <nav aria-label="Sections de la plateforme" className="bg-white rounded border border-[#eaedff] shadow-xs p-1.5 flex gap-1 overflow-x-auto">
@@ -203,6 +244,8 @@ export const PlateformeView: React.FC = () => {
           Votre compte ne détient aucun droit de consultation sur la plateforme. Rapprochez-vous du propriétaire du logiciel.
         </div>
       )}
+
+      {ongletCourant === 'analytique' && <AnalytiquePanel />}
 
       {ongletCourant === 'gestionnaires' && <UtilisateursSection mode="plateforme" />}
 

@@ -37,6 +37,12 @@ interface SidebarProps {
    * (aucun sélecteur de session ou de centre, aucun menu d’établissement, aucune donnée locale).
    */
   platformOnly?: boolean;
+  /** Propriétaire du logiciel : ouvre le tableau de bord analytique (première entrée de la plateforme). */
+  onOpenAnalytique?: () => void;
+  /** Vrai quand l'onglet « Analytique » de la vue Plateforme est affiché. */
+  analytiqueActive?: boolean;
+  /** Ouvre la vue Plateforme sur l'onglet Établissements (à défaut : simple changement de vue). */
+  onOpenPlateforme?: () => void;
   /** Vrai quand l'établissement est connecté à l'API : plus aucune valeur de démonstration n'est affichée. */
   usingApi?: boolean;
   /** Utilisateur connecté à l'API (nom et rôle) pour le pied de la barre latérale. */
@@ -98,6 +104,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   centerOptions,
   platformOwner = false,
   platformOnly = false,
+  onOpenAnalytique,
+  analytiqueActive = false,
+  onOpenPlateforme,
   usingApi = false,
   apiUser,
   onOpenAdmin,
@@ -128,19 +137,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </button>
   );
 
-  const platformEntry = (
+  const plateformeAffichee = currentView === 'plateforme';
+  const analytiqueEntry = onOpenAnalytique && (
     <button
       type="button"
-      onClick={() => onViewChange('plateforme')}
+      onClick={onOpenAnalytique}
+      aria-current={plateformeAffichee && analytiqueActive ? 'page' : undefined}
       className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium ${
-        currentView === 'plateforme'
+        plateformeAffichee && analytiqueActive
           ? 'bg-[#1e3a8a] text-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
           : 'text-[#00236f] bg-[#f2f3ff] hover:bg-[#eaedff]'
       }`}
+      data-testid="menu-analytique"
     >
-      <span className="material-symbols-outlined text-lg">domain</span>
-      <span>{platformOnly ? 'Établissements & gestionnaires' : 'Plateforme : établissements & gestionnaires'}</span>
+      <span className="material-symbols-outlined text-lg">monitoring</span>
+      <span>Analytique</span>
     </button>
+  );
+  const platformEntry = (
+    <>
+      {analytiqueEntry}
+      <button
+        type="button"
+        onClick={onOpenPlateforme ?? (() => onViewChange('plateforme'))}
+        aria-current={plateformeAffichee && !(analytiqueEntry && analytiqueActive) ? 'page' : undefined}
+        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium ${
+          plateformeAffichee && !(analytiqueEntry && analytiqueActive)
+            ? 'bg-[#1e3a8a] text-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
+            : 'text-[#00236f] bg-[#f2f3ff] hover:bg-[#eaedff]'
+        }`}
+      >
+        <span className="material-symbols-outlined text-lg">domain</span>
+        <span>{platformOnly ? 'Établissements & gestionnaires' : 'Plateforme : établissements & gestionnaires'}</span>
+      </button>
+    </>
   );
 
   const accountIdentity = (
