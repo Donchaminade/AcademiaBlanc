@@ -1074,6 +1074,8 @@ export default function App() {
               selectedSession={selectedSession}
               selectedCenter={selectedCenter}
               examType={usingApi ? activeExamType : undefined}
+              examTypeLong={usingApi ? activeExamTypeLong : undefined}
+              settings={settings}
               juryLocked={juryLocked}
               onToggleJuryLock={handleToggleJuryLock}
             />

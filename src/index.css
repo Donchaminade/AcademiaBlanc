@@ -606,4 +606,164 @@
   body[data-print-mode='archives'] .settings-chrome {
     display: none !important;
   }
+
+  /* PV de délibération / palmarès : l'écran est masqué, seul le gabarit A4 portrait est imprimé. */
+  body[data-print-mode='registre'] .registre-ui,
+  body[data-print-mode='registre'] aside,
+  body[data-print-mode='registre'] header,
+  body[data-print-mode='registre'] .no-print {
+    display: none !important;
+  }
+
+  body[data-print-mode='registre'] .registre-sheet {
+    display: block !important;
+    width: 194mm;
+    max-width: 194mm;
+    margin: 0 auto;
+    color: #000;
+    font-size: 9px;
+    line-height: 1.2;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+.registre-sheet {
+  display: none;
+}
+
+.registre-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 6mm;
+  padding-bottom: 2mm;
+  margin-bottom: 2.5mm;
+  border-bottom: 1.5px solid #000;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.registre-school {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.registre-title {
+  font-size: 14px;
+  font-weight: 800;
+  margin: 1mm 0 0.5mm;
+  line-height: 1.15;
+}
+
+.registre-subtitle {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.registre-meta {
+  text-align: right;
+  font-size: 8.5px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.registre-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 9px;
+}
+
+.registre-table thead {
+  display: table-header-group;
+}
+
+.registre-table th,
+.registre-table td {
+  border: 0.5px solid #000;
+  padding: 1mm 1.4mm;
+  vertical-align: middle;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.registre-table th {
+  background: #e5e7eb;
+  font-weight: 700;
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.registre-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.registre-table .c { text-align: center; }
+.registre-table .r { text-align: right; }
+.registre-table .mono { font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 8.5px; }
+
+.registre-name {
+  font-weight: 700;
+}
+
+.registre-matricule {
+  font-family: 'JetBrains Mono Variable', ui-monospace, monospace;
+  font-size: 8px;
+  color: #333;
+}
+
+.registre-moyenne {
+  font-weight: 700;
+}
+
+.registre-badge {
+  display: inline-block;
+  padding: 0.3mm 1.2mm;
+  border: 0.5px solid #000;
+  border-radius: 1mm;
+  font-size: 7.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.registre-podium {
+  background: #e5e7eb;
+  font-size: 8.5px;
+}
+
+.registre-signatures {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.registre-signature {
+  width: 70mm;
+  text-align: center;
+  font-size: 9px;
+}
+
+.registre-signature-title {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.registre-signature-space {
+  height: 18mm;
+}
+
+.registre-signature-name {
+  font-weight: 600;
+  border-top: 0.5px solid #000;
+  padding-top: 1mm;
 }

@@ -1,7 +1,30 @@
 import React, { useState } from 'react';
-import { Candidate, CandidateComputedStats } from '../types';
+import { AppSettings, Candidate, CandidateComputedStats } from '../types';
 import { decisionBucket } from '../utils/bulletinMetrics';
+import { ligneTitreBulletin } from '../utils/bulletinEntete';
 import { printDocument } from '../utils/printDocument';
+
+type FiltreDecision = 'all' | 'admis' | 'rattrapage' | 'ajourne';
+
+const LIBELLES_FILTRE: Record<FiltreDecision, string> = {
+  all: 'Tous les candidats',
+  admis: "Admis d'office & délibérés",
+  rattrapage: 'Second tour (admissibles)',
+  ajourne: 'Ajournés',
+};
+
+/** Décision courte et non tronquée pour la colonne étroite du PV imprimé. */
+const decisionCourte = (decision: string | undefined): string => {
+  switch (decisionBucket(decision)) {
+    case 'admis': return "Admis d'office";
+    case 'rattrapage': return 'Admissible (2nd tour)';
+    case 'ajourne': return 'Ajourné';
+    default: return decision || '—';
+  }
+};
+
+const libelleRang = (rank: number): string =>
+  rank === 1 ? '1er' : `${rank}e`;
 
 interface RecordsViewProps {
   candidates: Candidate[];
@@ -12,6 +35,10 @@ interface RecordsViewProps {
   selectedCenter: string;
   /** Libellé court du type d'examen de la session active (« BEPC », « BAC II ») ; absent en démonstration. */
   examType?: string;
+  /** Libellé long du type d'examen (`type_examen.libelle_long`), pour l'en-tête imprimé ; absent en démonstration. */
+  examTypeLong?: string;
+  /** Paramètres de l'établissement : nom, année scolaire et signataire officiel du PV imprimé. */
+  settings?: AppSettings;
   juryLocked: boolean;
   onToggleJuryLock: () => void;
 }
@@ -23,10 +50,23 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   selectedSession,
   selectedCenter,
   examType,
+  examTypeLong,
+  settings,
   juryLocked,
   onToggleJuryLock,
 }) => {
-  const [filterDecision, setFilterDecision] = useState<'all' | 'admis' | 'rattrapage' | 'ajourne'>('all');
+  const [filterDecision, setFilterDecision] = useState<FiltreDecision>('all');
+
+  // En-tête imprimé : mêmes sources que le bandeau du bulletin (type d'examen et intitulé de la session en base).
+  const titreSession = ligneTitreBulletin({
+    typeExamenLibelle: examTypeLong ?? examType ?? settings?.examType,
+    sessionNom: selectedSession || settings?.sessionName,
+  });
+  const anneeScolaire = (settings?.academicYear ?? '').trim();
+  const nomEtablissement = (settings?.institutionName ?? '').trim() || selectedCenter;
+  const signataireTitre = settings?.jurySignerTitle?.trim() || "Le Chef d'établissement";
+  const signataireNom = (settings?.jurySignerName ?? '').trim();
+  const dateEdition = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
   // Sort candidates by rank
   const sorted = [...candidates].sort((a, b) => {
@@ -79,12 +119,13 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   };
 
   return (
-    <div className="p-8 max-w-[1440px] mx-auto space-y-6">
+    <>
+    <div className="registre-ui p-8 max-w-[1440px] mx-auto space-y-6">
       {/* Official Header */}
       <div className="bg-white rounded p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5] bg-[#eaedff] px-2.5 py-1 rounded">
-            Procès-Verbal Officiel de Délibération N° 01
+            Procès-Verbal de Délibération
           </span>
           <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">
             Palmarès Général &amp; Registre des Épreuves
@@ -317,5 +358,83 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
         </div>
       </div>
     </div>
+
+    {/* Gabarit imprimé du PV (visible uniquement à l'impression, mode « registre ») */}
+    <div className="registre-sheet">
+      <div className="registre-head">
+        <div>
+          <div className="registre-school">{nomEtablissement}</div>
+          <h1 className="registre-title">Procès-verbal de délibération — Palmarès</h1>
+          <div className="registre-subtitle">
+            {[titreSession, anneeScolaire].filter(Boolean).join(' • ')}
+          </div>
+        </div>
+        <div className="registre-meta">
+          <div>{LIBELLES_FILTRE[filterDecision]} ({filtered.length})</div>
+          <div>Édité le {dateEdition}</div>
+        </div>
+      </div>
+
+      <table className="registre-table">
+        <colgroup>
+          <col style={{ width: '6%' }} />
+          <col style={{ width: '6%' }} />
+          <col style={{ width: '25%' }} />
+          <col style={{ width: '19%' }} />
+          <col style={{ width: '5%' }} />
+          <col style={{ width: '10%' }} />
+          <col style={{ width: '8%' }} />
+          <col style={{ width: '10%' }} />
+          <col style={{ width: '11%' }} />
+        </colgroup>
+        <thead>
+          <tr>
+            <th className="c">Rang</th>
+            <th className="c">Table</th>
+            <th>Candidat &amp; matricule</th>
+            <th>Établissement d'origine</th>
+            <th className="c">Genre</th>
+            <th className="r">Points / max</th>
+            <th className="r">Moyenne</th>
+            <th className="c">Mention</th>
+            <th>Décision du jury</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.map((cand) => {
+            const s = allStats[cand.id];
+            return (
+              <tr key={cand.id}>
+                <td className="c">
+                  {s ? (
+                    <span className={s.rank <= 3 ? 'registre-badge registre-podium' : ''}>{libelleRang(s.rank)}</span>
+                  ) : '—'}
+                </td>
+                <td className="c mono">{cand.tableNumber}</td>
+                <td>
+                  <div className="registre-name">{cand.fullName}</div>
+                  <div className="registre-matricule">{cand.matricule}</div>
+                </td>
+                <td>{cand.originSchool}</td>
+                <td className="c">{cand.gender === 'M' ? 'M' : 'F'}</td>
+                <td className="r mono">{s?.totalPoints.toFixed(2) ?? '0.00'} / {s?.pointsMax.toFixed(0) ?? '—'}</td>
+                <td className="r mono registre-moyenne">{s?.average.toFixed(2) ?? '0.00'}</td>
+                <td className="c"><span className="registre-badge">{s?.mention || 'EN COURS'}</span></td>
+                <td>{decisionCourte(s?.decision)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <div className="registre-signatures">
+        <div className="registre-signature">
+          <div className="registre-signature-title">{signataireTitre}</div>
+          <div className="registre-signature-space" />
+          {signataireNom && <div className="registre-signature-name">{signataireNom}</div>}
+        </div>
+      </div>
+    </div>
+    </>
   );
 };
