@@ -14,9 +14,9 @@ export interface Subject {
 
 export type MentionType = 'TRÈS BIEN' | 'BIEN' | 'ASSEZ BIEN' | 'PASSABLE' | 'RATTRAPAGE' | 'AJOURNÉ';
 
-export type DecisionType = 
+/** Décision déduite de la seule moyenne réelle Σ(note × coef) / Σ coef : aucun point n'est jamais ajouté. */
+export type DecisionType =
   | "ADMIS D'OFFICE À L'EXAMEN BLANC"
-  | "ADMIS APRÈS DÉLIBÉRATION DU JURY"
   | "ADMISSIBLE AU SECOND TOUR (RATTRAPAGE)"
   | "AJOURNÉ À L'EXAMEN BLANC";
 
@@ -51,8 +51,6 @@ export interface Candidate {
    */
   coefs?: Record<string, number>;
   generalObservation: string;
-  isDeliberated?: boolean;
-  juryBonus?: number; // Repêchage points
   digitalSignature?: {
     signedAt: string;
     signer: string;
@@ -61,14 +59,31 @@ export interface Candidate {
 }
 
 export interface CandidateComputedStats {
+  /** Σ des coefficients des matières réellement notées (règle de l'API : une matière sans note ne compte pas). */
   totalCoef: number;
+  /** Σ(note × coef) des matières notées. */
   totalPoints: number;
+  /** Σ des coefficients de tout le programme de la classe, notes saisies ou non. */
+  totalCoefProgramme: number;
+  /** Total maximal du bulletin : 20 × Σ coefficients du programme de la classe. */
+  pointsMax: number;
+  /** Moyenne réelle Σ(note × coef) / Σ coef, arrondie au centième ; 0 sans aucune note. */
   average: number;
+  /** Vrai dès qu'une note au moins est saisie (sinon la moyenne 0 n'a pas de sens). */
+  evaluated: boolean;
   rank: number;
   totalCandidates: number;
   mention: MentionType;
   decision: DecisionType;
   differenceToPromo: number;
+  /** Moyenne des moyennes des élèves notés de la même classe (même session) ; null sans élève noté. */
+  classAverage: number | null;
+  /** Moyenne la plus forte de la classe ; null sans élève noté. */
+  classHighestAverage: number | null;
+  /** Moyenne la plus faible de la classe ; null sans élève noté. */
+  classLowestAverage: number | null;
+  /** Nombre d'élèves notés dans la classe (dénominateur des extrêmes). */
+  classEvaluatedCount: number;
 }
 
 export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth' | 'plateforme' | 'profil';
