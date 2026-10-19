@@ -4,6 +4,7 @@ import type { CharteEtablissement, ParametrePersiste } from './charte';
 import type { ProfilEtablissement } from './etablissement';
 import { saveEnTete } from './prereglages';
 import { enTeteDepuisSettings } from '../utils/prereglages';
+import { APPRECIATION_LONGUEUR_MAX, appreciationManuelleValide, normaliserAppreciationManuelle } from '../utils/appreciation';
 import type { AppSettings, Candidate } from '../types';
 
 /**
@@ -35,6 +36,8 @@ export interface NoteApi {
   sessionId?: number;
   valeur?: number | null;
   absent: boolean;
+  /** Texte libre de l'enseignant ; absent ou `null` = appréciation automatique selon la note. */
+  appreciation?: string | null;
 }
 
 export interface SignatureApi {
@@ -149,6 +152,39 @@ export async function sauvegarderNote(saisie: NoteSaisie): Promise<NoteApi> {
     sessionId: saisie.sessionId,
     valeur: saisie.score,
     absent: false,
+  });
+}
+
+export interface AppreciationSaisie extends NoteSaisie {
+  /** Texte libre de l'enseignant ; vide = retour à l'appréciation automatique. */
+  appreciation: string;
+}
+
+/**
+ * Enregistre l'appréciation du professeur d'une note existante (`POST /api/notes` avec la note
+ * actuelle et le champ `appreciation` : texte libre, ou chaîne vide pour rétablir l'automatique).
+ */
+export async function sauvegarderAppreciation(saisie: AppreciationSaisie): Promise<NoteApi> {
+  if (!saisie.sessionId) {
+    throw new Error('Aucune session chargée : créez ou sélectionnez une session avant de saisir des appréciations.');
+  }
+  if (!estEleveApi(saisie.candidateId) || !Number.isFinite(Number(saisie.subjectId))) {
+    throw new Error('Élève ou matière absent de la base : rechargez la page.');
+  }
+  if (!Number.isFinite(saisie.score) || saisie.score < 0 || saisie.score > 20) {
+    throw new Error('Saisissez d’abord une note sur 20 avant son appréciation.');
+  }
+  const appreciation = normaliserAppreciationManuelle(saisie.appreciation);
+  if (!appreciationManuelleValide(appreciation)) {
+    throw new Error(`L’appréciation ne doit pas dépasser ${APPRECIATION_LONGUEUR_MAX} caractères.`);
+  }
+  return apiSend<NoteApi>('/api/notes', 'POST', {
+    eleveId: Number(saisie.candidateId),
+    matiereId: Number(saisie.subjectId),
+    sessionId: saisie.sessionId,
+    valeur: saisie.score,
+    absent: false,
+    appreciation,
   });
 }
 

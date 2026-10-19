@@ -21,6 +21,7 @@ import {
   appliquerDeliberation,
   creerEleve,
   renumeroterEleves,
+  sauvegarderAppreciation,
   sauvegarderDeliberation,
   sauvegarderEleve,
   sauvegarderEnTete,
@@ -36,6 +37,7 @@ import { usePermissions } from './api/permissions';
 import { confirmAction, showError, toastSuccess } from './utils/alerts';
 import { loadSchoolWorkspace, ExamOption, WorkspaceOptions } from './api/workspace';
 import { horsProgramme } from './utils/programme';
+import { APPRECIATION_LONGUEUR_MAX, appreciationManuelleValide, normaliserAppreciationManuelle } from './utils/appreciation';
 import { applyCharte, charteChanged, loadCharte } from './api/charte';
 import {
   getRegisteredSchools,
@@ -486,13 +488,20 @@ export default function App() {
     return allStats[selectedCandidate.id] || computeCandidateStats(selectedCandidate, subjects, candidates);
   }, [allStats, selectedCandidate, subjects, candidates]);
 
-  const avecNote = (candidate: Candidate, subjectId: string, score: number): Candidate => ({
+  // L'appréciation reste celle de l'enseignant si elle existe ; vide = automatique selon la note.
+  const avecNote = (candidate: Candidate, subjectId: string, score: number, appreciation?: string): Candidate => ({
     ...candidate,
     grades: {
       ...candidate.grades,
-      [subjectId]: { score, appreciation: candidate.grades[subjectId]?.appreciation || 'Travail évalué.' },
+      [subjectId]: { score, appreciation: appreciation ?? candidate.grades[subjectId]?.appreciation ?? '' },
     },
   });
+
+  const avecAppreciation = (candidate: Candidate, subjectId: string, appreciation: string): Candidate => {
+    const grade = candidate.grades[subjectId];
+    if (!grade) return candidate;
+    return { ...candidate, grades: { ...candidate.grades, [subjectId]: { ...grade, appreciation } } };
+  };
 
   /**
    * Écriture : note d'un candidat dans une matière. En session API la note part au serveur
@@ -509,7 +518,7 @@ export default function App() {
     if (usingApi) {
       try {
         const note = await sauvegarderNote({ candidateId, subjectId, sessionId: activeSessionId, score: newScore });
-        remplacerCandidat(avecNote(cible, subjectId, Number(note.valeur ?? newScore)));
+        remplacerCandidat(avecNote(cible, subjectId, Number(note.valeur ?? newScore), note.appreciation ?? ''));
         return true;
       } catch (err) {
         signalerErreur(err, 'Note non enregistrée.');
@@ -517,6 +526,37 @@ export default function App() {
       }
     }
     handleUpdateCandidates(candidates.map((c) => (c.id === candidateId ? avecNote(c, subjectId, newScore) : c)));
+    return true;
+  };
+
+  /**
+   * Écriture : appréciation du professeur pour une matière (texte libre ≤ 60 caractères ; vide =
+   * retour à l'appréciation automatique selon la note). En session API, `POST /api/notes` reprend la
+   * note existante avec le champ `appreciation` et la grille n'est mise à jour qu'avec la réponse.
+   */
+  const handleUpdateAppreciation = async (candidateId: string, subjectId: string, appreciation: string): Promise<boolean> => {
+    const cible = candidates.find((c) => c.id === candidateId);
+    const grade = cible?.grades[subjectId];
+    if (!cible || !grade) {
+      showToast('Saisissez d’abord une note avant son appréciation.');
+      return false;
+    }
+    if (usingApi) {
+      try {
+        const note = await sauvegarderAppreciation({ candidateId, subjectId, sessionId: activeSessionId, score: grade.score, appreciation });
+        remplacerCandidat(avecAppreciation(cible, subjectId, note.appreciation ?? ''));
+        return true;
+      } catch (err) {
+        signalerErreur(err, 'Appréciation non enregistrée.');
+        return false;
+      }
+    }
+    const texte = normaliserAppreciationManuelle(appreciation);
+    if (!appreciationManuelleValide(texte)) {
+      showToast(`L’appréciation ne doit pas dépasser ${APPRECIATION_LONGUEUR_MAX} caractères.`);
+      return false;
+    }
+    handleUpdateCandidates(candidates.map((c) => (c.id === candidateId ? avecAppreciation(c, subjectId, texte) : c)));
     return true;
   };
 
@@ -1013,6 +1053,8 @@ export default function App() {
               subjects={subjects}
               allStats={allStats}
               onUpdateGrade={handleUpdateGrade}
+              onUpdateAppreciation={handleUpdateAppreciation}
+              peutAnnoter={!usingApi || can('NOTES', 'CREER') || can('NOTES', 'MODIFIER')}
               onApplyJuryBonus={handleApplyJuryBonus}
               usingApi={usingApi}
               onSelectCandidate={(c) => setSelectedCandidateId(c.id)}

@@ -8,6 +8,7 @@ import {
   appliquerDeliberation,
   creerEleve,
   renumeroterEleves,
+  sauvegarderAppreciation,
   sauvegarderDeliberation,
   sauvegarderEleve,
   sauvegarderEnTete,
@@ -155,6 +156,26 @@ describe('ecritures : écritures de l’espace de travail', () => {
     await assert.rejects(() => sauvegarderNote({ candidateId: '42', subjectId: '12', sessionId: 5, score: 10 }), /pas au programme/);
   });
 
+  it('sauvegarderAppreciation envoie POST /api/notes avec la note actuelle et le texte libre compacté', async () => {
+    reponse = () => json({ id: 9, eleveId: 42, matiereId: 12, sessionId: 5, valeur: 7, absent: false, appreciation: 'Des progrès à l’oral.' });
+    const note = await sauvegarderAppreciation({ candidateId: '42', subjectId: '12', sessionId: 5, score: 7, appreciation: '  Des progrès   à l’oral.  ' });
+    assert.equal(note.appreciation, 'Des progrès à l’oral.');
+    assert.equal(appels[0].method, 'POST');
+    assert.ok(appels[0].url.endsWith('/api/notes'));
+    assert.deepEqual(appels[0].body, { eleveId: 42, matiereId: 12, sessionId: 5, valeur: 7, absent: false, appreciation: 'Des progrès à l’oral.' });
+  });
+
+  it('sauvegarderAppreciation : chaîne vide = retour à l’automatique ; plus de 60 caractères ou sans note refusés sans appel réseau', async () => {
+    await sauvegarderAppreciation({ candidateId: '42', subjectId: '12', sessionId: 5, score: 7, appreciation: '   ' });
+    assert.deepEqual(appels[0].body, { eleveId: 42, matiereId: 12, sessionId: 5, valeur: 7, absent: false, appreciation: '' });
+    appels.length = 0;
+    await assert.rejects(() => sauvegarderAppreciation({ candidateId: '42', subjectId: '12', sessionId: 5, score: 7, appreciation: 'a'.repeat(61) }), /60 caractères/);
+    await assert.rejects(() => sauvegarderAppreciation({ candidateId: '42', subjectId: '12', sessionId: 5, score: Number.NaN, appreciation: 'Bien' }), /note sur 20/);
+    await assert.rejects(() => sauvegarderAppreciation({ candidateId: '42', subjectId: '12', sessionId: null, score: 7, appreciation: 'Bien' }), /Aucune session/);
+    await assert.rejects(() => sauvegarderAppreciation({ candidateId: 'cand-1', subjectId: 'math', sessionId: 5, score: 7, appreciation: 'Bien' }), /absent de la base/);
+    assert.equal(appels.length, 0);
+  });
+
   it('sauvegarderDeliberation envoie PUT /api/deliberations avec bonus, observation et signature', async () => {
     const delibere: Candidate = {
       ...candidat,
@@ -242,6 +263,7 @@ const fonctionsEcriture = [...sourceEcritures.matchAll(/^export (?:async )?funct
 const GESTIONNAIRES_ECRITURE = [
   'handleUpdateSettings',
   'handleUpdateGrade',
+  'handleUpdateAppreciation',
   'handleApplyJuryBonus',
   'handleSign',
   'handleAddNewCandidate',
@@ -314,7 +336,7 @@ function brancheApi(corps: string, nom: string): string {
 
 describe('App.tsx : les gestionnaires d’écriture passent par src/api en session connectée', () => {
   it('src/api/ecritures.ts expose les fonctions d’écriture attendues', () => {
-    for (const attendu of ['sauvegarderEleve', 'creerEleve', 'supprimerEleve', 'renumeroterEleves', 'sauvegarderNote', 'sauvegarderDeliberation', 'sauvegarderParametres']) {
+    for (const attendu of ['sauvegarderEleve', 'creerEleve', 'supprimerEleve', 'renumeroterEleves', 'sauvegarderNote', 'sauvegarderAppreciation', 'sauvegarderDeliberation', 'sauvegarderParametres']) {
       assert.ok(fonctionsEcriture.includes(attendu), `${attendu} manquante`);
     }
   });
