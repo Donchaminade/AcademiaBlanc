@@ -119,7 +119,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
   const [notes, deliberations]: [NoteApi[], DeliberationApi[]] = session
     ? await Promise.all([
       lire<NoteApi>(`/api/notes?sessionId=${session.id}`),
-      // Délibérations du jury (repêchage, observation, signature) : absentes sur une ancienne API.
+      // Délibérations du jury (observation, signature) : absentes sur une ancienne API.
       lire<DeliberationApi>(`/api/deliberations?sessionId=${session.id}`).catch(() => [] as DeliberationApi[]),
     ])
     : [[], []];

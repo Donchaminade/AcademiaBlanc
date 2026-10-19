@@ -3,8 +3,11 @@ import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../type
 import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministryMark } from '../utils/bulletinHeader';
 import {
   appreciationFromAverage,
+  camaradesDeClasse,
   computeSubjectRank,
   decisionBucket,
+  extremesDeMatiere,
+  formatMinMax,
   formatSubjectRank,
 } from '../utils/bulletinMetrics';
 import { coefDuCandidat } from '../utils/coefficients';
@@ -36,6 +39,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'admis' | 'rattrapage'>('all');
   const sealCaption = establishmentCaption(settings.institutionName);
   const yearCaption = academicYearCaption(settings.academicYear);
+  const fmtMoyenne = (value: number | null | undefined) => (value == null ? '—' : value.toFixed(2));
 
   const filteredCandidates = candidates.filter((c) => {
     const stats = allStats[c.id];
@@ -141,6 +145,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
           const headerInfo = getBulletinHeaderInfo(selectedSession || settings.sessionName, candidate.serie, examTypeLong);
           const ministryMarkLabel = ministryMark(settings);
           const regionalAuthority = (settings.regionalAuthority || '').trim();
+          const camarades = camaradesDeClasse(candidate, candidates);
 
           return (
             <div
@@ -277,6 +282,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                     <col className="col-note" />
                     <col className="col-total" />
                     <col className="col-rank" />
+                    <col className="col-minmax" />
                     <col className="col-appreciation" />
                   </colgroup>
                   <thead>
@@ -287,6 +293,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       <th className="py-1.5 px-2 font-semibold text-right">Note /20</th>
                       <th className="py-1.5 px-2 font-semibold text-right">Total Coef</th>
                       <th className="py-1.5 px-2 font-semibold text-center">Rang</th>
+                      <th className="py-1.5 px-2 font-semibold text-center">Min / Max classe</th>
                       <th className="py-1.5 px-3 font-semibold text-left">Appréciation du professeur</th>
                     </tr>
                   </thead>
@@ -322,6 +329,9 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                           <td className="py-1 px-2 font-mono text-center font-semibold text-[#0051d5]">
                             {subjectRankValue === null ? '—' : formatSubjectRank(subjectRankValue)}
                           </td>
+                          <td className="py-1 px-2 font-mono text-center text-[#444651] whitespace-nowrap">
+                            {formatMinMax(extremesDeMatiere(subj.id, camarades))}
+                          </td>
                           <td className="py-1 px-3 italic text-[#131b2e] leading-tight">
                             {professorAppreciation}
                           </td>
@@ -335,14 +345,17 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                         TOTAL DES PONDÉRATIONS
                       </td>
                       <td className="py-1.5 px-2 font-mono text-[13px] text-center font-bold text-[#00236f]">
-                        {stats?.totalCoef || 29}
+                        {stats?.totalCoef ?? 0}
                       </td>
                       <td className="py-1.5 px-2 text-right italic text-[#444651]">
-                        Moyenne :
+                        Total :
                       </td>
-                      <td className="py-1.5 px-0 font-mono text-[13px] font-bold text-[#0051d5]" colSpan={3}>
+                      <td className="py-1.5 px-0 font-mono text-[13px] font-bold text-[#0051d5]" colSpan={4}>
                         <span className="bulletin-weighted-total">
-                          {stats?.totalPoints.toFixed(2) || '0.00'}
+                          {stats?.totalPoints.toFixed(2) ?? '0.00'}
+                        </span>
+                        <span className="bulletin-weighted-max text-[10px] font-semibold text-[#444651]">
+                          sur {(stats?.pointsMax ?? 0).toFixed(2)} pts (20 × {stats?.totalCoefProgramme ?? 0})
                         </span>
                       </td>
                     </tr>
@@ -390,7 +403,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       <span className="text-[18px] text-[#00236f] font-bold leading-none my-0">
                         {stats.average.toFixed(2)}
                       </span>
-                      <span className="text-[10px] text-[#444651]">/ 20.00</span>
+                      <span className="text-[10px] text-[#444651] whitespace-nowrap">/ 20 • classe {fmtMoyenne(stats.classAverage)}</span>
                     </div>
 
                     <div className="bulletin-metric bg-white rounded-xs px-1.5 py-1 text-center border border-[#eaedff] flex flex-col justify-center">
@@ -399,6 +412,22 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                         {stats.rank === 1 ? '1er' : `${stats.rank < 10 ? `0${stats.rank}` : stats.rank}e`}
                       </span>
                       <span className="text-[10px] text-[#444651]">sur {stats.totalCandidates}</span>
+                    </div>
+
+                    <div className="bulletin-metric bg-white rounded-xs px-1.5 py-1 text-center border border-[#eaedff] flex flex-col justify-center">
+                      <span className="text-[10px] text-[#444651] uppercase font-semibold">Moy. la plus forte</span>
+                      <span className="text-[15px] text-[#00236f] font-bold leading-none my-0">
+                        {fmtMoyenne(stats.classHighestAverage)}
+                      </span>
+                      <span className="text-[10px] text-[#444651]">de la classe</span>
+                    </div>
+
+                    <div className="bulletin-metric bg-white rounded-xs px-1.5 py-1 text-center border border-[#eaedff] flex flex-col justify-center">
+                      <span className="text-[10px] text-[#444651] uppercase font-semibold">Moy. la plus faible</span>
+                      <span className="text-[15px] text-[#ba1a1a] font-bold leading-none my-0">
+                        {fmtMoyenne(stats.classLowestAverage)}
+                      </span>
+                      <span className="text-[10px] text-[#444651]">de la classe</span>
                     </div>
                   </div>
                 </div>
@@ -442,6 +471,26 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                     className="h-11"
                   />
                   <span className="text-[9px] text-[#444651] italic leading-tight">Sceau officiel</span>
+                </div>
+              </div>
+
+              {/* Visa des parents : avis et observations laissés à la main quand l'élève rapporte le relevé */}
+              <div className="bulletin-visa-parents relative z-10 max-w-xl mx-auto mt-1.5 bg-[#f2f3ff]/50 px-3 py-1.5 rounded-xs border border-[#eaedff]">
+                <div className="bulletin-visa-head flex items-baseline justify-between gap-2">
+                  <span className="text-[10px] text-[#444651] uppercase tracking-wider font-bold leading-tight">
+                    Visa des parents / tuteur
+                  </span>
+                  <span className="text-[9px] text-[#444651] italic leading-tight">Avis et observations</span>
+                </div>
+                <div className="bulletin-visa-lines mt-1" aria-hidden="true">
+                  <div className="bulletin-visa-line" />
+                  <div className="bulletin-visa-line" />
+                  <div className="bulletin-visa-line" />
+                </div>
+                <div className="bulletin-visa-fields grid grid-cols-3 gap-3 mt-1 text-[9px] text-[#444651]">
+                  <span className="bulletin-visa-field">Nom et prénom :</span>
+                  <span className="bulletin-visa-field">Date :</span>
+                  <span className="bulletin-visa-field">Signature :</span>
                 </div>
               </div>
             </div>

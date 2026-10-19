@@ -3,14 +3,22 @@ package tg.academiablanc.calc;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Calculs purs des bulletins : total = note × coef, moyenne et rang de compétition. */
+/**
+ * Calculs purs des bulletins : total = note × coef, moyenne réelle Σ(note × coef) / Σ coef (jamais
+ * majorée), rang de compétition, extrêmes d'un groupe. Une note absente ou manquante est exclue du
+ * numérateur et du dénominateur : elle ne vaut pas zéro.
+ */
 public final class GradeCalculator {
   private GradeCalculator() {}
+
+  /** Toutes les notes sont saisies sur 20. */
+  public static final BigDecimal NOTE_MAX = new BigDecimal("20");
 
   public record Ligne(Long eleveId, Long matiereId, BigDecimal note, BigDecimal coef, boolean absent) {}
 
@@ -74,6 +82,50 @@ public final class GradeCalculator {
       index = curseur;
     }
     return rangs;
+  }
+
+  /** Σ coef de toutes les lignes du programme, notes présentes ou non : base du total maximal du bulletin. */
+  public static BigDecimal sommeCoefProgramme(List<Ligne> lignes) {
+    BigDecimal coefs = BigDecimal.ZERO;
+    for (Ligne ligne : lignes) {
+      if (ligne.coef() != null) coefs = coefs.add(ligne.coef());
+    }
+    return coefs.setScale(2, RoundingMode.HALF_UP);
+  }
+
+  /** Total maximal du bulletin : 20 × Σ coef du programme de la classe de l'élève. */
+  public static BigDecimal pointsMax(List<Ligne> lignes) {
+    return NOTE_MAX.multiply(sommeCoefProgramme(lignes)).setScale(2, RoundingMode.HALF_UP);
+  }
+
+  /** Moyenne arithmétique des valeurs non nulles (moyenne de classe) ; null si aucune. */
+  public static BigDecimal moyenneDe(Collection<BigDecimal> valeurs) {
+    BigDecimal somme = BigDecimal.ZERO;
+    int n = 0;
+    for (BigDecimal valeur : valeurs) {
+      if (valeur == null) continue;
+      somme = somme.add(valeur);
+      n++;
+    }
+    return n == 0 ? null : somme.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP);
+  }
+
+  /** Plus grande valeur non nulle ; null si aucune. */
+  public static BigDecimal max(Collection<BigDecimal> valeurs) {
+    BigDecimal max = null;
+    for (BigDecimal valeur : valeurs) {
+      if (valeur != null && (max == null || valeur.compareTo(max) > 0)) max = valeur;
+    }
+    return max;
+  }
+
+  /** Plus petite valeur non nulle ; null si aucune. */
+  public static BigDecimal min(Collection<BigDecimal> valeurs) {
+    BigDecimal min = null;
+    for (BigDecimal valeur : valeurs) {
+      if (valeur != null && (min == null || valeur.compareTo(min) < 0)) min = valeur;
+    }
+    return min;
   }
 
   /** moyenne &gt; 16 Très bien ; 12 ≤ moyenne ≤ 16 Bien ; moyenne &lt; 12 Assez bien. */

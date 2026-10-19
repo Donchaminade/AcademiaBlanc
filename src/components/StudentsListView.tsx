@@ -151,7 +151,6 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
       parentEmail: newStudent.parentEmail,
       generalObservation: '« Candidat régulièrement inscrit pour la session d\'examen blanc. »',
       grades: initialGrades,
-      isDeliberated: false,
     };
 
     onAddNewCandidate(created);
@@ -216,7 +215,6 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
           parentEmail: 'parent@edu.tg',
           generalObservation: '« Candidat importé depuis la liste officielle. »',
           grades: initialGrades,
-          isDeliberated: false,
         };
 
         newBatchCandidates.push(newCand);

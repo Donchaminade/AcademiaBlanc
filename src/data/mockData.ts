@@ -1,6 +1,5 @@
 import { Subject, Candidate, CandidateComputedStats, MentionType, DecisionType, AppSettings } from '../types';
-import { subjectsFor } from '../utils/programme';
-import { coefDuCandidat } from '../utils/coefficients';
+import { camaradesDeClasse, extremesDesMoyennes, moyenneReelle } from '../utils/bulletinMetrics';
 import { PREREGLAGES_DEMONSTRATION } from './prereglagesDemo';
 
 /** Libellés d'en-tête d'un préréglage de démonstration (hors connexion uniquement). */
@@ -69,7 +68,6 @@ export const INITIAL_CANDIDATES: Candidate[] = [
     parentPhone: '+228 93 99 88 77',
     parentEmail: 'cisse.contact@gouv.tg',
     generalObservation: '« Bon examen blanc. Esprit d\'analyse affirmé et belle constance dans les résultats. Mention Assez Bien méritée. »',
-    isDeliberated: true,
     grades: {
       math: { score: 14.0, appreciation: 'Très bonne maîtrise de l\'algèbre et de la géométrie.' },
       pc: { score: 13.5, appreciation: 'Bonne rigueur méthodologique.' },
@@ -96,7 +94,6 @@ export const INITIAL_CANDIDATES: Candidate[] = [
     parentPhone: '+228 99 44 55 66',
     parentEmail: 'diomande.famille@gmail.com',
     generalObservation: '« Résultats très insuffisants. Nécessite un soutien scolaire approfondi et une remise à niveau dans toutes les matières scientifiques. »',
-    isDeliberated: true,
     grades: {
       math: { score: 6.5, appreciation: 'Grandes difficultés d\'assimilation des théorèmes.' },
       pc: { score: 7.0, appreciation: 'Formules non maîtrisées.' },
@@ -123,7 +120,6 @@ export const INITIAL_CANDIDATES: Candidate[] = [
     parentPhone: '+228 96 11 22 33',
     parentEmail: 'kablan.parents@moov.tg',
     generalObservation: '« Doit impérativement préparer les oraux de rattrapage en Mathématiques et Sciences Physiques. Capacité de rebond évidente si le travail est intensifié. »',
-    isDeliberated: true,
     grades: {
       math: { score: 8.0, appreciation: 'Trop de lacunes en analyse, reprise nécessaire.' },
       pc: { score: 8.5, appreciation: 'Connaissances expérimentales insuffisantes.' },
@@ -150,7 +146,6 @@ export const INITIAL_CANDIDATES: Candidate[] = [
     parentPhone: '+228 92 12 34 56',
     parentEmail: 'koffi.famille@laposte.tg',
     generalObservation: '« Élève d\'une excellence remarquable. Première de promotion. Maîtrise parfaite de l\'ensemble du cursus scientifique. »',
-    isDeliberated: true,
     digitalSignature: {
       signedAt: '15-05-2025 18:45:12',
       signer: 'Dr. Aminata Traoré',
@@ -182,7 +177,6 @@ export const INITIAL_CANDIDATES: Candidate[] = [
     parentPhone: '+228 90 48 92 11',
     parentEmail: 'jp.kouame.famille@outlook.com',
     generalObservation: '« Examen blanc très prometteur pour les épreuves nationales définitives. Félicitations du jury pour la régularité du travail dans les disciplines scientifiques fondamentales. »',
-    isDeliberated: true,
     digitalSignature: {
       signedAt: '15-05-2025 18:42:09',
       signer: 'Dr. Aminata Traoré',
@@ -213,9 +207,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
     examCenterName: 'Lycée Moderne de Tokoin (Lomé)',
     parentPhone: '+228 90 65 43 21',
     parentEmail: 'nguessan.famille@yahoo.fr',
-    generalObservation: '« Dossier scolaire exemplaire. Le jury a accordé le bénéfice de la délibération de rattrapage en raison de l\'assiduité tout au long de l\'année. »',
-    isDeliberated: false,
-    juryBonus: 0.15,
+    generalObservation: '« Dossier scolaire exemplaire. Moyenne proche du seuil d\'admission : le conseil encourage un effort soutenu en sciences avant la session officielle. »',
     grades: {
       math: { score: 9.5, appreciation: 'Proche du niveau requis, manque de rigueur sur les suites.' },
       pc: { score: 9.5, appreciation: 'Des notions acquises mais des confusions récurrentes d\'unités.' },
@@ -242,7 +234,6 @@ export const INITIAL_CANDIDATES: Candidate[] = [
     parentPhone: '+228 91 98 76 54',
     parentEmail: 'traore.bakary.parents@gmail.com',
     generalObservation: '« Travail satisfaisant dans l\'ensemble. Des efforts doivent être maintenus en mathématiques et philosophie pour conforter l\'admission définitive. »',
-    isDeliberated: true,
     grades: {
       math: { score: 10.5, appreciation: 'Résultats moyens, revoir le calcul intégral.' },
       pc: { score: 12.0, appreciation: 'Bonne participation et progrès notables en électricité.' },
@@ -265,39 +256,13 @@ export function computeCandidateStats(
   subjects: Subject[],
   allCandidates: Candidate[]
 ): CandidateComputedStats {
-  let totalCoef = 0;
-  let totalPoints = 0;
-
-  // Même règle que l’API : seules les matières du programme de la classe du candidat comptent
-  // (toutes si aucun programme) ; total = Σ(note × coef), moyenne = total / Σ coef, avec le
-  // coefficient de la classe de l’élève quand il existe (sinon le coefficient commun de la matière).
-  subjectsFor(candidate, subjects).forEach(subject => {
-    const coef = coefDuCandidat(candidate, subject);
-    totalCoef += coef;
-    const grade = candidate.grades[subject.id]?.score || 0;
-    totalPoints += grade * coef;
-  });
-
-  const bonus = candidate.juryBonus || 0;
-  const rawAverage = totalCoef > 0 ? (totalPoints / totalCoef) + bonus : 0;
-  const average = Math.round(rawAverage * 100) / 100;
+  // Même règle que l’API (`GradeCalculator`) : seules les matières du programme de la classe du
+  // candidat comptent, avec le coefficient de cette classe ; une matière sans note est exclue du
+  // numérateur et du dénominateur ; moyenne = Σ(note × coef) / Σ coef, jamais majorée.
+  const { totalCoef, totalPoints, totalCoefProgramme, pointsMax, average, evaluated } = moyenneReelle(candidate, subjects);
 
   // Compute rank dynamically against all candidates sorted by descending average
-  const allAverages = allCandidates.map(c => {
-    let tCoef = 0;
-    let tPts = 0;
-    subjectsFor(c, subjects).forEach(s => {
-      const coef = coefDuCandidat(c, s);
-      tCoef += coef;
-      tPts += (c.grades[s.id]?.score || 0) * coef;
-    });
-    const cBonus = c.juryBonus || 0;
-    const avg = tCoef > 0 ? (tPts / tCoef) + cBonus : 0;
-    return {
-      id: c.id,
-      avg: Math.round(avg * 100) / 100
-    };
-  });
+  const allAverages = allCandidates.map(c => ({ id: c.id, avg: moyenneReelle(c, subjects).average }));
 
   // Sort candidates by average descending: highest average is 1st
   allAverages.sort((a, b) => b.avg - a.avg);
@@ -326,7 +291,7 @@ export function computeCandidateStats(
     decision = "ADMIS D'OFFICE À L'EXAMEN BLANC";
   } else if (average >= 10) {
     mention = 'PASSABLE';
-    decision = candidate.juryBonus ? "ADMIS APRÈS DÉLIBÉRATION DU JURY" : "ADMIS D'OFFICE À L'EXAMEN BLANC";
+    decision = "ADMIS D'OFFICE À L'EXAMEN BLANC";
   } else if (average >= 8) {
     mention = 'RATTRAPAGE';
     decision = "ADMISSIBLE AU SECOND TOUR (RATTRAPAGE)";
@@ -341,15 +306,25 @@ export function computeCandidateStats(
   const differenceToPromo = Math.round((average - promoAvg) * 100) / 100;
   const totalCandidates = allCandidates.length > 0 ? allCandidates.length : 1;
 
+  // Extrêmes de la classe de l’élève (même session) : moyenne la plus forte, la plus faible, moyenne de classe.
+  const classe = extremesDesMoyennes(camaradesDeClasse(candidate, allCandidates), subjects);
+
   return {
     totalCoef,
-    totalPoints: Math.round(totalPoints * 100) / 100,
+    totalPoints,
+    totalCoefProgramme,
+    pointsMax,
     average,
+    evaluated,
     rank,
     totalCandidates,
     mention,
     decision,
-    differenceToPromo
+    differenceToPromo,
+    classAverage: classe.average,
+    classHighestAverage: classe.highest,
+    classLowestAverage: classe.lowest,
+    classEvaluatedCount: classe.count,
   };
 }
 
