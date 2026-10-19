@@ -203,7 +203,7 @@ public class TypeExamenService {
 
   /**
    * Reconnaît un type d'après un libellé libre (« BAC II », « BACCALAURÉAT II », « bepc blanc »…).
-   * Même logique que la migration V13 : code ou libellés exacts, puis motifs BEPC / CEPD / BAC I / BAC II.
+   * Même logique que la migration V14 : code ou libellés exacts, puis motifs BEPC / CEPD / BAC I / BAC II.
    */
   public Optional<TypeExamen> deviner(String texte) {
     if (texte == null || texte.isBlank()) return Optional.empty();

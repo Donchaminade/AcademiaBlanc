@@ -6,7 +6,7 @@ choisit à la création ou à la modification d’une session.
 
 ## Référentiel de la plateforme
 
-Table `type_examen` (migration `V13__type_examen.sql`) :
+Table `type_examen` (migration `V14__type_examen.sql`) :
 
 | Colonne | Sens |
 | --- | --- |

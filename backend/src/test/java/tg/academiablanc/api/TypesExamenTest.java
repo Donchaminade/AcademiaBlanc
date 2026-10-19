@@ -46,7 +46,7 @@ class TypesExamenTest {
     assertTrue(liste(connexion.get("permissions")).contains("TYPES_EXAMEN:SUPPRIMER"));
     String proprio = connexion.get("token").asText();
 
-    // Données initiales de la migration V13.
+    // Données initiales de la migration V14.
     JsonNode initiaux = json.readTree(corps(envoyer(proprio, get("/api/plateforme/types-examen")).andExpect(status().isOk())));
     List<String> codes = new ArrayList<>();
     initiaux.forEach(t -> codes.add(t.get("code").asText()));
