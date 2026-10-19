@@ -12,6 +12,7 @@ import lombok.Setter;
 /**
  * Paramètres d'affichage du bulletin propres à l'établissement (écran Paramètres).
  * Une valeur nulle signifie « valeur par défaut du logiciel » : le client applique alors son préréglage.
+ * Le logo n'en fait plus partie : il est porté par {@link Etablissement} avec le cachet et les signatures (V17).
  */
 @Entity
 @Table(name = "parametres_bulletin")
@@ -22,9 +23,6 @@ public class ParametresBulletin {
   @Id
   @Column(name = "etablissement_id")
   private Long etablissementId;
-
-  @Column(name = "logo_url", columnDefinition = "TEXT")
-  private String logoUrl;
 
   @Column(name = "sceau_officiel_url", columnDefinition = "TEXT")
   private String sceauOfficielUrl;
