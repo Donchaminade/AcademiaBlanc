@@ -212,7 +212,7 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
   const hasActions = canEdit || canDelete;
   return (
     <div className="overflow-x-auto rounded border border-[#eaedff]">
-      <table className="w-full text-[13px]">
+      <table className="table-sticky-first w-full text-[13px]">
         <thead>
           <tr className="bg-[#f2f3ff] text-left text-[11px] uppercase tracking-wide text-[#444651]">
             {columns.map((col) => <th key={col.header} className={`px-3 py-2 font-bold whitespace-nowrap ${col.className ?? ''}`}>{col.header}</th>)}
@@ -223,7 +223,7 @@ function DataTable<T extends { id: number }>({ columns, rows, emptyIcon, emptyTe
           {rows.map((row) => {
             const deleteBlocked = deleteDisabledReason?.(row);
             return (
-            <tr key={row.id} className={`border-t border-[#eaedff] transition-colors ${editingId === row.id ? 'bg-[#eaedff]/60' : 'hover:bg-[#faf8ff]'}`}>
+            <tr key={row.id} className={`border-t border-[#eaedff] transition-colors ${editingId === row.id ? 'bg-[#e8ebfc]' : 'bg-white hover:bg-[#faf8ff]'}`}>
               {columns.map((col) => <td key={col.header} className={`px-3 py-2 text-[#131b2e] ${col.className ?? ''}`}>{col.render(row)}</td>)}
               {hasActions && (
                 <td className="px-3 py-1.5 whitespace-nowrap">

@@ -121,7 +121,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
   const libelle = 'block text-[12px] font-semibold text-[#3b4252] mb-1.5';
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7] text-[#1f2430] antialiased flex flex-col">
+    <div className="min-h-dvh bg-[#f4f5f7] text-[#1f2430] antialiased flex flex-col">
       <header className="bg-[#1b2230] text-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-5 py-3.5">
           <div className="flex items-center gap-3 min-w-0">

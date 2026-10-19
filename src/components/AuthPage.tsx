@@ -37,7 +37,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   }, [mode]);
 
   return (
-    <div className="min-h-screen bg-[#faf8ff] text-[#131b2e] antialiased flex flex-col">
+    <div className="min-h-dvh bg-[#faf8ff] text-[#131b2e] antialiased flex flex-col">
       <header className="border-b border-[#eaedff] bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <a

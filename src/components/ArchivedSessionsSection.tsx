@@ -820,8 +820,8 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
 
       {/* Modal: Archiver la Session Actuelle */}
       {showArchiveCurrentModal && currentSessionLiveStats && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-[#eaedff] max-w-xl w-full p-6 space-y-5">
+        <div className="modal-overlay fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="modal-panel bg-white rounded-xl shadow-2xl border border-[#eaedff] max-w-xl w-full p-6 space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-[#eaedff]">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
@@ -921,10 +921,10 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
 
       {/* Modal: Ajouter Manuellement une Session Passée */}
       {showAddManualModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="modal-overlay fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <form
             onSubmit={handleAddManualSession}
-            className="bg-white rounded-xl shadow-2xl border border-[#eaedff] max-w-xl w-full p-6 space-y-4"
+            className="modal-panel bg-white rounded-xl shadow-2xl border border-[#eaedff] max-w-xl w-full p-6 space-y-4"
           >
             <div className="flex items-center justify-between pb-3 border-b border-[#eaedff]">
               <h3 className="text-lg font-bold text-[#00236f] flex items-center gap-2">
@@ -1075,8 +1075,8 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
 
       {/* Modal: Détails d'une Session Archivée */}
       {selectedSessionForDetail && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-[#eaedff] max-w-2xl w-full p-6 space-y-5">
+        <div className="modal-overlay fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="modal-panel bg-white rounded-xl shadow-2xl border border-[#eaedff] max-w-2xl w-full p-6 space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-[#eaedff]">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5]">

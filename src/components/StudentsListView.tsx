@@ -269,7 +269,7 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
 
   return (
     <>
-    <div className="students-ui p-8 max-w-[1440px] mx-auto space-y-6">
+    <div className="students-ui p-4 md:p-8 max-w-[1440px] mx-auto space-y-4 md:space-y-6">
       {/* Workflow Navigation Banner */}
       <div className="bg-[#00236f] text-white p-4 rounded-lg shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -285,7 +285,7 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
         </div>
 
         {/* Step Indicator Badges */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-white text-[#00236f] text-[11px] font-bold shadow-xs">
             <span className="w-2 h-2 rounded-full bg-[#0051d5]"></span>
             <span>1. Inscription Élèves (Actif)</span>
@@ -392,8 +392,8 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
       {/* Main Action Bar */}
       <div className="bg-white p-4 rounded border border-[#eaedff] shadow-xs flex flex-wrap items-center justify-between gap-4">
         {/* Search & Filters */}
-        <div className="flex items-center gap-3 flex-1 min-w-[300px]">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3 flex-1 min-w-0 basis-full xl:basis-auto">
+          <div className="relative flex-1 min-w-[180px] max-w-md">
             <input
               type="text"
               placeholder="Rechercher par nom, table, matricule ou lycée..."
@@ -450,8 +450,8 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
           )}
         </div>
 
-        {/* Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Buttons : grille deux colonnes sur mobile, rangée sur grand écran */}
+        <div className="toolbar-actions grid grid-cols-2 sm:flex sm:items-center gap-2 sm:flex-wrap w-full xl:w-auto [&>button]:justify-center">
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
@@ -467,7 +467,7 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#eaedff] text-[#00236f] text-[12px] font-semibold hover:bg-[#dce1ff] transition-colors"
           >
             <span className="material-symbols-outlined text-base">upload</span>
-            <span>Import en Masse (CSV)</span>
+            <span className="truncate">Import en Masse<span className="hidden sm:inline"> (CSV)</span></span>
           </button>
 
           {onOpenBatchPrint && (
@@ -478,7 +478,7 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
               title="Ouvrir l'aperçu puis télécharger tous les bulletins en PDF"
             >
               <span className="material-symbols-outlined text-base">print_connect</span>
-              <span>Télécharger tous les bulletins ({candidates.length})</span>
+              <span className="truncate"><span className="hidden sm:inline">Télécharger tous les bulletins</span><span className="sm:hidden">Tous les bulletins</span> ({candidates.length})</span>
             </button>
           )}
 
@@ -489,7 +489,7 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
             title="Imprimer la feuille d'émargement des candidats inscrits"
           >
             <span className="material-symbols-outlined text-base">print</span>
-            <span>Feuille d'Émargement</span>
+            <span className="truncate"><span className="hidden sm:inline">Feuille d'</span>Émargement</span>
           </button>
 
           <button
@@ -521,16 +521,94 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
             onClick={() => onNavigateToGrading()}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded bg-[#0051d5] text-white text-[12px] font-bold hover:bg-[#003ea8] transition-all shadow-xs"
           >
-            <span>Passer à la Saisie des Notes</span>
+            <span className="truncate"><span className="hidden sm:inline">Passer à la </span>Saisie des Notes</span>
             <span className="material-symbols-outlined text-base">arrow_forward</span>
           </button>
         </div>
       </div>
 
-      {/* Roster Table */}
-      <div className="bg-white rounded border border-[#eaedff] shadow-sm overflow-hidden">
+      {/* Roster — mobile : une carte par candidat (nom, classe / série, matricule, genre, actions) */}
+      <ul className="md:hidden space-y-2" aria-label="Liste des candidats" data-testid="cartes-candidats">
+        {filteredCandidates.length === 0 && (
+          <li className="bg-white rounded border border-dashed border-[#dce1ff] p-6 text-center text-[13px] text-[#444651]">
+            Aucun candidat ne correspond à la recherche.
+          </li>
+        )}
+        {filteredCandidates.map((cand) => {
+          const isComplete = isCandidateGradesComplete(cand);
+          return (
+            <li key={cand.id} className="bg-white rounded border border-[#eaedff] shadow-xs p-3">
+              <div className="flex items-start gap-3">
+                <span className="shrink-0 w-12 h-12 rounded bg-[#eaedff] text-[#00236f] font-mono font-bold text-[14px] flex items-center justify-center" title="Numéro de table">
+                  {cand.tableNumber}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-[14px] text-[#131b2e] leading-tight break-words">{cand.fullName}</p>
+                  <p className="text-[12px] text-[#444651] mt-0.5 truncate">
+                    {[cand.classeNom, cand.serie].filter(Boolean).join(' • ') || cand.originSchool}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span className="font-mono font-semibold text-[#0051d5]">{cand.matricule}</span>
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      cand.gender === 'F' ? 'bg-[#ffdcc3] text-[#653400]' : 'bg-[#dce1ff] text-[#00236f]'
+                    }`}>
+                      {cand.gender}
+                    </span>
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      isComplete ? 'bg-[#eaedff] text-[#0051d5]' : 'bg-[#ffdad6] text-[#ba1a1a]'
+                    }`}>
+                      {isComplete ? 'Notes saisies' : 'En attente'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2.5 grid grid-cols-4 gap-1.5 border-t border-[#eaedff] pt-2.5">
+                <button
+                  type="button"
+                  onClick={() => { onSelectCandidate(cand); onNavigateToGrading(cand); }}
+                  className="inline-flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded bg-[#eaedff] text-[#0051d5] text-[10.5px] font-semibold"
+                >
+                  <span className="material-symbols-outlined text-xl">edit_note</span>
+                  <span>Notes</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { onSelectCandidate(cand); onNavigateToBulletin(cand); }}
+                  className="inline-flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded bg-[#eaedff] text-[#00236f] text-[10.5px] font-semibold"
+                >
+                  <span className="material-symbols-outlined text-xl">picture_as_pdf</span>
+                  <span>Bulletin</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingCandidate(cand)}
+                  className="inline-flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded bg-[#f2f3ff] text-[#444651] text-[10.5px] font-semibold"
+                >
+                  <span className="material-symbols-outlined text-xl">edit</span>
+                  <span>Modifier</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void confirmDelete(`${cand.fullName} (Table ${cand.tableNumber})`, 'L’élève sera retiré de la liste des candidats.').then((ok) => {
+                      if (ok) onDeleteCandidate(cand.id);
+                    });
+                  }}
+                  className="inline-flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded bg-[#fff5f4] text-[#ba1a1a] text-[10.5px] font-semibold"
+                >
+                  <span className="material-symbols-outlined text-xl">delete</span>
+                  <span>Retirer</span>
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Roster Table (à partir de md) */}
+      <div className="hidden md:block bg-white rounded border border-[#eaedff] shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[12px]">
+          <table className="table-sticky-first w-full text-left border-collapse text-[12px]">
             <thead>
               <tr className="bg-[#00236f] text-white">
                 <th className="py-2.5 px-3 font-semibold text-center w-16">Table</th>
@@ -651,10 +729,10 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
 
       {/* Add New Candidate Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+        <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
           <form
             onSubmit={handleCreateStudent}
-            className="bg-white rounded-lg shadow-2xl max-w-lg w-full p-6 border border-[#eaedff] space-y-4"
+            className="modal-panel bg-white rounded-lg shadow-2xl max-w-lg w-full p-6 border border-[#eaedff] space-y-4"
           >
             <div className="flex items-center justify-between pb-2 border-b border-[#eaedff]">
               <div className="flex items-center gap-2 text-[#00236f]">
@@ -783,10 +861,10 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
 
       {/* Edit Candidate Modal */}
       {editingCandidate && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+        <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
           <form
             onSubmit={(e) => void handleSaveEdit(e)}
-            className="bg-white rounded-lg shadow-2xl max-w-lg w-full p-6 border border-[#eaedff] space-y-4"
+            className="modal-panel bg-white rounded-lg shadow-2xl max-w-lg w-full p-6 border border-[#eaedff] space-y-4"
           >
             <div className="flex items-center justify-between pb-2 border-b border-[#eaedff]">
               <div className="flex items-center gap-2 text-[#00236f]">
@@ -911,8 +989,8 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
 
       {/* Import en session API : la liste part au serveur et la page est relue depuis la base. */}
       {showBatchModal && importApi && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full p-6 border border-[#eaedff] space-y-4">
+        <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="modal-panel bg-white rounded-lg shadow-2xl max-w-2xl w-full p-6 border border-[#eaedff] space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-[#eaedff]">
               <div className="flex items-center gap-2 text-[#00236f]">
                 <span className="material-symbols-outlined text-xl">cloud_upload</span>
@@ -945,8 +1023,8 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
 
       {/* Batch Import Modal (mode démonstration : données locales uniquement) */}
       {showBatchModal && !importApi && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-lg shadow-2xl max-w-xl w-full p-6 border border-[#eaedff] space-y-4">
+        <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="modal-panel bg-white rounded-lg shadow-2xl max-w-xl w-full p-6 border border-[#eaedff] space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-[#eaedff]">
               <div className="flex items-center gap-2 text-[#00236f]">
                 <span className="material-symbols-outlined text-xl">upload_file</span>

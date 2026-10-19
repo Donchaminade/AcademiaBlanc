@@ -66,8 +66,8 @@ export const SmsModal: React.FC<SmsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-      <div className="bg-white rounded-lg shadow-2xl max-w-xl w-full p-6 border border-[#eaedff] space-y-5">
+    <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+      <div className="modal-panel bg-white rounded-lg shadow-2xl max-w-xl w-full p-6 border border-[#eaedff] space-y-5">
         <div className="flex items-center justify-between pb-3 border-b border-[#eaedff]">
           <div className="flex items-center gap-2 text-[#00236f]">
             <span className="material-symbols-outlined text-xl">send_to_mobile</span>

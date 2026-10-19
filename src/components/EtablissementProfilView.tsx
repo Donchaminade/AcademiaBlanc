@@ -283,7 +283,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
 
   if (chargement) {
     return (
-      <div className="p-8 max-w-5xl mx-auto" aria-busy="true">
+      <div className="p-4 md:p-8 max-w-5xl mx-auto" aria-busy="true">
         <div className="bg-white rounded p-6 shadow-sm border border-[#eaedff] text-[13px] text-[#444651]">
           Chargement du profil de l’établissement…
         </div>
@@ -293,7 +293,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
 
   if (erreurChargement || !profil) {
     return (
-      <div className="p-8 max-w-5xl mx-auto">
+      <div className="p-4 md:p-8 max-w-5xl mx-auto">
         <div className="bg-white rounded p-6 shadow-sm border border-red-200 text-[13px] text-red-800">
           {erreurChargement || 'Profil indisponible.'}
         </div>
@@ -304,7 +304,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
       {/* En-tête type profil */}
-      <header className="bg-white rounded p-6 shadow-sm border border-[#eaedff]">
+      <header className="bg-white rounded p-4 md:p-6 shadow-sm border border-[#eaedff]">
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
           <div className="w-24 h-24 shrink-0 rounded-full bg-[#f2f3ff] border border-[#eaedff] flex items-center justify-center overflow-hidden p-2">
             <LogoEtablissement

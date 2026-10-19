@@ -53,7 +53,8 @@ export const GradingView: React.FC<GradingViewProps> = ({
   const [filterStatus, setFilterStatus] = useState<'all' | 'admis' | 'ajourne'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRankings, setShowRankings] = useState(false);
-  const [showExplanation, setShowExplanation] = useState(true);
+  // Écran étroit : le rappel des règles est replié par défaut pour laisser la place à la grille.
+  const [showExplanation, setShowExplanation] = useState(() => typeof window === 'undefined' || window.innerWidth >= 768);
   const [newStudent, setNewStudent] = useState({
     tableNumber: 149,
     matricule: '24-BACD-09425',
@@ -189,14 +190,14 @@ export const GradingView: React.FC<GradingViewProps> = ({
   };
 
   return (
-    <div className="p-8 max-w-[1440px] mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-[1440px] mx-auto space-y-4 md:space-y-6">
       {/* Header with Search and Action Toolbar */}
-      <div className="bg-white rounded p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
-        <div>
+      <div className="bg-white rounded p-4 md:p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5] bg-[#eaedff] px-2.5 py-1 rounded">
             Secrétariat du Jury • Saisie des Notes
           </span>
-          <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">
+          <h2 className="text-[18px] md:text-[22px] font-bold text-[#00236f] mt-1.5">
             Bordereau Numérique d'Émargement &amp; Délibération
           </h2>
           <p className="text-[13px] text-[#444651] mt-0.5">
@@ -204,7 +205,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="toolbar-actions flex items-center gap-2 flex-wrap w-full md:w-auto">
           <span
             role="status"
             data-testid="etat-notes"
@@ -238,7 +239,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
             }`}
           >
             <span className="material-symbols-outlined text-base">leaderboard</span>
-            <span>{showRankings ? 'Masquer le Palmarès' : `Palmarès en Direct (du 1er au ${candidates.length}e)`}</span>
+            <span>{showRankings ? 'Masquer le Palmarès' : <><span className="hidden sm:inline">Palmarès en Direct (du 1er au {candidates.length}e)</span><span className="sm:hidden">Palmarès</span></>}</span>
           </button>
 
           <button
@@ -247,7 +248,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#eaedff] transition-colors"
           >
             <span className="material-symbols-outlined text-base text-[#0051d5]">help</span>
-            <span>Comment sont calculés les rangs ?</span>
+            <span className="hidden sm:inline">Comment sont calculés les rangs ?</span><span className="sm:hidden">Calcul des rangs</span>
           </button>
 
           <button
@@ -263,8 +264,8 @@ export const GradingView: React.FC<GradingViewProps> = ({
 
       {/* Educational Banner: How Ranks Work & Live vs Final */}
       {showExplanation && (
-        <div className="bg-[#eaedff]/60 border border-[#dce1ff] rounded-lg p-5 space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-[#dce1ff]">
+        <div className="bg-[#eaedff]/60 border border-[#dce1ff] rounded-lg p-4 md:p-5 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#dce1ff]">
             <h3 className="text-[14px] font-bold text-[#00236f] flex items-center gap-2">
               <span className="material-symbols-outlined text-lg text-[#0051d5]">analytics</span>
               Règles Officielles de Calcul des Rangs (du 1er au Dernier)
@@ -306,7 +307,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
             </div>
           </div>
 
-          <div className="pt-1 flex items-center justify-between text-[11px] text-[#444651]">
+          <div className="pt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#444651]">
             <span className="flex items-center gap-1.5">
               <span className="material-symbols-outlined text-sm text-emerald-600">check_circle</span>
               <span>État actuel de la saisie : <strong>{completedCount} / {candidates.length} élèves notés</strong></span>
@@ -405,8 +406,8 @@ export const GradingView: React.FC<GradingViewProps> = ({
       )}
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded border border-[#eaedff] shadow-xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2 flex-1 min-w-[280px] max-w-md">
+      <div className="bg-white p-3 md:p-4 rounded border border-[#eaedff] shadow-xs flex flex-wrap items-center justify-between gap-3 md:gap-4">
+        <div className="flex items-center gap-2 flex-1 min-w-0 basis-full sm:basis-auto sm:min-w-[280px] max-w-md">
           <div className="relative w-full">
             <input
               type="text"
@@ -422,7 +423,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
         </div>
 
         {/* Filter Buttons */}
-        <div className="flex items-center gap-1.5 bg-[#f2f3ff] p-1 rounded border border-[#eaedff]">
+        <div className="flex items-center gap-1.5 bg-[#f2f3ff] p-1 rounded border border-[#eaedff] overflow-x-auto max-w-full">
           <button
             type="button"
             onClick={() => setFilterStatus('all')}
@@ -461,14 +462,15 @@ export const GradingView: React.FC<GradingViewProps> = ({
 
       {/* Dense Grading Matrix Table */}
       <div className="bg-white rounded border border-[#eaedff] shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Écran étroit : panneau à double défilement, en-tête des matières collant en haut, colonne élève collante à gauche */}
+        <div className="grille-notes-wrap" data-testid="grille-notes">
           <table className="w-full text-left border-collapse text-[12px]">
             <thead>
               <tr className="bg-[#00236f] text-white">
-                <th className="py-2.5 px-3 font-semibold sticky left-0 bg-[#00236f] z-10 w-16 text-center">
+                <th className="col-table hidden md:table-cell py-2.5 px-3 font-semibold sticky left-0 bg-[#00236f] z-10 w-16 text-center">
                   Table
                 </th>
-                <th className="py-2.5 px-3 font-semibold sticky left-16 bg-[#00236f] z-10 min-w-[200px]">
+                <th className="col-eleve py-2.5 px-3 font-semibold sticky left-0 md:left-16 bg-[#00236f] z-10 min-w-[150px] md:min-w-[200px]">
                   Candidat &amp; Matricule
                 </th>
                 {subjects.map((s) => {
@@ -498,13 +500,14 @@ export const GradingView: React.FC<GradingViewProps> = ({
                     className={`${isEven ? 'bg-white' : 'bg-[#faf8ff]'} hover:bg-[#eaedff]/60 transition-colors`}
                   >
                     {/* Table Number */}
-                    <td className="py-2 px-3 font-mono font-bold text-center text-[#00236f] sticky left-0 bg-inherit z-10 border-r border-[#eaedff]">
+                    <td className="hidden md:table-cell py-2 px-3 font-mono font-bold text-center text-[#00236f] sticky left-0 bg-inherit z-10 border-r border-[#eaedff]">
                       {cand.tableNumber}
                     </td>
 
-                    {/* Candidate Name & Info */}
-                    <td className="py-2 px-3 sticky left-16 bg-inherit z-10 border-r border-[#eaedff]">
+                    {/* Candidate Name & Info (sur mobile, le n° de table est repris ici) */}
+                    <td className="py-2 px-3 sticky left-0 md:left-16 bg-inherit z-10 border-r border-[#eaedff]">
                       <div className="font-semibold text-[#131b2e] leading-tight">
+                        <span className="md:hidden font-mono text-[#00236f] mr-1.5">{cand.tableNumber}</span>
                         {cand.fullName}
                       </div>
                       <div className="text-[11px] text-[#444651] font-mono mt-0.5">
@@ -521,7 +524,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
                       if (horsProgramme(cand, s.id, subjects)) {
                         return (
                           <td key={s.id} className="py-1 px-1.5 text-center text-[#757682]" title="Matière hors programme de la classe de cet élève">
-                            <span className="inline-block w-14 py-1 font-mono text-[11px] rounded border border-dashed border-[#dce1ff] bg-[#f8f9ff]">—</span>
+                            <span className="inline-block w-[4.5rem] lg:w-14 py-2 lg:py-1 font-mono text-[11px] rounded border border-dashed border-[#dce1ff] bg-[#f8f9ff]">—</span>
                           </td>
                         );
                       }
@@ -539,6 +542,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
                           <span className="relative inline-block">
                             <input
                               type="number"
+                              inputMode="decimal"
                               min="0"
                               max="20"
                               step="0.5"
@@ -552,7 +556,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') { e.preventDefault(); (e.currentTarget as HTMLInputElement).blur(); }
                               }}
-                              className={`w-14 text-center font-mono text-[12px] py-1 px-1 rounded border outline-none font-semibold transition-colors ${
+                              className={`w-[4.5rem] lg:w-14 text-center font-mono text-[12px] py-2 lg:py-1 px-1 rounded border outline-none font-semibold transition-colors ${
                                 etat === 'modifiee' || etat === 'envoi'
                                   ? 'bg-amber-50 text-amber-900 border-amber-400 border-dashed'
                                   : etat === 'erreur'
@@ -677,10 +681,10 @@ export const GradingView: React.FC<GradingViewProps> = ({
 
       {/* Add New Candidate Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <form
             onSubmit={submitAddCandidate}
-            className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 border border-[#eaedff] space-y-4"
+            className="modal-panel bg-white rounded-lg shadow-xl max-w-lg w-full p-6 border border-[#eaedff] space-y-4"
           >
             <div className="flex items-center justify-between pb-2 border-b border-[#eaedff]">
               <div className="flex items-center gap-2 text-[#00236f]">

@@ -1,5 +1,8 @@
-import React, { Suspense, lazy, useState, useMemo, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useMemo, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
+import { MobileHeader } from './components/MobileHeader';
+import { MobileDrawer } from './components/MobileDrawer';
+import { BottomNav } from './components/BottomNav';
 import { BulletinView } from './components/BulletinView';
 import { DashboardView } from './components/DashboardView';
 import { StudentsListView } from './components/StudentsListView';
@@ -52,6 +55,8 @@ import { printDocument } from './utils/printDocument';
 import { usePublicRoute } from './utils/router';
 import { MODE_SESSION_DEFAUT, estSessionInter } from './utils/sessionMode';
 import type { ModeSession } from './utils/sessionMode';
+import { TIROIR_FERME, fermerTiroir, ouvrirTiroir, tiroirApresChangementDeVue } from './utils/mobileNav';
+import type { EtatTiroir } from './utils/mobileNav';
 
 // Site vitrine (GSAP, Three.js) chargé à la demande : l’application connectée n’embarque pas ces bibliothèques.
 const LandingPage = lazy(() => import('./components/landing/LandingPage'));
@@ -151,6 +156,14 @@ export default function App() {
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isBatchPrintModalOpen, setIsBatchPrintModalOpen] = useState(false);
+
+  // Tiroir de navigation des écrans étroits (menu burger / « Plus ») ; se referme à tout changement de vue.
+  const [tiroir, setTiroir] = useState<EtatTiroir>(TIROIR_FERME);
+  const ouvrirMenuMobile = useCallback(() => setTiroir(ouvrirTiroir(currentView)), [currentView]);
+  const fermerMenuMobile = useCallback(() => setTiroir(fermerTiroir()), []);
+  useEffect(() => {
+    setTiroir((etat) => tiroirApresChangementDeVue(etat, currentView));
+  }, [currentView]);
 
   // Toast notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -825,7 +838,7 @@ export default function App() {
   // Jeton présent : état de chargement jusqu'à la réponse de l'API, sans aucune donnée de démonstration à l'écran.
   if (workspaceLoading && currentView !== 'auth') {
     return (
-      <div className="min-h-screen bg-[#faf8ff] flex items-center justify-center p-6" aria-busy="true" role="status">
+      <div className="min-h-dvh bg-[#faf8ff] flex items-center justify-center p-4 sm:p-6" aria-busy="true" role="status">
         <div className="bg-white border border-[#eaedff] rounded-lg shadow-sm px-8 py-6 flex items-center gap-4 max-w-md w-full">
           <span className="material-symbols-outlined text-3xl text-[#0051d5] animate-spin">progress_activity</span>
           <div>
@@ -841,7 +854,7 @@ export default function App() {
   if (currentView === 'auth') {
     if (route === 'vitrine') {
       return (
-        <Suspense fallback={<div className="min-h-screen bg-[#faf8ff]" aria-busy="true" />}>
+        <Suspense fallback={<div className="min-h-dvh bg-[#faf8ff]" aria-busy="true" />}>
           <LandingPage onConnexion={() => navigate('connexion')} onInscription={() => navigate('inscription')} />
         </Suspense>
       );
@@ -875,49 +888,80 @@ export default function App() {
     );
   }
 
+  const platformOwner = isPlatformAccount(getSession()) || accountRole === 'SUPER_ADMIN' || accountRole === 'GESTIONNAIRE_PLATEFORME';
+  // Depuis le tiroir mobile, une action qui n'est pas un changement de vue doit aussi refermer le tiroir.
+  const depuisTiroir = (action?: () => void) => (action ? () => { fermerMenuMobile(); action(); } : undefined);
+  const sidebarProps = {
+    currentView,
+    onViewChange: setCurrentView,
+    selectedSession,
+    onSessionChange: (label: string) => {
+      setSelectedSession(label);
+      const match = apiSessions.find((item) => item.label === label);
+      if (match) {
+        applyWorkspace(match.id).catch((err: Error) => showToast(err.message || 'Session introuvable.'));
+      }
+    },
+    selectedCenter,
+    onCenterChange: setSelectedCenter,
+    isOfflineMode,
+    onToggleOffline: handleToggleOffline,
+    settings,
+    candidatesCount: candidates.length,
+    onOpenBatchPrint: peutImprimer && !sessionPlateformeSeule ? () => setIsBatchPrintModalOpen(true) : undefined,
+    onOpenProfil: sessionPlateformeSeule ? undefined : () => setCurrentView('profil'),
+    onConnexion: usingApi ? undefined : ouvrirConnexion,
+    onOpenSearch: sessionPlateformeSeule ? undefined : () => setIsSearchModalOpen(true),
+    sessionOptions: usingApi ? apiSessions.map((item) => item.label) : undefined,
+    examType: usingApi ? activeExamType : undefined,
+    sessionMode: usingApi ? activeSessionMode : undefined,
+    centreExamen: usingApi ? activeCentreExamen : undefined,
+    centerOptions: usingApi ? apiCenters : undefined,
+    platformOwner,
+    platformOnly: sessionPlateformeSeule,
+    usingApi,
+    apiUser: usingApi ? apiUser : null,
+    onOpenAdmin: usingApi && adminAccess && !sessionPlateformeSeule ? () => openAdmin() : undefined,
+    onLogout: usingApi ? handleLogout : undefined,
+  };
+  // Une fenêtre plein écran (recherche, signature, SMS, impression groupée) couvre la barre du bas.
+  const fenetreOuverte = isSignatureModalOpen || isSmsModalOpen || isSearchModalOpen || isBatchPrintModalOpen;
+
   return (
-    <div className="bg-[#faf8ff] text-[#131b2e] min-h-screen antialiased flex">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        currentView={currentView}
-        onViewChange={setCurrentView}
-        selectedSession={selectedSession}
-        onSessionChange={(label) => {
-          setSelectedSession(label);
-          const match = apiSessions.find((item) => item.label === label);
-          if (match) {
-            applyWorkspace(match.id).catch((err: Error) => showToast(err.message || 'Session introuvable.'));
-          }
-        }}
-        selectedCenter={selectedCenter}
-        onCenterChange={setSelectedCenter}
-        isOfflineMode={isOfflineMode}
-        onToggleOffline={handleToggleOffline}
-        settings={settings}
-        candidatesCount={candidates.length}
-        onOpenBatchPrint={peutImprimer && !sessionPlateformeSeule ? () => setIsBatchPrintModalOpen(true) : undefined}
-        onOpenProfil={sessionPlateformeSeule ? undefined : () => setCurrentView('profil')}
-        onConnexion={usingApi ? undefined : ouvrirConnexion}
+    <div className="bg-[#faf8ff] text-[#131b2e] min-h-dvh antialiased flex">
+      {/* Écrans étroits : en-tête compact fixe avec menu burger */}
+      <MobileHeader
+        institutionName={settings.institutionName}
+        logoUrl={settings.logoUrl}
+        subtitle={sessionPlateformeSeule ? 'Administration du logiciel' : (selectedSession || (usingApi ? activeExamType : '') || undefined)}
+        menuOpen={tiroir.ouvert}
+        onOpenMenu={ouvrirMenuMobile}
         onOpenSearch={sessionPlateformeSeule ? undefined : () => setIsSearchModalOpen(true)}
-        sessionOptions={usingApi ? apiSessions.map((item) => item.label) : undefined}
-        examType={usingApi ? activeExamType : undefined}
-        sessionMode={usingApi ? activeSessionMode : undefined}
-        centreExamen={usingApi ? activeCentreExamen : undefined}
-        centerOptions={usingApi ? apiCenters : undefined}
-        platformOwner={isPlatformAccount(getSession()) || accountRole === 'SUPER_ADMIN' || accountRole === 'GESTIONNAIRE_PLATEFORME'}
-        platformOnly={sessionPlateformeSeule}
-        usingApi={usingApi}
-        apiUser={usingApi ? apiUser : null}
-        onOpenAdmin={usingApi && adminAccess && !sessionPlateformeSeule ? () => openAdmin() : undefined}
-        onLogout={usingApi ? handleLogout : undefined}
       />
 
-      {/* Main Content Area - Navigated strictly via Sidebar */}
-      <div className="app-chrome pl-80 w-full min-h-screen flex flex-col">
+      {/* Sidebar Navigation (bureau, à partir de lg) */}
+      <Sidebar {...sidebarProps} />
+
+      {/* Tiroir mobile : la même navigation complète, en panneau latéral plein écran */}
+      <MobileDrawer open={tiroir.ouvert} onClose={fermerMenuMobile} label="Menu de navigation">
+        <Sidebar
+          {...sidebarProps}
+          variant="drawer"
+          onClose={fermerMenuMobile}
+          onOpenBatchPrint={depuisTiroir(sidebarProps.onOpenBatchPrint)}
+          onOpenSearch={depuisTiroir(sidebarProps.onOpenSearch)}
+          onToggleOffline={handleToggleOffline}
+          onLogout={depuisTiroir(sidebarProps.onLogout)}
+          onConnexion={depuisTiroir(sidebarProps.onConnexion)}
+        />
+      </MobileDrawer>
+
+      {/* Main Content Area - Navigated via Sidebar (bureau) ou barre du bas + tiroir (mobile) */}
+      <div className="app-chrome w-full min-h-dvh flex flex-col pt-14 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pl-80 lg:pt-0 lg:pb-0">
         {/* View Routing */}
-        <main className="relative bg-[#faf8ff] flex-1">
+        <main className="relative bg-[#faf8ff] flex-1 min-w-0">
           {currentView === 'bulletin' && !selectedCandidate && (
-            <div className="p-10 text-[14px] text-[#444651] space-y-3">
+            <div className="p-4 md:p-10 text-[14px] text-[#444651] space-y-3">
               <p>
                 {usingApi
                   ? 'Aucun élève dans la base de cet établissement. Créez une classe et un élève dans Administration, ou depuis la liste des élèves.'
@@ -937,13 +981,13 @@ export default function App() {
           )}
 
           {currentView === 'admin' && (
-            <div className="p-8 max-w-5xl mx-auto space-y-6">
-              <div className="bg-white rounded p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
-                <div>
+            <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+              <div className="bg-white rounded p-4 md:p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
+                <div className="min-w-0">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5] bg-[#eaedff] px-2.5 py-1 rounded">
                     Administration (API)
                   </span>
-                  <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">
+                  <h2 className="text-[18px] md:text-[22px] font-bold text-[#00236f] mt-1.5">
                     Données de l’établissement
                   </h2>
                   <p className="text-[13px] text-[#444651] mt-0.5">
@@ -1124,6 +1168,17 @@ export default function App() {
         </main>
       </div>
 
+      {/* Écrans étroits : barre d'onglets fixe en bas (Tableau, Candidats, Notes, Bulletins, Plus) */}
+      <BottomNav
+        currentView={currentView}
+        onViewChange={setCurrentView}
+        onOpenMenu={ouvrirMenuMobile}
+        menuOpen={tiroir.ouvert}
+        hidden={fenetreOuverte}
+        platformOnly={sessionPlateformeSeule}
+        platformOwner={platformOwner}
+      />
+
       {/* Signature Modal */}
       {isSignatureModalOpen && selectedCandidate && (
         <SignatureModal
@@ -1174,7 +1229,7 @@ export default function App() {
 
       {/* Administrative Toast Simulation */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 bg-[#00236f] text-white px-4 py-3 rounded shadow-2xl flex items-center gap-2.5 z-50 animate-bounce text-[12px] font-medium border border-[#90a8ff]/30">
+        <div className="fixed left-4 right-4 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] lg:left-auto lg:right-6 lg:bottom-6 bg-[#00236f] text-white px-4 py-3 rounded shadow-2xl flex items-center gap-2.5 z-50 animate-bounce text-[12px] font-medium border border-[#90a8ff]/30">
           <span className="material-symbols-outlined text-[#316bf3] text-base">check_circle</span>
           <span>{toastMessage}</span>
         </div>

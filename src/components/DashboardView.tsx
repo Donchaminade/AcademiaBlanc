@@ -149,11 +149,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   );
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-4 md:space-y-6">
       {/* Session Header Banner */}
-      <div className="bg-white rounded p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
+      <div className="bg-white rounded p-4 md:p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5] bg-[#eaedff] px-2.5 py-1 rounded">
               Contrôle Académique Officiel
             </span>
@@ -161,7 +161,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {usingApi ? (examType || 'Session de l’établissement') : DEMO_EXAM_LABEL}
             </span>
           </div>
-          <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">
+          <h2 className="text-[18px] md:text-[22px] font-bold text-[#00236f] mt-1.5">
             Tableau de Bord &amp; Synthèse de Délibération
           </h2>
           <p className="text-[13px] text-[#444651] mt-0.5">
@@ -169,7 +169,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="toolbar-actions flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto [&>button]:flex-1 md:[&>button]:flex-none [&>button]:justify-center">
           <button
             type="button"
             onClick={() => onNavigate('grading')}
@@ -322,7 +322,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Mentions Breakdown & Subject Benchmark Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
         {/* Mentions Distribution */}
         <div className="lg:col-span-5 bg-white p-5 rounded border border-[#eaedff] shadow-xs flex flex-col justify-between">
           <div>
