@@ -11,6 +11,13 @@ const enTeteDemo = (code: string) => {
 export const DEFAULT_LOGO_URL =
   'https://lh3.googleusercontent.com/aida/AEtjO1UnLI6S9Hytui1A9d9UWXgFWkKNEQdHwWj-qv_pleqr6xChZjkQ_hVxD-aM7PabrfqOZDf9ugA6kc-rj7K5JTE5ElZ45ND0qIxztcta4O1_E_zARPdjnpxy_kv9bSHry0uk2wuFTcTfLZJhexrfQSF4HSuwKMiTsGgWQcvQfaqHxwznS1BwZ4da2_J3lUo_qIv5wq5JFlIKiUFVPFBC4eNorr5QR-ucmlOfuUJELObfQgYtwboTkHFNt04';
 
+/**
+ * Type d'examen de la session de démonstration : libellé long du type « BAC2 » tel que seedé dans le
+ * référentiel de la plateforme (`type_examen.libelle_long`, migration V14). Même modèle qu'en session
+ * connectée : le bandeau du bulletin le compose avec l'intitulé de la session, rien n'est codé à part.
+ */
+export const DEMO_TYPE_EXAMEN_LIBELLE = 'Baccalauréat Deuxième Partie';
+
 export const TOGO_SETTINGS: AppSettings = {
   logoUrl: DEFAULT_LOGO_URL,
   sealUrl: DEFAULT_LOGO_URL,
@@ -19,7 +26,7 @@ export const TOGO_SETTINGS: AppSettings = {
   ...enTeteDemo('TG'),
   academicYear: 'ANNÉE ACADÉMIQUE 2024-2025',
   sessionName: 'SESSION NATIONALE JUIN 2025',
-  examType: 'BACCALAURÉAT DEUXIÈME PARTIE (BAC II BLANC)',
+  examType: DEMO_TYPE_EXAMEN_LIBELLE,
   jurySignerTitle: 'Le Proviseur',
   jurySignerName: 'Dr. Aminata Traoré',
   startTableNumber: 138,
@@ -34,7 +41,7 @@ export const CI_SETTINGS: AppSettings = {
   ...enTeteDemo('CI'),
   academicYear: 'ANNÉE ACADÉMIQUE 2024-2025',
   sessionName: 'SESSION NATIONALE MAI 2025',
-  examType: 'BACCALAURÉAT II (BLANC)',
+  examType: DEMO_TYPE_EXAMEN_LIBELLE,
   jurySignerTitle: 'Le Proviseur',
   jurySignerName: 'Dr. Aminata Traoré',
   startTableNumber: 138,
