@@ -61,7 +61,7 @@ export interface CandidateComputedStats {
   differenceToPromo: number;
 }
 
-export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth' | 'plateforme';
+export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth' | 'plateforme' | 'profil';
 
 export type AdminSection =
   | 'annees'

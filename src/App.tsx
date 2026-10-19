@@ -7,8 +7,8 @@ import { GradingView } from './components/GradingView';
 import { RecordsView } from './components/RecordsView';
 import { SettingsView } from './components/SettingsView';
 import { AdminParametres } from './components/AdminParametres';
-import { AuthView } from './components/AuthView';
 import { AuthPage } from './components/AuthPage';
+import { EtablissementProfilView } from './components/EtablissementProfilView';
 import { AdminLoginPage } from './components/AdminLoginPage';
 import { PlateformeView } from './components/PlateformeView';
 import { AllBulletinsPrintModal } from './components/AllBulletinsPrintModal';
@@ -16,8 +16,9 @@ import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
-import { apiDelete, apiSend, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, refreshSession, roleLabel } from './api/client';
+import { apiDelete, apiSend, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, refreshSession, roleLabel, setSession } from './api/client';
 import type { AuthSession } from './api/client';
+import type { ProfilEtablissement } from './api/etablissement';
 import { usePermissions } from './api/permissions';
 import { confirmAction, showError } from './utils/alerts';
 import { loadSchoolWorkspace, ExamOption } from './api/workspace';
@@ -28,6 +29,7 @@ import {
   setCurrentSchoolId,
   getSchoolData,
   saveSchoolData,
+  getSchoolArchivedSessions,
 } from './data/schoolsData';
 import { Candidate, Subject, ViewMode, AppSettings, SchoolAccount, AdminSection } from './types';
 import { printDocument } from './utils/printDocument';
@@ -112,7 +114,6 @@ export default function App() {
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isBatchPrintModalOpen, setIsBatchPrintModalOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Toast notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -219,7 +220,6 @@ export default function App() {
     const role = session?.role ?? '';
     setAccountRole(role);
     if (isPlatformAccount(session)) {
-      setIsAuthModalOpen(false);
       if (!session?.etablissementId) {
         appliquerSessionPlateforme(session);
         return;
@@ -276,7 +276,6 @@ export default function App() {
     setSelectedCenter('');
     setSettings(getSchoolData(currentSchoolId).settings);
     setAdminTarget({ section: null, nonce: 0 });
-    setIsAuthModalOpen(false);
     setIsSignatureModalOpen(false);
     setIsSmsModalOpen(false);
     setIsSearchModalOpen(false);
@@ -320,7 +319,6 @@ export default function App() {
     setCurrentSchoolId(schoolId);
 
     if (getToken()) {
-      setIsAuthModalOpen(false);
       if (currentView === 'auth') setCurrentView('bulletin');
       applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
       return;
@@ -337,7 +335,6 @@ export default function App() {
       setJuryLocked(false);
     }
 
-    setIsAuthModalOpen(false);
     if (currentView === 'auth') {
       setCurrentView('bulletin');
     }
@@ -356,7 +353,6 @@ export default function App() {
     setSelectedCandidateId(newSchool.candidates[0]?.id || '');
     setSelectedCenter(`${newSchool.name} (Centre d'Examen)`);
 
-    setIsAuthModalOpen(false);
     if (currentView === 'auth') {
       setCurrentView('dashboard');
     }
@@ -620,6 +616,19 @@ export default function App() {
   // Impression des bulletins : libre hors API, soumise à BULLETINS:IMPRIMER une fois connecté.
   const peutImprimer = !usingApi || can('BULLETINS', 'IMPRIMER');
 
+  // Hors connexion : la page de connexion remplace l'ancienne modale du portail d'authentification.
+  const ouvrirConnexion = () => {
+    setCurrentView('auth');
+    navigate('connexion');
+  };
+
+  // Fiche enregistrée depuis le profil : le nom suit dans la barre latérale, les bulletins et la session.
+  const handleProfilChanged = (profil: ProfilEtablissement) => {
+    setSettings((prev) => ({ ...prev, institutionName: profil.nom }));
+    const session = getSession();
+    if (session) setSession({ ...session, nomEtablissement: profil.nom });
+  };
+
   // Hors application : site vitrine, puis pages pleine écran de connexion / création de compte.
   if (currentView === 'auth') {
     if (route === 'vitrine') {
@@ -679,7 +688,8 @@ export default function App() {
         settings={settings}
         candidatesCount={candidates.length}
         onOpenBatchPrint={peutImprimer && !sessionPlateformeSeule ? () => setIsBatchPrintModalOpen(true) : undefined}
-        onOpenAuth={sessionPlateformeSeule ? undefined : () => setIsAuthModalOpen(true)}
+        onOpenProfil={sessionPlateformeSeule ? undefined : () => setCurrentView('profil')}
+        onConnexion={usingApi ? undefined : ouvrirConnexion}
         onOpenSearch={sessionPlateformeSeule ? undefined : () => setIsSearchModalOpen(true)}
         sessionOptions={usingApi ? apiSessions.map((item) => item.label) : undefined}
         centerOptions={usingApi ? apiCenters : undefined}
@@ -790,6 +800,22 @@ export default function App() {
 
           {currentView === 'plateforme' && <PlateformeView />}
 
+          {currentView === 'profil' && !sessionPlateformeSeule && (
+            <EtablissementProfilView
+              usingApi={usingApi}
+              settings={settings}
+              onUpdateSettings={handleUpdateSettings}
+              demoSchool={usingApi ? null : currentSchool}
+              demoStats={usingApi ? undefined : {
+                eleves: candidates.length,
+                archives: getSchoolArchivedSessions(currentSchoolId).length,
+              }}
+              onProfilChanged={handleProfilChanged}
+              onLogout={usingApi ? handleLogout : undefined}
+              onConnexion={usingApi ? undefined : ouvrirConnexion}
+            />
+          )}
+
           {currentView === 'dashboard' && (
             <DashboardView
               candidates={candidates}
@@ -844,7 +870,7 @@ export default function App() {
               settings={settings}
               onUpdateSettings={handleUpdateSettings}
               onNavigate={setCurrentView}
-              onOpenAuth={() => setIsAuthModalOpen(true)}
+              onOpenProfil={sessionPlateformeSeule ? undefined : () => setCurrentView('profil')}
               candidates={candidates}
               allStats={allStats}
               onAdminDataChanged={reloadWorkspace}
@@ -900,22 +926,6 @@ export default function App() {
           selectedSession={selectedSession}
           onClose={() => setIsBatchPrintModalOpen(false)}
         />
-      )}
-
-      {/* Establishment Accounts / Login Modal */}
-      {isAuthModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="relative w-full max-w-4xl flex justify-center">
-            <AuthView
-              embedded
-              onSelectSchool={handleSelectSchool}
-              onAccountCreated={handleAccountCreated}
-              onApiReady={handleApiReady}
-              onLogout={usingApi ? handleLogout : undefined}
-              onClose={() => setIsAuthModalOpen(false)}
-            />
-          </div>
-        </div>
       )}
 
       {/* Administrative Toast Simulation */}

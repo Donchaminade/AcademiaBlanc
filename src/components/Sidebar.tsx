@@ -13,7 +13,10 @@ interface SidebarProps {
   settings: AppSettings;
   candidatesCount: number;
   onOpenBatchPrint?: () => void;
-  onOpenAuth?: () => void;
+  /** Ouvre la page « Profil de l’établissement » (fiche, charte, compte, statistiques). */
+  onOpenProfil?: () => void;
+  /** Hors connexion : mène à la page `/connexion`. Jamais proposé pendant une session active. */
+  onConnexion?: () => void;
   onOpenSearch?: () => void;
   sessionOptions?: string[];
   centerOptions?: string[];
@@ -68,7 +71,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   settings,
   candidatesCount,
   onOpenBatchPrint,
-  onOpenAuth,
+  onOpenProfil,
+  onConnexion,
   onOpenSearch,
   sessionOptions,
   centerOptions,
@@ -432,19 +436,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>Paramètres &amp; Archives</span>
           </button>
 
-          {/* Compte Établissement & Déconnexion / Switcher */}
-          {onOpenAuth && (
+          {/* Profil de l'établissement : fiche, charte, compte connecté, statistiques */}
+          {onOpenProfil && (
             <button
               type="button"
-              onClick={onOpenAuth}
+              onClick={onOpenProfil}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium ${
-                currentView === 'auth'
+                currentView === 'profil'
                   ? 'bg-[#1e3a8a] text-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
                   : 'text-[#00236f] bg-white border border-[#eaedff] hover:bg-[#eaedff]'
               }`}
             >
-              <span className="material-symbols-outlined text-lg text-[#0051d5]">account_balance</span>
-              <span className="font-semibold">Compte Établissement</span>
+              <span className={`material-symbols-outlined text-lg ${currentView === 'profil' ? '' : 'text-[#0051d5]'}`}>account_balance</span>
+              <span className="font-semibold">Profil de l’établissement</span>
+            </button>
+          )}
+
+          {/* Hors connexion : accès à la page de connexion (jamais pendant une session active) */}
+          {onConnexion && !usingApi && (
+            <button
+              type="button"
+              onClick={onConnexion}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-semibold text-white bg-[#0051d5] hover:bg-[#003cb3]"
+              title="Connecter l’établissement à sa base"
+            >
+              <span className="material-symbols-outlined text-lg">login</span>
+              <span>Se connecter</span>
             </button>
           )}
         </nav>
@@ -468,7 +485,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <div className="flex items-center justify-between gap-3 pt-1">
-          {accountIdentity}
+          {onOpenProfil ? (
+            <button
+              type="button"
+              onClick={onOpenProfil}
+              className="min-w-0 flex-1 text-left rounded hover:bg-[#dae2fd] transition-colors -m-1 p-1"
+              title="Ouvrir le profil de l’établissement et de mon compte"
+            >
+              {accountIdentity}
+            </button>
+          ) : accountIdentity}
           <button
             className="p-1.5 rounded hover:bg-[#dae2fd] text-[#444651] hover:text-[#0051d5] transition-colors"
             title="Paramètres de l'application"
