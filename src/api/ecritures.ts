@@ -1,6 +1,9 @@
 import { apiDelete, apiSend } from './client';
 import { saveCharte } from './charte';
 import type { CharteEtablissement, ParametrePersiste } from './charte';
+import type { ProfilEtablissement } from './etablissement';
+import { saveEnTete } from './prereglages';
+import { enTeteDepuisSettings } from '../utils/prereglages';
 import type { AppSettings, Candidate } from '../types';
 
 /**
@@ -203,7 +206,12 @@ export function appliquerDeliberation(candidate: Candidate, vue: DeliberationApi
   };
 }
 
-/** Enregistre les paramètres du bulletin (écran Paramètres) ; la réponse fait foi. */
+/** Enregistre la charte du bulletin (logo, sceau, signataires, numérotation, cachet et signatures) ; la réponse fait foi. */
 export async function sauvegarderParametres(settings: Pick<AppSettings, ParametrePersiste>): Promise<CharteEtablissement> {
   return saveCharte(settings);
+}
+
+/** Enregistre l'en-tête officiel du bulletin (république, devise, ministère, sigle…) sur la fiche de l'établissement. */
+export async function sauvegarderEnTete(settings: AppSettings): Promise<ProfilEtablissement> {
+  return saveEnTete(enTeteDepuisSettings(settings));
 }

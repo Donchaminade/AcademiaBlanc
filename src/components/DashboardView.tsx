@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AdminSection } from '../types';
 import { ADMIN_STEPS } from './AdminParametres';
+import { DEMO_EXAM_LABEL } from '../utils/bulletinHeader';
 
 interface DashboardViewProps {
   candidates: Candidate[];
@@ -14,7 +15,7 @@ interface DashboardViewProps {
   usingApi?: boolean;
   /** Vrai si au moins une session existe côté API. */
   hasApiSession?: boolean;
-  /** Type d'examen de la session active (ex. BACCALAURÉAT II). */
+  /** Libellé court du type d'examen de la session active (ex. « BEPC », « BAC II »), issu du référentiel de la plateforme. */
   examType?: string;
   /** Ouvre l'écran d'administration, éventuellement sur une section précise. */
   onOpenAdmin?: (section?: AdminSection) => void;
@@ -155,7 +156,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               Contrôle Académique Officiel
             </span>
             <span className="text-[12px] text-[#444651]">
-              {usingApi ? (examType || 'Session de l’établissement') : "Session Régionale d'Examen"}
+              {usingApi ? (examType || 'Session de l’établissement') : DEMO_EXAM_LABEL}
             </span>
           </div>
           <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">

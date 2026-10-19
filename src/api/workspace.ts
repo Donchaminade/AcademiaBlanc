@@ -4,6 +4,7 @@ import { estCollege } from '../utils/niveaux';
 import { coefficientEffectif } from '../utils/coefficients';
 import { appliquerDeliberation } from './ecritures';
 import type { DeliberationApi } from './ecritures';
+import { SessionTypeExamen, libelleCourtSession, libelleLongSession } from './typesExamen';
 
 /** Une liste refusée (droit VOIR absent) est traitée comme vide : l’écran reste utilisable avec les droits détenus. */
 async function lire<T>(path: string): Promise<T[]> {
@@ -17,7 +18,7 @@ async function lire<T>(path: string): Promise<T[]> {
 
 interface Annee { id: number; libelle: string; courante: boolean; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
-interface SessionApi { id: number; nom: string; typeExamen: string; serie?: string; anneeScolaireId: number; centreId: number; }
+interface SessionApi extends SessionTypeExamen { id: number; nom: string; serie?: string; anneeScolaireId: number; centreId: number; }
 interface Matiere { id: number; nom: string; code: string; }
 interface Professeur { id: number; nom: string; }
 interface Classe { id: number; nom: string; niveau?: string; serie?: string; titulaireId?: number; }
@@ -63,7 +64,10 @@ export interface SchoolWorkspace {
   candidates: Candidate[];
   academicYear: string;
   sessionName: string;
+  /** Libellé court du type d'examen de la session active (« BEPC », « BAC II »), pour les listes et la barre latérale. */
   examType: string;
+  /** Libellé long du référentiel (« Brevet d'Études du Premier Cycle »), imprimé en tête du bulletin. */
+  examTypeLong: string;
   centerLabel: string;
   /** Somme des coefficients réellement enregistrés sur l'API (0 si aucune matière). */
   totalCoef: number;
@@ -179,7 +183,8 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
     candidates,
     academicYear: annee?.libelle || '',
     sessionName: session?.nom || '',
-    examType: session?.typeExamen || '',
+    examType: libelleCourtSession(session),
+    examTypeLong: libelleLongSession(session),
     centerLabel: centre ? `${centre.nom}${centre.code ? ` (${centre.code})` : ''}` : '',
     totalCoef: subjects.reduce((sum, subject) => sum + subject.coef, 0),
     coefficientsCount: coefficients.length,

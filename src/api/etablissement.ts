@@ -1,5 +1,6 @@
 import { apiGet, apiSend } from './client';
 import type { MeResponse } from './client';
+import type { EnTeteEtablissement } from '../utils/prereglages';
 
 /** Fiche de l'établissement du jeton (`GET /api/etablissement`). */
 export interface ProfilEtablissement {
@@ -17,6 +18,8 @@ export interface ProfilEtablissement {
   actif: boolean;
   /** ISO 8601 ; null pour un établissement créé avant l'ajout de cette date. */
   creeLe: string | null;
+  /** En-tête officiel du bulletin (république, devise nationale, ministère, sigle…). */
+  enTete: EnTeteEtablissement;
 }
 
 /** Champs modifiables (`PUT /api/etablissement`) : le code, l'état et la date de création sont fixés par la plateforme. */

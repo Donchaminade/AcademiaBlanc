@@ -33,8 +33,16 @@ public class SessionExamen implements TenantOwned {
   @Column(nullable = false)
   private String nom;
 
+  /**
+   * Libellé court du type d'examen, conservé en texte pour les bulletins et archives.
+   * Synchronisé avec le référentiel dès qu'un {@link #typeExamenId} est rattaché.
+   */
   @Column(name = "type_examen", nullable = false)
   private String typeExamen;
+
+  /** Type du référentiel de la plateforme ; absent pour une session antérieure non rattachée. */
+  @Column(name = "type_examen_id")
+  private Long typeExamenId;
 
   private String serie;
 

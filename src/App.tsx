@@ -23,12 +23,15 @@ import {
   renumeroterEleves,
   sauvegarderDeliberation,
   sauvegarderEleve,
+  sauvegarderEnTete,
   sauvegarderNote,
   sauvegarderParametres,
   supprimerEleve,
 } from './api/ecritures';
 import type { AuthSession } from './api/client';
+import { loadProfil } from './api/etablissement';
 import type { ProfilEtablissement } from './api/etablissement';
+import { appliquerEnTeteAuxSettings, enTeteChanged, enTeteDepuisSettings } from './utils/prereglages';
 import { usePermissions } from './api/permissions';
 import { confirmAction, showError, toastSuccess } from './utils/alerts';
 import { loadSchoolWorkspace, ExamOption, WorkspaceOptions } from './api/workspace';
@@ -82,6 +85,7 @@ export default function App() {
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [activeClasseId, setActiveClasseId] = useState<number | null>(null);
   const [activeExamType, setActiveExamType] = useState<string>('');
+  const [activeExamTypeLong, setActiveExamTypeLong] = useState<string>('');
   const [usingApi, setUsingApi] = useState<boolean>(() => Boolean(getToken()));
   // Jeton présent au chargement : rien n'est affiché (surtout pas de données de démonstration)
   // tant que la session n'est pas relue et l'espace de l'établissement chargé depuis l'API.
@@ -154,17 +158,33 @@ export default function App() {
   };
 
   /**
-   * Écriture : paramètres du bulletin (logo, sceau, pays, devise, ministère, signataires, numérotation,
-   * cachet et signatures). En session API ils sont enregistrés sur le serveur (`PUT /api/etablissement/charte`)
-   * et l'état local n'est mis à jour qu'à partir de la réponse ; en démonstration, dans le navigateur.
+   * Écriture : paramètres du bulletin. En session API, deux ressources du serveur sont concernées :
+   * la charte (`PUT /api/etablissement/charte` : logo, sceau, signataires, numérotation, cachet et signatures)
+   * et l'en-tête officiel (`PUT /api/etablissement/en-tete` : république, devise, ministère, sigle…) ;
+   * l'état local n'est mis à jour qu'à partir des réponses. En démonstration, dans le navigateur.
+   * `enTeteDejaEnregistre` : l'application d'un préréglage national a déjà copié l'en-tête côté serveur.
    * Résout `false` si le serveur a refusé : l'appelant n'affiche alors aucune confirmation.
    */
-  const handleUpdateSettings = async (newSettings: AppSettings): Promise<boolean> => {
+  const handleUpdateSettings = async (
+    newSettings: AppSettings,
+    options?: { enTeteDejaEnregistre?: boolean },
+  ): Promise<boolean> => {
     if (usingApi) {
-      if (!charteChanged(settings, newSettings)) return true;
+      const charteModifiee = charteChanged(settings, newSettings);
+      const enTeteModifie = !options?.enTeteDejaEnregistre && enTeteChanged(settings, newSettings);
+      const enTetePreregle = Boolean(options?.enTeteDejaEnregistre);
+      if (!charteModifiee && !enTeteModifie && !enTetePreregle) return true;
       try {
-        const charte = await sauvegarderParametres(newSettings);
-        setSettings((prev) => applyCharte(prev, charte));
+        const charte = charteModifiee ? await sauvegarderParametres(newSettings) : null;
+        const profil = enTeteModifie ? await sauvegarderEnTete(newSettings) : null;
+        setSettings((prev) => {
+          let next = charte ? applyCharte(prev, charte) : prev;
+          // Préréglage déjà appliqué par l'API : la fiche renvoyée a été reportée dans `newSettings`.
+          if (profil || enTetePreregle) {
+            next = appliquerEnTeteAuxSettings(next, profil ? profil.enTete : enTeteDepuisSettings(newSettings));
+          }
+          return next;
+        });
         return true;
       } catch (err) {
         signalerErreur(err, 'Paramètres non enregistrés sur le serveur.');
@@ -189,10 +209,11 @@ export default function App() {
   };
 
   const applyWorkspace = async (sessionId?: number, options: WorkspaceOptions = { toutesSessions }) => {
-    const [workspace, charte] = await Promise.all([
+    const [workspace, charte, profil] = await Promise.all([
       loadSchoolWorkspace(sessionId, options),
-      // Une charte indisponible (ancienne API) ne doit pas bloquer le chargement de l'espace.
+      // Une charte ou une fiche indisponible (ancienne API) ne doit pas bloquer le chargement de l'espace.
       loadCharte().catch(() => null),
+      loadProfil().catch(() => null),
     ]);
     const session = getSession();
     setUsingApi(true);
@@ -208,6 +229,7 @@ export default function App() {
     setActiveSessionId(workspace.sessionId);
     setActiveClasseId(workspace.classeId);
     setActiveExamType(workspace.examType);
+    setActiveExamTypeLong(workspace.examTypeLong);
     setSettings((prev) => {
       // En session API, les paramètres viennent du serveur (charte) ou des valeurs par défaut du logiciel :
       // rien n'est repris des réglages de démonstration mémorisés dans le navigateur.
@@ -217,9 +239,12 @@ export default function App() {
         institutionName: session?.nomEtablissement || prev.institutionName,
         academicYear: workspace.academicYear || prev.academicYear,
         sessionName: workspace.sessionName || prev.sessionName,
-        examType: workspace.examType || prev.examType,
+        // Libellé long du référentiel de la plateforme ; vide tant qu'aucune session n'existe (jamais la valeur de démo).
+        examType: workspace.examTypeLong,
       };
-      return charte ? applyCharte(next, charte) : next;
+      // République, devise et ministère viennent de l'établissement (préréglage national appliqué, puis ajusté).
+      const avecEnTete = appliquerEnTeteAuxSettings(next, profil?.enTete);
+      return charte ? applyCharte(avecEnTete, charte) : avecEnTete;
     });
     // Les libellés viennent exclusivement de l'API : vide tant qu'aucune session / aucun centre n'existe.
     setSelectedSession(workspace.sessionName);
@@ -826,6 +851,7 @@ export default function App() {
         onConnexion={usingApi ? undefined : ouvrirConnexion}
         onOpenSearch={sessionPlateformeSeule ? undefined : () => setIsSearchModalOpen(true)}
         sessionOptions={usingApi ? apiSessions.map((item) => item.label) : undefined}
+        examType={usingApi ? activeExamType : undefined}
         centerOptions={usingApi ? apiCenters : undefined}
         platformOwner={isPlatformAccount(getSession()) || accountRole === 'SUPER_ADMIN' || accountRole === 'GESTIONNAIRE_PLATEFORME'}
         platformOnly={sessionPlateformeSeule}
@@ -905,6 +931,7 @@ export default function App() {
               canPrint={peutImprimer}
               settings={settings}
               selectedSession={selectedSession}
+              examTypeLong={usingApi ? activeExamTypeLong : undefined}
             />
           )}
 
@@ -1009,6 +1036,7 @@ export default function App() {
               }}
               selectedSession={selectedSession}
               selectedCenter={selectedCenter}
+              examType={usingApi ? activeExamType : undefined}
               juryLocked={juryLocked}
               onToggleJuryLock={handleToggleJuryLock}
             />
@@ -1073,6 +1101,7 @@ export default function App() {
           allStats={allStats}
           settings={settings}
           selectedSession={selectedSession}
+          examTypeLong={usingApi ? activeExamTypeLong : undefined}
           onClose={() => setIsBatchPrintModalOpen(false)}
         />
       )}

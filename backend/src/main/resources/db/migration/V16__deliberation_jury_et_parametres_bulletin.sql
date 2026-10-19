@@ -18,15 +18,13 @@ CREATE TABLE deliberation_jury (
 CREATE INDEX idx_deliberation_jury_session ON deliberation_jury (etablissement_id, session_id);
 
 -- Paramètres d'affichage du bulletin propres à l'établissement (écran Paramètres) : logo, sceau
--- officiel, pays, devise nationale, ministère, signataires et numérotation des tables. Jusqu'ici
--- conservés dans le navigateur, donc perdus d'un poste à l'autre. NULL = valeur par défaut du logiciel.
+-- officiel, signataires et numérotation des tables. Jusqu'ici conservés dans le navigateur, donc perdus
+-- d'un poste à l'autre. NULL = valeur par défaut du logiciel. L'en-tête officiel (république, devise,
+-- ministère) est porté par `etablissement` (préréglages nationaux, V15) et n'est pas dupliqué ici.
 CREATE TABLE parametres_bulletin (
   etablissement_id BIGINT PRIMARY KEY REFERENCES etablissement (id),
   logo_url TEXT,
   sceau_officiel_url TEXT,
-  pays VARCHAR(120),
-  devise_nationale VARCHAR(160),
-  ministere VARCHAR(240),
   titre_signataire_jury VARCHAR(120),
   nom_signataire_jury VARCHAR(180),
   titre_titulaire VARCHAR(120),

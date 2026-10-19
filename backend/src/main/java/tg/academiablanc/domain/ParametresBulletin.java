@@ -29,13 +29,6 @@ public class ParametresBulletin {
   @Column(name = "sceau_officiel_url", columnDefinition = "TEXT")
   private String sceauOfficielUrl;
 
-  private String pays;
-
-  @Column(name = "devise_nationale")
-  private String deviseNationale;
-
-  private String ministere;
-
   @Column(name = "titre_signataire_jury")
   private String titreSignataireJury;
 

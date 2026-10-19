@@ -10,6 +10,7 @@ import {
   renumeroterEleves,
   sauvegarderDeliberation,
   sauvegarderEleve,
+  sauvegarderEnTete,
   sauvegarderNote,
   sauvegarderParametres,
   supprimerEleve,
@@ -188,10 +189,10 @@ describe('ecritures : écritures de l’espace de travail', () => {
     assert.doesNotThrow(() => new Date(versInstant('n’importe quoi')).toISOString());
   });
 
-  it('sauvegarderParametres envoie tous les paramètres persistés à PUT /api/etablissement/charte', async () => {
-    const corps = versCharte({ ...DEFAULT_SETTINGS, sealUrl: '', motto: '', startTableNumber: 201, autoAssignTables: false, sceauUrl: 'data:image/png;base64,AAAA' });
+  it('sauvegarderParametres envoie tous les paramètres de la charte à PUT /api/etablissement/charte', async () => {
+    const corps = versCharte({ ...DEFAULT_SETTINGS, sealUrl: '', startTableNumber: 201, autoAssignTables: false, sceauUrl: 'data:image/png;base64,AAAA' });
     reponse = () => json(corps);
-    await sauvegarderParametres({ ...DEFAULT_SETTINGS, sealUrl: '', motto: '', startTableNumber: 201, autoAssignTables: false, sceauUrl: 'data:image/png;base64,AAAA' });
+    await sauvegarderParametres({ ...DEFAULT_SETTINGS, sealUrl: '', startTableNumber: 201, autoAssignTables: false, sceauUrl: 'data:image/png;base64,AAAA' });
     assert.equal(appels[0].method, 'PUT');
     assert.ok(appels[0].url.endsWith('/api/etablissement/charte'));
     const envoye = appels[0].body as Record<string, unknown>;
@@ -200,17 +201,27 @@ describe('ecritures : écritures de l’espace de travail', () => {
     assert.equal(envoye.logoUrl, DEFAULT_SETTINGS.logoUrl);
     // Sceau officiel volontairement vide : chaîne vide (zone vierge), pas null (valeur par défaut).
     assert.equal(envoye.sceauOfficielUrl, '');
-    assert.equal(envoye.deviseNationale, null);
-    assert.equal(envoye.pays, DEFAULT_SETTINGS.countryName);
-    assert.equal(envoye.ministere, DEFAULT_SETTINGS.ministryName);
     assert.equal(envoye.nomSignataireJury, DEFAULT_SETTINGS.jurySignerName);
     assert.equal(envoye.nomTitulaire, DEFAULT_SETTINGS.principalTeacherName);
     assert.equal(envoye.premierNumeroTable, 201);
     assert.equal(envoye.numerotationAutomatique, false);
-    // Aucun libellé issu de la session ou du profil n'est envoyé.
-    for (const interdit of ['institutionName', 'academicYear', 'sessionName', 'examType']) {
-      assert.equal(interdit in envoye, false, `${interdit} ne doit pas partir au serveur`);
+    // Ni les libellés de la session / du profil, ni l'en-tête officiel (porté par la fiche de l'établissement).
+    for (const interdit of ['institutionName', 'academicYear', 'sessionName', 'examType', 'pays', 'deviseNationale', 'ministere']) {
+      assert.equal(interdit in envoye, false, `${interdit} ne doit pas partir dans la charte`);
     }
+  });
+
+  it("sauvegarderEnTete envoie l'en-tête officiel à PUT /api/etablissement/en-tete, champs vides → null", async () => {
+    reponse = () => json({ id: 1, enTete: { ministere: 'MINISTÈRE E2E' } });
+    const profil = await sauvegarderEnTete({ ...DEFAULT_SETTINGS, motto: '   ', ministryName: 'MINISTÈRE E2E', prereglageNationalId: 3 });
+    assert.equal(appels[0].method, 'PUT');
+    assert.ok(appels[0].url.endsWith('/api/etablissement/en-tete'));
+    const envoye = appels[0].body as Record<string, unknown>;
+    assert.equal(envoye.republique, DEFAULT_SETTINGS.countryName);
+    assert.equal(envoye.deviseNationale, null);
+    assert.equal(envoye.ministere, 'MINISTÈRE E2E');
+    assert.equal(envoye.prereglageNationalId, 3);
+    assert.equal(profil.enTete.ministere, 'MINISTÈRE E2E');
   });
 });
 

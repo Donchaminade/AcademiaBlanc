@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import tg.academiablanc.domain.Etablissement;
+import tg.academiablanc.domain.PrereglageNational;
 import tg.academiablanc.domain.SessionStatut;
 import tg.academiablanc.domain.Utilisateur;
 import tg.academiablanc.repo.ClasseRepository;
@@ -31,6 +32,7 @@ public class ProfilEtablissementService {
   private final EleveRepository eleves;
   private final ProfesseurRepository professeurs;
   private final SessionExamenRepository sessions;
+  private final PrereglageNationalService prereglages;
 
   public ProfilEtablissementService(
       EtablissementRepository etablissements,
@@ -38,7 +40,8 @@ public class ProfilEtablissementService {
       ClasseRepository classes,
       EleveRepository eleves,
       ProfesseurRepository professeurs,
-      SessionExamenRepository sessions
+      SessionExamenRepository sessions,
+      PrereglageNationalService prereglages
   ) {
     this.etablissements = etablissements;
     this.utilisateurs = utilisateurs;
@@ -46,6 +49,7 @@ public class ProfilEtablissementService {
     this.eleves = eleves;
     this.professeurs = professeurs;
     this.sessions = sessions;
+    this.prereglages = prereglages;
   }
 
   /** Fiche renvoyée par {@code GET /api/etablissement}. */
@@ -62,17 +66,40 @@ public class ProfilEtablissementService {
       String nomResponsable,
       String devise,
       boolean actif,
-      Instant creeLe
+      Instant creeLe,
+      EnTete enTete
   ) {
     static Profil of(Etablissement school) {
       return new Profil(
           school.getId(), school.getNom(), school.getCode(), school.getTypeEtablissement(), school.getVille(),
           school.getRegion(), school.getAdresse(), school.getTelephone(), school.getEmail(), school.getNomResponsable(),
-          school.getDevise(), school.isActif(), school.getCreeLe());
+          school.getDevise(), school.isActif(), school.getCreeLe(), EnTete.of(school));
     }
   }
 
-  /** Champs modifiables par {@code PUT /api/etablissement}. Le code, l'état actif et la date ne sont pas éditables ici. */
+  /**
+   * En-tête officiel du bulletin (république, devise nationale, ministère, sigle…), copié depuis le préréglage
+   * national appliqué puis librement modifiable. {@code prereglageNationalId} rappelle le dernier préréglage appliqué.
+   */
+  public record EnTete(
+      Long prereglageNationalId,
+      String republique,
+      String deviseNationale,
+      String ministere,
+      String sigleMinistere,
+      String autoriteRegionale,
+      String piedDePage
+  ) {
+    static EnTete of(Etablissement school) {
+      return new EnTete(school.getPrereglageNationalId(), school.getRepublique(), school.getDeviseNationale(),
+          school.getMinistere(), school.getSigleMinistere(), school.getAutoriteRegionale(), school.getPiedDePage());
+    }
+  }
+
+  /**
+   * Champs modifiables par {@code PUT /api/etablissement}. Le code, l'état actif et la date ne sont pas éditables ici.
+   * {@code enTete} est facultatif : absent, l'en-tête du bulletin reste inchangé.
+   */
   public record Modification(
       String nom,
       String typeEtablissement,
@@ -82,7 +109,8 @@ public class ProfilEtablissementService {
       String telephone,
       String email,
       String nomResponsable,
-      String devise
+      String devise,
+      EnTete enTete
   ) {}
 
   /** Effectifs réels de l'établissement ({@code GET /api/etablissement/statistiques}). */
@@ -138,7 +166,37 @@ public class ProfilEtablissementService {
     school.setAdresse(facultatif(request.adresse(), 240));
     school.setTelephone(facultatif(request.telephone(), 40));
     school.setDevise(facultatif(request.devise(), 160));
+    if (request.enTete() != null) appliquerEnTete(school, request.enTete());
     return Profil.of(etablissements.save(school));
+  }
+
+  /** {@code PUT /api/etablissement/en-tete} : modifie seulement l'en-tête du bulletin. */
+  @Transactional
+  public Profil modifierEnTete(Utilisateur courant, EnTete enTete) {
+    Etablissement school = school(courant);
+    appliquerEnTete(school, enTete);
+    return Profil.of(etablissements.save(school));
+  }
+
+  /** {@code POST /api/etablissement/prereglage-national/{id}} : copie le préréglage dans l'en-tête et mémorise son identifiant. */
+  @Transactional
+  public Profil appliquerPrereglage(Utilisateur courant, Long prereglageId) {
+    Etablissement school = school(courant);
+    PrereglageNational prereglage = prereglages.applicable(prereglageId);
+    school.appliquer(prereglage);
+    return Profil.of(etablissements.save(school));
+  }
+
+  private void appliquerEnTete(Etablissement school, EnTete enTete) {
+    school.setRepublique(facultatif(enTete.republique(), 160));
+    school.setDeviseNationale(facultatif(enTete.deviseNationale(), 160));
+    school.setMinistere(facultatif(enTete.ministere(), 240));
+    school.setSigleMinistere(facultatif(enTete.sigleMinistere(), 20));
+    school.setAutoriteRegionale(facultatif(enTete.autoriteRegionale(), 160));
+    school.setPiedDePage(facultatif(enTete.piedDePage(), 240));
+    // L'identifiant n'est conservé que s'il désigne un préréglage existant (un préréglage inactif reste référencé).
+    Long id = enTete.prereglageNationalId();
+    school.setPrereglageNationalId(id != null && prereglages.existe(id) ? id : null);
   }
 
   private Etablissement school(Utilisateur courant) {

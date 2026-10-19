@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
-import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministrySigle } from '../utils/bulletinHeader';
+import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministryMark } from '../utils/bulletinHeader';
 import {
   appreciationFromAverage,
   computeSubjectRank,
@@ -19,6 +19,8 @@ interface AllBulletinsPrintModalProps {
   settings: AppSettings;
   onClose: () => void;
   selectedSession?: string;
+  /** Libellé long du type d'examen de la session active (référentiel de la plateforme) ; absent en démonstration. */
+  examTypeLong?: string;
 }
 
 export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
@@ -28,6 +30,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
   settings,
   onClose,
   selectedSession,
+  examTypeLong,
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'admis' | 'rattrapage'>('all');
   const sealCaption = establishmentCaption(settings.institutionName);
@@ -134,8 +137,9 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
         {filteredCandidates.map((candidate, idx) => {
           const stats = allStats[candidate.id];
           const isLast = idx === filteredCandidates.length - 1;
-          const headerInfo = getBulletinHeaderInfo(selectedSession || settings.sessionName, candidate.serie);
-          const ministryMark = ministrySigle(settings.ministryName);
+          const headerInfo = getBulletinHeaderInfo(selectedSession || settings.sessionName, candidate.serie, examTypeLong);
+          const ministryMarkLabel = ministryMark(settings);
+          const regionalAuthority = (settings.regionalAuthority || '').trim();
 
           return (
             <div
@@ -160,7 +164,8 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
               <div className="bulletin-header relative z-10 border-b border-[#eaedff]">
                 <div className="bulletin-header-left">
                   <p className="bulletin-ministry-name">{settings.ministryName}</p>
-                  {ministryMark ? <p className="bulletin-ministry-sigle">{ministryMark}</p> : null}
+                  {ministryMarkLabel ? <p className="bulletin-ministry-sigle">{ministryMarkLabel}</p> : null}
+                  {regionalAuthority ? <p className="bulletin-ministry-sigle">{regionalAuthority}</p> : null}
                 </div>
 
                 {/* Central Academic Seal */}

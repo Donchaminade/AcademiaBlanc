@@ -4,8 +4,9 @@ import { AppSettings } from '../types';
 /**
  * Charte du bulletin portée par l'établissement du jeton (GET/PUT /api/etablissement/charte) :
  * cachet et signatures téléversés, puis paramètres d'affichage de l'écran Paramètres (logo, sceau
- * officiel, pays, devise, ministère, signataires, numérotation des tables). `null` = jamais renseigné
- * sur le serveur : le client conserve alors sa valeur par défaut.
+ * officiel, signataires, numérotation des tables). `null` = jamais renseigné sur le serveur : le client
+ * conserve alors sa valeur par défaut. L'en-tête officiel (république, devise, ministère) est porté par la
+ * fiche de l'établissement (`PUT /api/etablissement/en-tete`), pas par la charte.
  */
 export interface CharteEtablissement {
   sceauUrl: string | null;
@@ -14,9 +15,6 @@ export interface CharteEtablissement {
   logoUrl?: string | null;
   /** Chaîne vide = emplacement volontairement laissé vierge (tampon manuel), à ne pas confondre avec `null`. */
   sceauOfficielUrl?: string | null;
-  pays?: string | null;
-  deviseNationale?: string | null;
-  ministere?: string | null;
   titreSignataireJury?: string | null;
   nomSignataireJury?: string | null;
   titreTitulaire?: string | null;
@@ -29,12 +27,13 @@ export const CHARTE_FIELDS = ['sceauUrl', 'signatureProviseurUrl', 'signatureTit
 export type CharteField = (typeof CHARTE_FIELDS)[number];
 
 /**
- * Paramètres enregistrés sur le serveur en session connectée. Les autres champs d'`AppSettings`
- * (nom de l'établissement, année, session, type d'examen) viennent du profil et de la session chargée.
+ * Paramètres enregistrés dans la charte en session connectée. Les autres champs d'`AppSettings`
+ * viennent de l'en-tête de l'établissement (république, devise, ministère, sigle…) ou de la session
+ * chargée (nom de l'établissement, année, session, type d'examen).
  */
 export const PARAMETRES_PERSISTES = [
   ...CHARTE_FIELDS,
-  'logoUrl', 'sealUrl', 'countryName', 'motto', 'ministryName',
+  'logoUrl', 'sealUrl',
   'jurySignerTitle', 'jurySignerName', 'principalTeacherTitle', 'principalTeacherName',
   'startTableNumber', 'autoAssignTables',
 ] as const satisfies readonly (keyof AppSettings)[];
@@ -53,9 +52,6 @@ export function versCharte(settings: Pick<AppSettings, ParametrePersiste>): Char
     logoUrl: settings.logoUrl || null,
     // Le sceau officiel vide est un choix (zone vierge) : il part en chaîne vide, pas en null.
     sceauOfficielUrl: settings.sealUrl ?? '',
-    pays: settings.countryName || null,
-    deviseNationale: settings.motto || null,
-    ministere: settings.ministryName || null,
     titreSignataireJury: settings.jurySignerTitle || null,
     nomSignataireJury: settings.jurySignerName || null,
     titreTitulaire: settings.principalTeacherTitle || null,
@@ -83,9 +79,6 @@ export function applyCharte(settings: AppSettings, charte: CharteEtablissement):
     signatureTitulaireUrl: charte.signatureTitulaireUrl || '',
     logoUrl: charte.logoUrl || settings.logoUrl,
     sealUrl: charte.sceauOfficielUrl ?? settings.sealUrl,
-    countryName: charte.pays || settings.countryName,
-    motto: charte.deviseNationale || settings.motto,
-    ministryName: charte.ministere || settings.ministryName,
     jurySignerTitle: charte.titreSignataireJury || settings.jurySignerTitle,
     jurySignerName: charte.nomSignataireJury || settings.jurySignerName,
     principalTeacherTitle: charte.titreTitulaire || settings.principalTeacherTitle,
