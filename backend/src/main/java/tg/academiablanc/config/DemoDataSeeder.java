@@ -29,6 +29,7 @@ import tg.academiablanc.repo.MatiereRepository;
 import tg.academiablanc.repo.NoteRepository;
 import tg.academiablanc.repo.ProfesseurRepository;
 import tg.academiablanc.repo.SessionExamenRepository;
+import tg.academiablanc.repo.TypeExamenRepository;
 import tg.academiablanc.repo.UtilisateurRepository;
 
 /** Jeu de démonstration repris des fiches statiques Tokoin / Collège Protestant. */
@@ -46,6 +47,7 @@ public class DemoDataSeeder implements CommandLineRunner {
   private final ProfesseurRepository professeurs;
   private final EleveRepository eleves;
   private final NoteRepository notes;
+  private final TypeExamenRepository typesExamen;
   private final PasswordEncoder passwordEncoder;
 
   public DemoDataSeeder(
@@ -60,6 +62,7 @@ public class DemoDataSeeder implements CommandLineRunner {
       ProfesseurRepository professeurs,
       EleveRepository eleves,
       NoteRepository notes,
+      TypeExamenRepository typesExamen,
       PasswordEncoder passwordEncoder
   ) {
     this.etablissements = etablissements;
@@ -73,6 +76,7 @@ public class DemoDataSeeder implements CommandLineRunner {
     this.professeurs = professeurs;
     this.eleves = eleves;
     this.notes = notes;
+    this.typesExamen = typesExamen;
     this.passwordEncoder = passwordEncoder;
   }
 
@@ -161,7 +165,10 @@ public class DemoDataSeeder implements CommandLineRunner {
     session.setAnneeScolaireId(yearId);
     session.setCentreId(centreId);
     session.setNom(nom);
-    session.setTypeExamen("BACCALAURÉAT II");
+    typesExamen.findByCodeIgnoreCase("BAC2").ifPresentOrElse(type -> {
+      session.setTypeExamenId(type.getId());
+      session.setTypeExamen(type.getLibelleCourt());
+    }, () -> session.setTypeExamen("BAC II"));
     session.setSerie("Série D");
     session.setStatut("OUVERTE");
     return sessions.save(session).getId();

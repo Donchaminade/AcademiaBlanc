@@ -72,6 +72,7 @@ public class SchoolController {
   private final AnneeDependances dependancesAnnee;
   private final MatriculeService matricules;
   private final ReferentielMatieresService referentielMatieres;
+  private final TypeExamenService typesExamen;
 
   public SchoolController(
       AnneeScolaireRepository annees,
@@ -90,6 +91,7 @@ public class SchoolController {
       AnneeDependances dependancesAnnee,
       MatriculeService matricules,
       ReferentielMatieresService referentielMatieres,
+      TypeExamenService typesExamen,
       PermissionService droits
   ) {
     this.annees = annees;
@@ -109,12 +111,18 @@ public class SchoolController {
     this.dependancesAnnee = dependancesAnnee;
     this.matricules = matricules;
     this.referentielMatieres = referentielMatieres;
+    this.typesExamen = typesExamen;
   }
 
   public record AnneeRequest(@NotBlank @Size(max = 40) String libelle, LocalDate dateDebut, LocalDate dateFin, boolean courante) {}
   public record CentreRequest(@NotBlank @Size(max = 180) String nom, @Size(max = 120) String ville, @NotBlank @Size(max = 40) String code) {}
+  /**
+   * {@code typeExamenId} désigne un type actif du référentiel de la plateforme ; {@code typeExamen} (texte) n'est
+   * accepté qu'en repli pour les clients antérieurs et est reconnu quand c'est possible (« BAC II » → BAC2).
+   */
   public record SessionRequest(@NotNull Long anneeScolaireId, @NotNull Long centreId, @NotBlank @Size(max = 180) String nom,
-                               @NotBlank @Size(max = 120) String typeExamen, @Size(max = 80) String serie, @NotBlank @Size(max = 40) String statut) {}
+                               Long typeExamenId, @Size(max = 120) String typeExamen, @Size(max = 80) String serie,
+                               @NotBlank @Size(max = 40) String statut) {}
   public record MatiereRequest(@NotBlank @Size(max = 180) String nom, @NotBlank @Size(max = 40) String code, @Size(max = 10) String groupeCode) {}
   public record CoefficientRequest(@NotNull Long matiereId, Long classeId, @Size(max = 80) String serie, @NotNull @DecimalMin("0.5") @DecimalMax("20") BigDecimal valeur) {}
   public record ProfesseurRequest(@NotBlank @Size(max = 180) String nom, @Size(max = 180) String email) {}
@@ -221,36 +229,36 @@ public class SchoolController {
   }
 
   @GetMapping("/sessions")
-  public List<SessionExamen> sessions() {
+  public List<TypeExamenService.SessionVue> sessions() {
     droits.exiger(Ressource.SESSIONS, Action.VOIR);
-    return sessions.findByEtablissementIdOrderByNomAsc(Tenant.current().etablissementId());
+    return sessions.findByEtablissementIdOrderByNomAsc(Tenant.current().etablissementId()).stream().map(typesExamen::vue).toList();
   }
 
   @PostMapping("/sessions")
-  public SessionExamen creerSession(@Valid @RequestBody SessionRequest request) {
+  public TypeExamenService.SessionVue creerSession(@Valid @RequestBody SessionRequest request) {
     droits.exiger(Ressource.SESSIONS, Action.CREER);
     verifierAnnee(request.anneeScolaireId());
     verifierCentre(request.centreId());
     SessionExamen session = new SessionExamen();
     session.setEtablissementId(Tenant.current().etablissementId());
     remplir(session, request);
-    return sessions.save(session);
+    return typesExamen.vue(sessions.save(session));
   }
 
   @GetMapping("/sessions/{id}")
-  public SessionExamen session(@PathVariable Long id) {
+  public TypeExamenService.SessionVue session(@PathVariable Long id) {
     droits.exiger(Ressource.SESSIONS, Action.DETAILS);
-    return lire(sessions, id);
+    return typesExamen.vue(lire(sessions, id));
   }
 
   @PutMapping("/sessions/{id}")
-  public SessionExamen majSession(@PathVariable Long id, @Valid @RequestBody SessionRequest request) {
+  public TypeExamenService.SessionVue majSession(@PathVariable Long id, @Valid @RequestBody SessionRequest request) {
     droits.exiger(Ressource.SESSIONS, Action.MODIFIER);
     SessionExamen session = lire(sessions, id);
     verifierAnnee(request.anneeScolaireId());
     verifierCentre(request.centreId());
     remplir(session, request);
-    return sessions.save(session);
+    return typesExamen.vue(sessions.save(session));
   }
 
   @DeleteMapping("/sessions/{id}")
@@ -655,7 +663,7 @@ public class SchoolController {
     session.setAnneeScolaireId(request.anneeScolaireId());
     session.setCentreId(request.centreId());
     session.setNom(request.nom().trim());
-    session.setTypeExamen(request.typeExamen().trim());
+    typesExamen.rattacher(session, request.typeExamenId(), request.typeExamen());
     session.setSerie(request.serie());
     session.setStatut(request.statut().trim());
     // La date d'archivage suit le statut : posée à la clôture, effacée à la réouverture.
