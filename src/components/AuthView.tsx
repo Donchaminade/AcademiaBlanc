@@ -241,7 +241,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
     'w-full bg-[#f2f3ff] text-[12px] px-3 py-2 rounded-lg border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5] focus:ring-2 focus:ring-[#0051d5]/20';
 
   const panel = (
-    <div className="w-full max-w-4xl bg-white rounded-xl shadow-lg border border-[#eaedff] overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="w-full max-w-4xl bg-white rounded-xl shadow-lg border border-[#eaedff] overflow-hidden flex flex-col max-h-[90dvh]">
       {/* En-tête */}
       <div className="shrink-0 bg-gradient-to-r from-[#00236f] via-[#1e3a8a] to-[#0051d5] text-white px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -557,7 +557,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
   if (embedded) return panel;
 
   return (
-    <div className="min-h-screen bg-[#faf8ff] p-3 sm:p-6 flex justify-center items-center">
+    <div className="min-h-dvh bg-[#faf8ff] p-3 sm:p-6 flex justify-center items-center">
       {panel}
     </div>
   );

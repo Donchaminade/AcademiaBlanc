@@ -204,7 +204,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
   const closeMenu = () => setMenuOpen(false);
 
   return (
-    <div ref={rootRef} className="min-h-screen bg-[#faf8ff] text-[#131b2e] antialiased">
+    <div ref={rootRef} className="min-h-dvh bg-[#faf8ff] text-[#131b2e] antialiased">
       <a
         href="#accueil"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-[13px] focus:font-bold focus:text-[#00236f] focus:shadow-lg"
