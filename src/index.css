@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* Polices et icônes servies depuis le bundle (fichiers woff2 hachés dans dist/assets/),
+   à la place de fonts.googleapis.com : le rendu reste complet sans connexion.
+   - Inter Variable : axe wght 100–900 (Google Fonts servait 400–800), font-display: swap.
+   - JetBrains Mono Variable : axe wght 100–800 (Google Fonts servait 400–700), font-display: swap.
+   - Material Symbols Outlined : police variable complète, axes FILL / wght / GRAD / opsz
+     identiques au lien Google (opsz 20..48, wght 100..700, FILL 0..1, GRAD -50..200). */
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "material-symbols/outlined.css";
+
 @theme {
   --color-primary: #00236f;
   --color-primary-container: #1e3a8a;
@@ -33,8 +43,8 @@
   --color-outline: #757682;
   --color-outline-variant: #c5c5d3;
 
-  --font-inter: 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-inter: 'Inter Variable', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', monospace;
 }
 
 @layer base {
