@@ -297,7 +297,7 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
               <span className="text-[11px] text-[#0051d5] font-medium block" data-testid="eleves-en-base">
                 {rosterApi.total} élève{rosterApi.total > 1 ? 's' : ''} en base
                 {rosterApi.masques > 0 && (
-                  <span className="text-[#ba1a1a]"> · {rosterApi.masques} d’une autre session masqué{rosterApi.masques > 1 ? 's' : ''}</span>
+                  <span className="text-[#ba1a1a]"> · {rosterApi.masques} d’un autre examen ou d’une autre année masqué{rosterApi.masques > 1 ? 's' : ''}</span>
                 )}
               </span>
             ) : (
@@ -416,9 +416,9 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
               value={rosterApi.toutesSessions ? 'toutes' : 'active'}
               onChange={(e) => rosterApi.onToutesSessionsChange(e.target.value === 'toutes')}
               className="bg-[#f2f3ff] text-[11px] font-semibold text-[#00236f] py-1.5 px-2 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
-              title="Les élèves sans session sont toujours affichés ; « Toutes les sessions » montre aussi ceux rattachés à une autre session."
+              title="La session active réunit ses élèves, ceux des autres sessions du même examen dans la même année scolaire (ex. BEPC blanc n°1 et n°2) et ceux sans session ; « Toutes les sessions » montre aussi les élèves d’un autre examen ou d’une autre année."
             >
-              <option value="active">Session active + sans session</option>
+              <option value="active">Candidats de la session active</option>
               <option value="toutes">Toutes les sessions ({rosterApi.total} en base)</option>
             </select>
           )}

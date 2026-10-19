@@ -248,6 +248,7 @@ public class SchoolController {
     droits.exiger(Ressource.SESSIONS, Action.CREER);
     verifierAnnee(request.anneeScolaireId());
     verifierCentre(request.centreId());
+    verifierNomSessionLibre(request.nom(), null);
     SessionExamen session = new SessionExamen();
     session.setEtablissementId(Tenant.current().etablissementId());
     remplir(session, request);
@@ -266,6 +267,7 @@ public class SchoolController {
     SessionExamen session = lire(sessions, id);
     verifierAnnee(request.anneeScolaireId());
     verifierCentre(request.centreId());
+    verifierNomSessionLibre(request.nom(), id);
     remplir(session, request);
     return typesExamen.vue(sessions.save(session));
   }
@@ -742,6 +744,20 @@ public class SchoolController {
   private void verifierSession(Long id) {
     SessionExamen session = sessions.findById(id).orElseThrow(SchoolController::absent);
     Tenant.same(session.getEtablissementId());
+  }
+
+  /**
+   * Le nombre de sessions n'est pas limité (plusieurs BEPC blancs dans la même année), mais chacune
+   * porte un intitulé distinct : c'est par lui qu'on la choisit dans la barre latérale et sur le bulletin.
+   */
+  private void verifierNomSessionLibre(String nom, Long saufId) {
+    String voulu = nom.trim();
+    boolean pris = sessions.findByEtablissementIdOrderByNomAsc(Tenant.current().etablissementId()).stream()
+        .anyMatch(autre -> !autre.getId().equals(saufId) && autre.getNom().trim().equalsIgnoreCase(voulu));
+    if (pris) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT,
+          "Une session porte déjà l'intitulé « " + voulu + " » : donnez-lui un nom distinct (ex. « BEPC Blanc n°2 – février »).");
+    }
   }
 
   private void verifierClasse(Long id) {
