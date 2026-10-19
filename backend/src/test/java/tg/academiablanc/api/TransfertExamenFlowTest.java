@@ -334,8 +334,8 @@ class TransfertExamenFlowTest {
     String raw = mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"" + nom + "\",\"ville\":\"Lome\",\"email\":\"" + email
-                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Chef Test\"}"))
-        .andExpect(status().isOk())
+                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Chef Test\",\"acceptationConditions\":true}"))
+        .andExpect(status().is2xxSuccessful())
         .andReturn().getResponse().getContentAsString();
     return json.readTree(raw).get("token").asText();
   }
