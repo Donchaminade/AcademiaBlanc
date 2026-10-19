@@ -1,6 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { SchoolAccount } from '../types';
-import { getRegisteredSchools, createSchoolAccount } from '../data/schoolsData';
 import {
   ApiError,
   MESSAGE_SERVEUR_INDISPONIBLE,
@@ -67,8 +65,8 @@ function messageErreurInscription(error: unknown): string {
 }
 
 interface AuthViewProps {
-  onSelectSchool: (schoolId: string) => void;
-  onAccountCreated: (newSchool: SchoolAccount) => void;
+  /** Compte d'établissement créé sur le serveur (la session API est déjà enregistrée). */
+  onAccountCreated: () => void;
   onApiReady?: () => void;
   onClose?: () => void;
   /** Ferme la session API en cours (affiché uniquement quand une session existe). */
@@ -86,7 +84,6 @@ interface AuthViewProps {
 export type AuthMode = 'login' | 'register';
 
 export const AuthView: React.FC<AuthViewProps> = ({
-  onSelectSchool,
   onAccountCreated,
   onApiReady,
   onClose,
@@ -170,22 +167,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
         region: formData.region.trim(),
         typeEtablissement: formData.type.trim(),
       }));
+      // Le compte vit sur le serveur : aucun double local (et surtout pas le mot de passe) n'est écrit dans le
+      // navigateur, sinon il serait relu plus tard comme un espace de démonstration ou par un autre compte.
       setSession(session);
-      const newSchool = createSchoolAccount({
-        name: formData.name.trim(),
-        code: formData.code.trim(),
-        city: formData.city.trim(),
-        region: formData.region.trim(),
-        type: formData.type.trim(),
-        principalName: formData.principalName.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        password: formData.password,
-        initialWithSampleStudents: false,
-      });
-
-      onAccountCreated(newSchool);
       onApiReady?.();
+      onAccountCreated();
     } catch (error) {
       setRegError(messageErreurInscription(error));
     }
@@ -208,11 +194,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
       if (session.role === PLATFORM_ROLE) {
         return;
       }
-      const found = getRegisteredSchools().find((s) => s.email.toLowerCase() === session.email.toLowerCase());
-      if (found) {
-        onSelectSchool(found.id);
-        return;
-      }
+      // Entrée directe dans l'espace du serveur : le registre de démonstration du navigateur n'est jamais
+      // consulté pour un vrai compte (il pouvait associer l'adresse à un ancien espace local).
       if (onClose) onClose();
     } catch (error) {
       setLoginError(messageErreurConnexion(error));

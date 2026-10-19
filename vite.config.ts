@@ -13,10 +13,13 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       VitePWA({
-        // Le service worker prend la main dès son installation et se met à jour seul :
-        // chaque build produit un nouveau manifeste de précache (hash par fichier),
-        // les anciens caches sont supprimés (cleanupOutdatedCaches).
-        registerType: 'autoUpdate',
+        // Chaque build produit un nouveau manifeste de précache (hash par fichier) et les anciens caches
+        // sont supprimés (cleanupOutdatedCaches). Le nouveau service worker attend (« prompt ») au lieu
+        // de prendre la main au milieu d'une saisie : src/main.tsx l'applique aussitôt s'il est détecté au
+        // chargement, sinon propose le bandeau « Nouvelle version disponible — Actualiser », et vérifie
+        // les mises à jour toutes les heures (une PWA installée ne navigue jamais : sans cela, l'ancien
+        // build resterait servi indéfiniment après un déploiement).
+        registerType: 'prompt',
         manifest: {
           id: '/',
           name: "AcademiaBlanc - Examens d'État",
@@ -42,12 +45,22 @@ export default defineConfig(() => {
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           cleanupOutdatedCaches: true,
           clientsClaim: true,
-          skipWaiting: true,
+          // Pas de skipWaiting : le nouveau service worker reste en attente jusqu'à l'actualisation
+          // décidée par l'utilisateur (ou immédiate au chargement), sinon l'ancienne page recevrait des
+          // fichiers du nouveau build.
+          skipWaiting: false,
           // Application monopage : toute navigation (/connexion, /admin…) retombe sur index.html
           // hors connexion. Les appels /api/* ne sont jamais servis depuis le cache.
           navigateFallback: 'index.html',
           navigateFallbackDenylist: [/^\/api\//],
-          runtimeCaching: [],
+          // L'API (même origine ou serveur distant) passe toujours par le réseau : aucune réponse
+          // d'élèves, de notes ou de paramètres n'est conservée dans un cache du service worker.
+          runtimeCaching: [
+            {
+              urlPattern: ({url}) => url.pathname.startsWith('/api/'),
+              handler: 'NetworkOnly',
+            },
+          ],
         },
       }),
     ],

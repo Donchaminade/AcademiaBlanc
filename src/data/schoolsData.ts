@@ -124,7 +124,6 @@ export const INITIAL_SCHOOLS: SchoolAccount[] = [
     principalName: 'Mme le Proviseur Dr. A. KOUAME',
     email: 'direction@lycee-tokoin.tg',
     phone: '+228 22 21 00 11',
-    password: 'password123',
     createdAt: '2025-01-10',
     settings: {
       ...TOGO_SETTINGS,
@@ -145,7 +144,6 @@ export const INITIAL_SCHOOLS: SchoolAccount[] = [
     principalName: 'M. le Directeur Général Pasteur E. ADJOLOU',
     email: 'administration@collegeprotestant-lome.tg',
     phone: '+228 22 22 34 56',
-    password: 'password123',
     createdAt: '2025-02-15',
     settings: {
       ...TOGO_SETTINGS,
@@ -169,6 +167,13 @@ export function getRegisteredSchools(): SchoolAccount[] {
     if (raw) {
       const parsed: SchoolAccount[] = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Une ancienne version doublait chaque compte créé sur le serveur d'une fiche locale portant son
+        // mot de passe : ces mots de passe sont retirés du navigateur à la première lecture.
+        if (parsed.some((school) => school.password !== undefined)) {
+          const sansMotsDePasse = parsed.map(({ password: _retire, ...school }) => school as SchoolAccount);
+          saveRegisteredSchools(sansMotsDePasse);
+          return sansMotsDePasse;
+        }
         return parsed;
       }
     }
@@ -270,7 +275,6 @@ export function createSchoolAccount(params: {
   principalName: string;
   email: string;
   phone: string;
-  password?: string;
   initialWithSampleStudents: boolean;
 }): SchoolAccount {
   const newId = `school_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -316,7 +320,6 @@ export function createSchoolAccount(params: {
     principalName: params.principalName,
     email: params.email,
     phone: params.phone,
-    password: params.password || 'password123',
     createdAt: new Date().toISOString().split('T')[0],
     settings,
     candidates
