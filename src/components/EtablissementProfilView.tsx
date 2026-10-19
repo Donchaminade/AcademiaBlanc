@@ -540,7 +540,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
           {/* Charte graphique */}
           <Carte titre="Charte graphique" icon="approval">
             <p className="text-[11px] text-[#444651] leading-snug">
-              Cachet et signatures affichés dans les cartes « {settings.principalTeacherTitle || 'Le Titulaire'} » et
+              Cachet et signatures affichés dans les cartes « Le Titulaire » et
               « {settings.jurySignerTitle || 'Le Proviseur'} » du bulletin. Sans image, l’emplacement reste vide pour
               le cachet humide et les signatures à la main.
             </p>
@@ -582,7 +582,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
                 onError={(message) => void showError('Image refusée', message)}
               />
               <CharteAssetUpload
-                label={`Signature du ${(settings.principalTeacherTitle || 'Titulaire').replace(/^le\s+/i, '')}`}
+                label="Signature du Titulaire"
                 hint="Optionnelle : signature scannée du titulaire de la classe."
                 icon="draw"
                 value={settings.signatureTitulaireUrl}

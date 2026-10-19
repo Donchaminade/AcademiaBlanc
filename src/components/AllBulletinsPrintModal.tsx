@@ -13,6 +13,7 @@ import {
 import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
+import { TITRE_TITULAIRE, aUnTitulaire, nomTitulaireAffiche } from '../utils/titulaire';
 import { BulletinFooter } from './BulletinFooter';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
 
@@ -439,15 +440,15 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                 <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[46px] bg-[#f2f3ff]/50 px-2 py-0.5 rounded-xs border border-[#eaedff]">
                   <div>
                     <span className="text-[10px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
-                      {settings.principalTeacherTitle || 'Le Titulaire'}
+                      {TITRE_TITULAIRE}
                     </span>
-                    <span className="text-[12px] text-[#131b2e] font-semibold mt-0.5 block leading-tight">
-                      {settings.principalTeacherName}
+                    <span className={`text-[12px] font-semibold mt-0.5 block leading-tight ${aUnTitulaire(candidate) ? 'text-[#131b2e]' : 'text-[#757682]'}`}>
+                      {nomTitulaireAffiche(candidate)}
                     </span>
                   </div>
                   <BulletinSignatureZone
                     signatureUrl={settings.signatureTitulaireUrl}
-                    signatureAlt={`Signature — ${settings.principalTeacherTitle || 'Le Titulaire'}`}
+                    signatureAlt={`Signature — ${TITRE_TITULAIRE}`}
                     className="h-11"
                   />
                   <span className="text-[9px] text-[#444651] italic leading-tight">Visa du titulaire</span>

@@ -12,6 +12,7 @@ import {
 import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
+import { TITRE_TITULAIRE, aUnTitulaire, nomTitulaireAffiche } from '../utils/titulaire';
 import { BulletinFooter } from './BulletinFooter';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
 
@@ -551,21 +552,25 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
 
           {/* Signatures & Endorsement Section: Le Titulaire et Le Proviseur */}
           <div className="bulletin-signatures relative z-10 pt-1 grid grid-cols-2 gap-2 max-w-2xl mx-auto text-center">
-            {/* Signature 1: Le Titulaire */}
+            {/* Signature 1: Le Titulaire — l'enseignant affecté à la classe de l'élève, sinon ligne à compléter */}
             <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[52px] bg-[#f2f3ff]/50 px-2 py-1 rounded-xs border border-[#eaedff]">
               <div>
                 <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
-                  {settings.principalTeacherTitle || 'Le Titulaire'}
+                  {TITRE_TITULAIRE}
                 </span>
-                <span className="text-[13px] text-[#131b2e] font-semibold mt-0.5 block leading-tight">
-                  {settings.principalTeacherName}
+                <span
+                  className={`text-[13px] font-semibold mt-0.5 block leading-tight ${aUnTitulaire(selectedCandidate) ? 'text-[#131b2e]' : 'text-[#757682]'}`}
+                  data-testid="bulletin-titulaire"
+                  title={aUnTitulaire(selectedCandidate) ? 'Titulaire de la classe (Administration › Classes)' : 'Aucun titulaire affecté à la classe : nom à compléter à la main'}
+                >
+                  {nomTitulaireAffiche(selectedCandidate)}
                 </span>
               </div>
 
               {/* Signature téléversée ou espace laissé vide pour la signature à la main */}
               <BulletinSignatureZone
                 signatureUrl={settings.signatureTitulaireUrl}
-                signatureAlt={`Signature — ${settings.principalTeacherTitle || 'Le Titulaire'}`}
+                signatureAlt={`Signature — ${TITRE_TITULAIRE}`}
                 className="h-12"
               />
               <span className="text-[10px] text-[#444651] italic leading-tight">

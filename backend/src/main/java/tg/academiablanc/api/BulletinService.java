@@ -13,17 +13,21 @@ import org.springframework.web.server.ResponseStatusException;
 import tg.academiablanc.calc.GradeCalculator;
 import tg.academiablanc.calc.GradeCalculator.Ligne;
 import tg.academiablanc.domain.Bulletin;
+import tg.academiablanc.domain.Classe;
 import tg.academiablanc.domain.Coefficient;
 import tg.academiablanc.domain.Eleve;
 import tg.academiablanc.domain.Etablissement;
 import tg.academiablanc.domain.Matiere;
 import tg.academiablanc.domain.Note;
+import tg.academiablanc.domain.Professeur;
 import tg.academiablanc.repo.BulletinRepository;
+import tg.academiablanc.repo.ClasseRepository;
 import tg.academiablanc.repo.CoefficientRepository;
 import tg.academiablanc.repo.EleveRepository;
 import tg.academiablanc.repo.EtablissementRepository;
 import tg.academiablanc.repo.MatiereRepository;
 import tg.academiablanc.repo.NoteRepository;
+import tg.academiablanc.repo.ProfesseurRepository;
 import tg.academiablanc.repo.SessionExamenRepository;
 import tg.academiablanc.security.Tenant;
 
@@ -35,6 +39,8 @@ public class BulletinService {
   private final CoefficientRepository coefficients;
   private final NoteRepository notes;
   private final BulletinRepository bulletins;
+  private final ClasseRepository classes;
+  private final ProfesseurRepository professeurs;
   private final EtablissementRepository etablissements;
 
   public BulletinService(
@@ -44,6 +50,8 @@ public class BulletinService {
       CoefficientRepository coefficients,
       NoteRepository notes,
       BulletinRepository bulletins,
+      ClasseRepository classes,
+      ProfesseurRepository professeurs,
       EtablissementRepository etablissements
   ) {
     this.sessions = sessions;
@@ -52,6 +60,8 @@ public class BulletinService {
     this.coefficients = coefficients;
     this.notes = notes;
     this.bulletins = bulletins;
+    this.classes = classes;
+    this.professeurs = professeurs;
     this.etablissements = etablissements;
   }
 
@@ -69,11 +79,14 @@ public class BulletinService {
    * {@code totalCoefProgramme} et {@code pointsMax} (= 20 × Σ coef) portent sur tout le programme de la
    * classe. {@code moyenneClasse}, {@code moyenneClasseMax} et {@code moyenneClasseMin} sont calculées sur
    * les élèves notés de la même classe dans la session ; null si personne n'est noté.
+   * {@code titulaireNom} : nom de l'enseignant affecté comme titulaire à la classe de l'élève
+   * ({@code classe.titulaire_id}), tel que saisi dans Administration › Enseignants (civilité comprise) ;
+   * null si la classe n'a pas de titulaire — le bulletin laisse alors la ligne du visa à compléter à la main.
    * {@code etablissementNom} et {@code etablissementDevise} alimentent le pied de page du relevé
    * (« NOM DE L'ÉTABLISSEMENT • Devise ») ; la devise est celle propre à l'établissement
    * ({@code etablissement.devise}), pas la devise nationale de l'en-tête, et vaut null si aucune n'est saisie.
    */
-  public record BulletinVue(Long eleveId, String nomComplet, String matricule, BigDecimal moyenne,
+  public record BulletinVue(Long eleveId, String nomComplet, String matricule, String titulaireNom, BigDecimal moyenne,
                             Integer rang, String mention, String appreciation, BigDecimal totalPoints,
                             BigDecimal totalCoef, BigDecimal totalCoefProgramme, BigDecimal pointsMax,
                             BigDecimal moyenneClasse, BigDecimal moyenneClasseMax, BigDecimal moyenneClasseMin,
@@ -112,6 +125,7 @@ public class BulletinService {
     for (Matiere matiere : subjects) matiereParId.put(matiere.getId(), matiere);
     List<Note> sessionNotes = notes.findByEtablissementIdAndSessionId(user.etablissementId(), sessionId);
     List<Coefficient> coefs = coefficients.findByEtablissementId(user.etablissementId());
+    Map<Long, String> titulaireParClasse = titulairesParClasse(user.etablissementId());
 
     // Programme de chaque classe (matière → coefficient) ; une classe sans ligne n'a pas de programme défini.
     Map<Long, Map<Long, BigDecimal>> programmes = new HashMap<>();
@@ -208,6 +222,7 @@ public class BulletinService {
           eleve.getId(),
           eleve.getNomComplet(),
           eleve.getMatricule(),
+          titulaireParClasse.get(eleve.getClasseId()),
           moyenne,
           rangsGeneraux.get(eleve.getId()),
           GradeCalculator.mention(moyenne),
@@ -241,6 +256,20 @@ public class BulletinService {
     bulletin.setTotalCoef(vue.totalCoef());
     bulletin.setGenereLe(Instant.now());
     bulletins.save(bulletin);
+  }
+
+  /** Nom du titulaire de chaque classe de l'établissement (classe → professeur affecté) ; les classes sans titulaire sont absentes. */
+  private Map<Long, String> titulairesParClasse(Long etablissementId) {
+    Map<Long, String> nomParProfesseur = new HashMap<>();
+    for (Professeur professeur : professeurs.findByEtablissementIdOrderByNomAsc(etablissementId)) {
+      nomParProfesseur.put(professeur.getId(), professeur.getNom());
+    }
+    Map<Long, String> titulaires = new HashMap<>();
+    for (Classe classe : classes.findByEtablissementIdOrderByNomAsc(etablissementId)) {
+      String nom = classe.getTitulaireId() == null ? null : nomParProfesseur.get(classe.getTitulaireId());
+      if (nom != null && !nom.isBlank()) titulaires.put(classe.getId(), nom.trim());
+    }
+    return titulaires;
   }
 
   /**
