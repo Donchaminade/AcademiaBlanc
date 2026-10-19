@@ -29,8 +29,8 @@ class ConnexionPlateformeSansEmailTest {
   void sansEmailConfigureLaConnexionAdminRenvoieNonInitialise() throws Exception {
     mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"Lycee Sans Proprio\",\"ville\":\"Kara\",\"email\":\"owner-sans-proprio@ecole.tg\","
-                + "\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\"}"))
-        .andExpect(status().isOk());
+                + "\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\",\"acceptationConditions\":true}"))
+        .andExpect(status().isCreated());
 
     for (String email : new String[] {"owner-sans-proprio@ecole.tg", "inconnu@nulle-part.tg"}) {
       mvc.perform(post("/api/auth/login-plateforme").contentType(MediaType.APPLICATION_JSON)

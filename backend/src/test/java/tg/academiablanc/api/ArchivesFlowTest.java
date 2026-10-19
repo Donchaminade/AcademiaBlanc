@@ -156,8 +156,8 @@ class ArchivesFlowTest {
     String raw = mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"" + nom + "\",\"ville\":\"Lome\",\"email\":\"" + email
-                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur Test\"}"))
-        .andExpect(status().isOk())
+                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur Test\",\"acceptationConditions\":true}"))
+        .andExpect(status().isCreated())
         .andReturn().getResponse().getContentAsString();
     return json.readTree(raw).get("token").asText();
   }

@@ -114,8 +114,8 @@ class TitreChefEtablissementBulletinTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"" + nom + "\",\"ville\":\"Lome\",\"email\":\"" + email
                 + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Chef Test\""
-                + (type == null ? "" : ",\"typeEtablissement\":\"" + type + "\"") + "}"))
-        .andExpect(status().isOk())
+                + (type == null ? "" : ",\"typeEtablissement\":\"" + type + "\"") + ",\"acceptationConditions\":true}"))
+        .andExpect(status().isCreated())
         .andReturn().getResponse().getContentAsString();
     return json.readTree(raw).get("token").asText();
   }

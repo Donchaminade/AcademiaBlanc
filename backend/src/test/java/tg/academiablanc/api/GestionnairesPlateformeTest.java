@@ -138,8 +138,8 @@ class GestionnairesPlateformeTest {
     mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"" + nom + "\",\"ville\":\"Lome\",\"email\":\"" + email
-                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proprietaire\"}"))
-        .andExpect(status().isOk());
+                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proprietaire\",\"acceptationConditions\":true}"))
+        .andExpect(status().isCreated());
   }
 
   private JsonNode connecter(String email, String motDePasse) throws Exception {

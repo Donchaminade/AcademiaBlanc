@@ -82,8 +82,8 @@ class ConnexionPlateformeTest {
   void unCompteEtablissementEstRefuseSansJeton() throws Exception {
     mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"Lycee Non Plateforme\",\"ville\":\"Lome\",\"email\":\"owner-admin@ecole.tg\","
-                + "\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\"}"))
-        .andExpect(status().isOk())
+                + "\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\",\"acceptationConditions\":true}"))
+        .andExpect(status().isCreated())
         .andExpect(jsonPath("$.role").value("OWNER"));
 
     // Le même compte entre normalement par /login…

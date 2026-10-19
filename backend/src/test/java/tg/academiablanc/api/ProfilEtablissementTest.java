@@ -150,8 +150,8 @@ class ProfilEtablissementTest {
     return token(mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"" + nom + "\",\"ville\":\"Lome\",\"email\":\"" + email
-                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\"}"))
-        .andExpect(status().isOk())
+                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\",\"acceptationConditions\":true}"))
+        .andExpect(status().isCreated())
         .andReturn().getResponse().getContentAsString());
   }
 
