@@ -17,6 +17,7 @@ import {
 } from '../api/etablissement';
 import { usePermissions } from '../api/permissions';
 import { showError, toastSuccess } from '../utils/alerts';
+import { enTeteDepuisSettings } from '../utils/prereglages';
 import { CharteAssetUpload } from './CharteAssetUpload';
 
 interface EtablissementProfilViewProps {
@@ -122,6 +123,7 @@ function profilDemo(school: SchoolAccount | null | undefined, settings: AppSetti
     devise: null,
     actif: true,
     creeLe: school?.createdAt || null,
+    enTete: enTeteDepuisSettings(settings),
   };
 }
 

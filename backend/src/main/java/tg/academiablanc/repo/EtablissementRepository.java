@@ -10,4 +10,6 @@ public interface EtablissementRepository extends JpaRepository<Etablissement, Lo
   boolean existsByCode(String code);
 
   List<Etablissement> findAllByOrderByNomAsc();
+
+  long countByPrereglageNationalId(Long prereglageNationalId);
 }

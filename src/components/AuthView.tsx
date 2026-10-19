@@ -13,6 +13,8 @@ import {
   signup as apiSignup,
 } from '../api/client';
 import { isPlausibleEmail } from '../utils/safeUrl';
+import { usePrereglageDefaut } from '../api/prereglages';
+import { bandeauNational, drapeau } from '../utils/prereglages';
 
 /** Au-delà de ce délai sans réponse, l’écran prévient que le serveur gratuit est sans doute en train de redémarrer. */
 const DELAI_NOTE_REVEIL_MS = 3_000;
@@ -94,6 +96,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
   onModeChange,
   hideCloseButton = false,
 }) => {
+  // Bandeau national : préréglage par défaut de la plateforme (repli local si l'API est injoignable).
+  const prereglageDefaut = usePrereglageDefaut();
+  const bandeau = bandeauNational(prereglageDefaut);
   const [mode, setMode] = useState<AuthMode>(initialMode);
   useEffect(() => {
     setMode(initialMode);
@@ -245,7 +250,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
           </div>
           <div className="min-w-0">
             <span className="block text-[10px] font-bold tracking-widest uppercase text-white/80">
-              🇹🇬 République Togolaise • MEPST
+              {drapeau(prereglageDefaut.code)} {bandeau}
             </span>
             <h1 className="text-[17px] sm:text-lg font-bold tracking-tight leading-tight truncate">
               Portail Établissements &amp; Gestion des Bulletins
@@ -544,7 +549,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
       {/* Pied de page */}
       <div className="shrink-0 bg-[#faf8ff] px-4 py-2 text-center border-t border-[#eaedff] text-[11px] text-[#444651]">
-        AcademiaBlanc • République Togolaise • MEPST
+        AcademiaBlanc • {bandeau}
       </div>
     </div>
   );

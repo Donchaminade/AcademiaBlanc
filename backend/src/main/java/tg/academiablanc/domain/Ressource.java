@@ -32,7 +32,9 @@ public enum Ressource {
   /** Plateforme : gestionnaires (sous-administrateurs) du logiciel. */
   GESTIONNAIRES(true, Action.CRUD),
   /** Plateforme : référentiel des types d'examen (CEPD, BEPC, BAC I, BAC II…) proposé à tous les établissements. */
-  TYPES_EXAMEN(true, Action.CRUD);
+  TYPES_EXAMEN(true, Action.CRUD),
+  /** Plateforme : préréglages nationaux (pays, ministère, devise) proposés aux établissements. SUPPRIMER couvre la désactivation. */
+  PREREGLAGES(true, Action.CRUD);
 
   private final boolean plateforme;
   private final Set<Action> actions;

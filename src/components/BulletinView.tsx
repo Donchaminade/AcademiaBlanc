@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
-import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministrySigle } from '../utils/bulletinHeader';
+import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministryMark } from '../utils/bulletinHeader';
 import { appreciationFromAverage, computeSubjectRank, formatSubjectRank } from '../utils/bulletinMetrics';
 import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
@@ -41,7 +41,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   examTypeLong,
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const ministryMark = ministrySigle(settings.ministryName);
+  const ministryMarkLabel = ministryMark(settings);
+  const regionalAuthority = (settings.regionalAuthority || '').trim();
   const sealCaption = establishmentCaption(settings.institutionName);
   const yearCaption = academicYearCaption(settings.academicYear);
 
@@ -251,7 +252,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           <div className="bulletin-header relative z-10">
             <div className="bulletin-header-left">
               <p className="bulletin-ministry-name">{settings.ministryName}</p>
-              {ministryMark ? <p className="bulletin-ministry-sigle">{ministryMark}</p> : null}
+              {ministryMarkLabel ? <p className="bulletin-ministry-sigle">{ministryMarkLabel}</p> : null}
+              {regionalAuthority ? <p className="bulletin-ministry-sigle">{regionalAuthority}</p> : null}
             </div>
 
             {/* Central Academic Seal */}

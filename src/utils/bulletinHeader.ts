@@ -88,6 +88,16 @@ export function examTitleFromType(examTypeLong: string): string {
 }
 
 /**
+ * Sigle imprimé sous le nom du ministère : celui enregistré avec le préréglage national
+ * (`settings.ministrySigle`) s'il existe, sinon déduit du nom par `ministrySigle()`.
+ */
+export function ministryMark(settings: { ministryName: string; ministrySigle?: string }): string {
+  const explicit = (settings.ministrySigle || '').trim();
+  if (explicit) return `(${explicit.replace(/^\(|\)$/g, '')})`;
+  return ministrySigle(settings.ministryName);
+}
+
+/**
  * Calcule dynamiquement les mentions et titres officiels de l'en-tête du bulletin.
  *
  * - Connecté à l'API : `examTypeLong` (libellé long du type d'examen de la session active, issu du

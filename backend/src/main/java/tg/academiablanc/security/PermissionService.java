@@ -196,6 +196,7 @@ public class PermissionService {
         ajouter(droits, Ressource.ETABLISSEMENTS, Action.VOIR, Action.DETAILS);
         ajouter(droits, Ressource.GESTIONNAIRES, Action.VOIR);
         ajouter(droits, Ressource.TYPES_EXAMEN, Action.VOIR);
+        ajouter(droits, Ressource.PREREGLAGES, Action.VOIR);
       }
     }
     return droits;
