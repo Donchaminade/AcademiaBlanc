@@ -14,6 +14,7 @@ import { AuthPage } from './components/AuthPage';
 import { EtablissementProfilView } from './components/EtablissementProfilView';
 import { AdminLoginPage } from './components/AdminLoginPage';
 import { PlateformeView } from './components/PlateformeView';
+import type { DemandeOnglet, OngletPlateforme } from './components/PlateformeView';
 import { TransfertsView } from './components/TransfertsView';
 import type { OngletTransferts } from './components/TransfertsView';
 import { AllBulletinsPrintModal } from './components/AllBulletinsPrintModal';
@@ -22,7 +23,7 @@ import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, TOGO_SETTINGS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
 import { attribuerNumerosManquants, candidatsSansNumero } from './utils/numerosTable';
-import { ApiError, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, isUnavailable, refreshSession, roleLabel, setSession } from './api/client';
+import { ApiError, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, isPlatformOwner, isUnavailable, refreshSession, roleLabel, setSession } from './api/client';
 import { cleLocale, parametresDepuisServeur, parametresInitiauxConnecte, purgerSessionLocale } from './api/espaceConnecte';
 import {
   appliquerDeliberation,
@@ -71,6 +72,7 @@ import { AbonnementView } from './components/abonnement/AbonnementView';
 import { PaiementActivationScreen } from './components/abonnement/PaiementActivationScreen';
 import { useVerrouImpression } from './components/abonnement/useVerrouImpression';
 import { AbonnementsPlateformeView } from './components/plateforme/AbonnementsPlateformeView';
+import type { DemandeFiltreAbonnements } from './components/plateforme/AbonnementsPlateformeView';
 
 // Site vitrine (GSAP, Three.js) chargé à la demande : l’application connectée n’embarque pas ces bibliothèques.
 const LandingPage = lazy(() => import('./components/landing/LandingPage'));
@@ -149,6 +151,10 @@ export default function App() {
   });
 
   const [accountRole, setAccountRole] = useState(() => getSession()?.role ?? '');
+  // Onglet de la vue Plateforme demandé depuis la barre latérale (« Analytique ») et onglet affiché.
+  const [ongletPlateformeDemande, setOngletPlateformeDemande] = useState<DemandeOnglet | null>(null);
+  const [ongletPlateformeCourant, setOngletPlateformeCourant] = useState<OngletPlateforme | null>(null);
+  const [filtreAbonnementsDemande, setFiltreAbonnementsDemande] = useState<DemandeFiltreAbonnements | null>(null);
   // Session plateforme sans établissement : barre latérale réduite, aucune vue d'établissement accessible.
   const [sessionPlateformeSeule, setSessionPlateformeSeule] = useState<boolean>(() => Boolean(getToken()) && isPlatformOnlyAccount());
   // Hors application : `/` (vitrine), `/connexion`, `/inscription`.
@@ -1000,8 +1006,19 @@ export default function App() {
   }
 
   const platformOwner = isPlatformAccount(getSession()) || accountRole === 'SUPER_ADMIN' || accountRole === 'GESTIONNAIRE_PLATEFORME';
+  // Le tableau de bord analytique n'est proposé qu'au propriétaire du logiciel (SUPER_ADMIN), jamais aux gestionnaires.
+  const proprietairePlateforme = usingApi && (isPlatformOwner(getSession()) || accountRole === 'SUPER_ADMIN');
+  const ouvrirOngletPlateforme = (onglet: OngletPlateforme) => {
+    setOngletPlateformeDemande({ onglet, jeton: Date.now() });
+    setCurrentView('plateforme');
+  };
   const abonnementVisible = usingApi && !sessionPlateformeSeule && etatAbonnement != null && !etatAbonnement.plateforme;
   const ouvrirAbonnement = () => setCurrentView('abonnement');
+  // Carte du tableau de bord analytique → page « Abonnements & paiements » filtrée sur le statut cliqué.
+  const ouvrirAbonnementsFiltres = (statut: DemandeFiltreAbonnements['statut']) => {
+    setFiltreAbonnementsDemande({ statut, jeton: Date.now() });
+    setCurrentView('abonnements');
+  };
   // Depuis le tiroir mobile, une action qui n'est pas un changement de vue doit aussi refermer le tiroir.
   const depuisTiroir = (action?: () => void) => (action ? () => { fermerMenuMobile(); action(); } : undefined);
   const sidebarProps = {
@@ -1032,6 +1049,9 @@ export default function App() {
     centerOptions: usingApi ? apiCenters : undefined,
     platformOwner,
     platformOnly: sessionPlateformeSeule,
+    onOpenAnalytique: proprietairePlateforme ? () => ouvrirOngletPlateforme('analytique') : undefined,
+    analytiqueActive: ongletPlateformeCourant === 'analytique',
+    onOpenPlateforme: usingApi ? () => ouvrirOngletPlateforme('etablissements') : undefined,
     usingApi,
     apiUser: usingApi ? apiUser : null,
     onOpenAdmin: usingApi && adminAccess && !sessionPlateformeSeule ? () => openAdmin() : undefined,
@@ -1071,6 +1091,8 @@ export default function App() {
           onToggleOffline={handleToggleOffline}
           onLogout={depuisTiroir(sidebarProps.onLogout)}
           onConnexion={depuisTiroir(sidebarProps.onConnexion)}
+          onOpenAnalytique={depuisTiroir(sidebarProps.onOpenAnalytique)}
+          onOpenPlateforme={depuisTiroir(sidebarProps.onOpenPlateforme)}
           onOpenTransferts={depuisTiroir(sidebarProps.onOpenTransferts)}
         />
       </MobileDrawer>
@@ -1088,7 +1110,7 @@ export default function App() {
             <AbonnementView etat={etatAbonnement} nomEtablissement={settings.institutionName} peutDeclarer={peutDeclarerPaiement} />
           )}
 
-          {currentView === 'abonnements' && platformOwner && <AbonnementsPlateformeView />}
+          {currentView === 'abonnements' && platformOwner && <AbonnementsPlateformeView filtreDemande={filtreAbonnementsDemande} />}
 
           {currentView === 'bulletin' && !selectedCandidate && (
             <div className="p-4 md:p-10 text-[14px] text-[#444651] space-y-3">
@@ -1207,7 +1229,13 @@ export default function App() {
             />
           )}
 
-          {currentView === 'plateforme' && <PlateformeView />}
+          {currentView === 'plateforme' && (
+            <PlateformeView
+              ongletDemande={ongletPlateformeDemande}
+              onOngletChange={setOngletPlateformeCourant}
+              onOuvrirAbonnements={platformOwner ? ouvrirAbonnementsFiltres : undefined}
+            />
+          )}
 
           {currentView === 'transferts' && peutVoirTransferts && (
             <TransfertsView

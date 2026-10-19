@@ -335,7 +335,17 @@ const ParametresCommerciauxForm: React.FC<ParametresFormProps> = ({ parametres, 
  * global, totaux du mois, déclarations « À vérifier » avec Activer pré-rempli, export CSV) et bloc
  * Paramètres commerciaux (tarifs, numéros, bénéficiaire, instructions, essai, grâce).
  */
-export const AbonnementsPlateformeView: React.FC = () => {
+/** Filtre de statut demandé depuis l'extérieur (carte du tableau de bord analytique) ; le jeton distingue deux demandes identiques. */
+export interface DemandeFiltreAbonnements {
+  statut: StatutAbonnement;
+  jeton: number;
+}
+
+interface AbonnementsPlateformeViewProps {
+  filtreDemande?: DemandeFiltreAbonnements | null;
+}
+
+export const AbonnementsPlateformeView: React.FC<AbonnementsPlateformeViewProps> = ({ filtreDemande = null }) => {
   const { can, permissions } = usePermissions();
   const allowed = isPlatformAccount();
   const canVoir = can('ETABLISSEMENTS', 'VOIR');
@@ -392,6 +402,12 @@ export const AbonnementsPlateformeView: React.FC = () => {
   useEffect(() => { chargerListe(); chargerParametres(); }, [allowed, canVoir, permissions.join(',')]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(chargerPaiements, [allowed, canDetails, mois, toutLHistorique, permissions.join(',')]);
+
+  useEffect(() => {
+    if (!filtreDemande) return;
+    setOnglet('etablissements');
+    setFiltres(new Set([filtreDemande.statut]));
+  }, [filtreDemande]);
 
   const toutRecharger = () => {
     chargerListe();
