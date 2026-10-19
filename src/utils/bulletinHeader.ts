@@ -119,13 +119,11 @@ function legacyHeaderInfo(sessionName: string, candidateSerie?: string): Bulleti
     };
   }
 
-  // 2. BAC I (Première partie)
+  // 2. BAC I (Première partie) — « BAC II » ne doit pas être pris pour « BAC I ».
   if (
-    norm.includes('BAC I') ||
-    norm.includes('BACCALAURÉAT I') ||
+    /\bBAC(?:CALAURÉAT)?\s+(?:I|1)\b/.test(norm) ||
     norm.includes('PREMIÈRE PARTIE') ||
-    norm.includes('BAC 1') ||
-    serie.includes('BAC I')
+    /\bBAC\s+I\b/.test(serie)
   ) {
     if (norm.includes('A4') || serie.includes('A4') || norm.includes('SÉRIE A') || serie.includes('SÉRIE A')) {
       return {

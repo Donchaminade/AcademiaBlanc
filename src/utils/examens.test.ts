@@ -74,12 +74,18 @@ describe('en-tête du bulletin', () => {
   it('utilise le type de la session active plutôt que le nom de session', () => {
     const info = getBulletinHeaderInfo('Session 1', 'Série D', 'Baccalauréat Deuxième Partie');
     assert.equal(info.mainTitle, 'BACCALAURÉAT DEUXIÈME PARTIE — EXAMEN BLANC');
-    assert.match(info.subTitle, /SÉRIE D/);
+    assert.match(info.subTitle, /SÉRIE D \(SCIENTIFIQUE\)/);
+    const bac1 = getBulletinHeaderInfo('BAC I Blanc 2026', 'Série A4', 'Baccalauréat Première Partie (Probatoire)');
+    assert.equal(bac1.mainTitle, 'BACCALAURÉAT PREMIÈRE PARTIE (PROBATOIRE) — EXAMEN BLANC');
+    assert.match(bac1.subTitle, /SÉRIE A4/);
     const bepcInfo = getBulletinHeaderInfo('Session 1', undefined, "Brevet d'Études du Premier Cycle");
     assert.match(bepcInfo.subTitle, /PREMIER CYCLE/);
   });
   it('conserve la reconnaissance par nom de session hors référentiel (démonstration)', () => {
     assert.match(getBulletinHeaderInfo('BEPC Blanc National 2025').mainTitle, /BEPC BLANC/);
     assert.match(getBulletinHeaderInfo('BAC II Blanc 2025 - Série D', 'Série D').mainTitle, /BACCALAURÉAT/);
+    assert.doesNotMatch(getBulletinHeaderInfo('BAC II Blanc 2025 - Série D', 'Série D').mainTitle, /BAC I BLANC/);
+    assert.match(getBulletinHeaderInfo('BAC I Blanc 2025 - Série A4').mainTitle, /BAC I BLANC/);
+    assert.match(getBulletinHeaderInfo('BAC 1 Blanc 2025').mainTitle, /BAC I BLANC/);
   });
 });
