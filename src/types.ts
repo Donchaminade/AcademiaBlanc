@@ -37,6 +37,12 @@ export interface Candidate {
   gender: 'M' | 'F';
   /** Série de la classe (lycée uniquement) ; vide au collège. */
   serie: string;
+  /** Libellé de la série (`serie.libelle`, « Sciences expérimentales ») ; vide au collège ou si la série n'est pas au référentiel. */
+  serieLibelle?: string;
+  /** Niveau de la classe de l'élève (`classe.niveau`, « 3e », « Tle ») ; absent hors API. */
+  niveau?: string;
+  /** Nom de la classe de l'élève (`classe.nom`, « 3e B ») ; absent hors API. */
+  classeNom?: string;
   /** Identifiant de la classe sur l'API ; absent pour les données de démonstration. */
   classeId?: string;
   /**

@@ -9,7 +9,6 @@ import {
   nomSessionSuggere,
   TypeExamenChoix,
 } from '../api/typesExamen';
-import { examTitleFromType, getBulletinHeaderInfo } from './bulletinHeader';
 
 const bepc: TypeExamenChoix = { id: 2, code: 'BEPC', libelleCourt: 'BEPC', libelleLong: "Brevet d'Études du Premier Cycle", cycle: 'COLLEGE', ordre: 20 };
 const bac2: TypeExamenChoix = { id: 4, code: 'BAC2', libelleCourt: 'BAC II', libelleLong: 'Baccalauréat Deuxième Partie', cycle: 'LYCEE', ordre: 40 };
@@ -62,30 +61,5 @@ describe('libellés de session', () => {
     assert.equal(libelleCourtSession(ancienne), 'BACCALAURÉAT II');
     assert.equal(libelleLongSession(ancienne), 'BACCALAURÉAT II');
     assert.equal(libelleCourtSession(null), '');
-  });
-});
-
-describe('en-tête du bulletin', () => {
-  it('construit le titre à partir du libellé long du référentiel', () => {
-    assert.equal(examTitleFromType("Brevet d'Études du Premier Cycle"), "BREVET D'ÉTUDES DU PREMIER CYCLE — EXAMEN BLANC");
-    assert.equal(examTitleFromType('Composition / Examen blanc interne'), 'COMPOSITION / EXAMEN BLANC INTERNE');
-    assert.equal(examTitleFromType(''), '');
-  });
-  it('utilise le type de la session active plutôt que le nom de session', () => {
-    const info = getBulletinHeaderInfo('Session 1', 'Série D', 'Baccalauréat Deuxième Partie');
-    assert.equal(info.mainTitle, 'BACCALAURÉAT DEUXIÈME PARTIE — EXAMEN BLANC');
-    assert.match(info.subTitle, /SÉRIE D \(SCIENTIFIQUE\)/);
-    const bac1 = getBulletinHeaderInfo('BAC I Blanc 2026', 'Série A4', 'Baccalauréat Première Partie (Probatoire)');
-    assert.equal(bac1.mainTitle, 'BACCALAURÉAT PREMIÈRE PARTIE (PROBATOIRE) — EXAMEN BLANC');
-    assert.match(bac1.subTitle, /SÉRIE A4/);
-    const bepcInfo = getBulletinHeaderInfo('Session 1', undefined, "Brevet d'Études du Premier Cycle");
-    assert.match(bepcInfo.subTitle, /PREMIER CYCLE/);
-  });
-  it('conserve la reconnaissance par nom de session hors référentiel (démonstration)', () => {
-    assert.match(getBulletinHeaderInfo('BEPC Blanc National 2025').mainTitle, /BEPC BLANC/);
-    assert.match(getBulletinHeaderInfo('BAC II Blanc 2025 - Série D', 'Série D').mainTitle, /BACCALAURÉAT/);
-    assert.doesNotMatch(getBulletinHeaderInfo('BAC II Blanc 2025 - Série D', 'Série D').mainTitle, /BAC I BLANC/);
-    assert.match(getBulletinHeaderInfo('BAC I Blanc 2025 - Série A4').mainTitle, /BAC I BLANC/);
-    assert.match(getBulletinHeaderInfo('BAC 1 Blanc 2025').mainTitle, /BAC I BLANC/);
   });
 });

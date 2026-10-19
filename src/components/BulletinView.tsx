@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
-import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministryMark } from '../utils/bulletinHeader';
+import { composerEnteteBulletin } from '../utils/bulletinEntete';
+import { academicYearCaption, establishmentCaption, ministryMark } from '../utils/bulletinHeader';
 import {
   camaradesDeClasse,
   computeSubjectRank,
@@ -55,13 +56,16 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   const sealCaption = establishmentCaption(settings.institutionName);
   const yearCaption = academicYearCaption(settings.academicYear);
 
-  const headerInfo = useMemo(() => {
-    return getBulletinHeaderInfo(
-      selectedSession || settings.sessionName,
-      selectedCandidate.serie,
-      examTypeLong
-    );
-  }, [selectedSession, settings.sessionName, selectedCandidate.serie, examTypeLong]);
+  // Bandeau : type d'examen et intitulé de la session, puis série (lycée) ou niveau (collège) et année scolaire.
+  const entete = useMemo(() => composerEnteteBulletin({
+    typeExamenLibelle: examTypeLong ?? settings.examType,
+    sessionNom: selectedSession || settings.sessionName,
+    anneeScolaire: settings.academicYear,
+    niveau: selectedCandidate.niveau,
+    classeNom: selectedCandidate.classeNom,
+    serieCode: selectedCandidate.serie,
+    serieLibelle: selectedCandidate.serieLibelle,
+  }), [examTypeLong, settings.examType, selectedSession, settings.sessionName, settings.academicYear, selectedCandidate]);
 
   const currentIndex = candidates.findIndex((c) => c.id === selectedCandidate.id);
   // Camarades de la même classe (même session) : base des notes min / max par matière.
@@ -303,14 +307,16 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             <span className="bulletin-ribbon-year">{yearCaption}</span>
           </div>
 
-          {/* Institutional Title Badge - Dynamic according to exam session (BEPC, BAC, etc.) */}
+          {/* Bandeau : type d'examen et intitulé de la session (base), série ou niveau de la classe, année scolaire */}
           <div className="bulletin-title relative z-10 mb-4 bg-[#00236f] text-white py-2.5 px-4 text-center rounded-xs shadow-xs">
-            <h1 className="text-[15px] font-bold uppercase tracking-wide">
-              {headerInfo.mainTitle}
+            <h1 className="text-[15px] font-bold uppercase tracking-wide line-clamp-2" title={entete.ligne1}>
+              {entete.ligne1}
             </h1>
-            <p className="text-[11px] text-[#90a8ff] tracking-wider uppercase font-semibold mt-0.5">
-              {headerInfo.subTitle}
-            </p>
+            {entete.ligne2 && (
+              <p className="text-[11px] text-[#90a8ff] tracking-wider font-semibold mt-0.5 truncate" title={entete.ligne2}>
+                {entete.ligne2}
+              </p>
+            )}
           </div>
 
           {/* Candidate Identity Card */}
@@ -372,8 +378,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               <colgroup>
                 <col className="col-subject" />
                 <col className="col-teacher" />
-                <col className="col-coef" />
                 <col className="col-note" />
+                <col className="col-coef" />
                 <col className="col-total" />
                 <col className="col-rank" />
                 <col className="col-minmax" />
@@ -383,8 +389,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 <tr className="bg-[#00236f] text-white text-[12px]">
                   <th className="py-2 px-3 font-semibold text-left">Matières &amp; Disciplines</th>
                   <th className="py-2 px-2 font-semibold text-left">Enseignant Exam.</th>
-                  <th className="py-2 px-2 font-semibold text-center">Coef</th>
                   <th className="py-2 px-2 font-semibold text-right">Note /20</th>
+                  <th className="py-2 px-2 font-semibold text-center">Coef</th>
                   <th className="py-2 px-2 font-semibold text-right">Total Coef</th>
                   <th className="py-2 px-2 font-semibold text-center">Rang</th>
                   <th className="py-2 px-2 font-semibold text-center">Min / Max classe</th>
@@ -413,11 +419,11 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                       <td className="py-1.5 px-2 text-[12px] text-[#444651]">
                         {subj.teacher}
                       </td>
-                      <td className="py-1.5 px-2 font-mono text-[13px] text-center font-bold">
-                        {coef}
-                      </td>
                       <td className="py-1.5 px-2 font-mono text-[13px] text-right font-bold text-[#00236f]">
                         {gradeData ? gradeData.score.toFixed(2) : '—'}
+                      </td>
+                      <td className="py-1.5 px-2 font-mono text-[13px] text-center font-bold">
+                        {coef}
                       </td>
                       <td className="py-1.5 px-2 font-mono text-[13px] text-right font-bold text-[#131b2e]">
                         {scoreTotal}
@@ -442,11 +448,11 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   <td className="py-2.5 px-3 text-[13px] uppercase tracking-wide" colSpan={2}>
                     TOTAL DES PONDÉRATIONS
                   </td>
-                  <td className="py-2.5 px-2 font-mono text-[15px] text-center font-bold text-[#00236f]">
-                    {computedStats.totalCoef}
-                  </td>
                   <td className="py-2.5 px-2 text-right text-[12px] text-[#444651] italic">
                     Total :
+                  </td>
+                  <td className="py-2.5 px-2 font-mono text-[15px] text-center font-bold text-[#00236f]">
+                    {computedStats.totalCoef}
                   </td>
                   <td className="py-2.5 px-0 font-mono text-[15px] font-bold text-[#0051d5]" colSpan={4}>
                     <span className="bulletin-weighted-total">

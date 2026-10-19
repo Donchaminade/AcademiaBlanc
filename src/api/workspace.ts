@@ -23,6 +23,8 @@ interface Matiere { id: number; nom: string; code: string; }
 interface Professeur { id: number; nom: string; }
 /** `titulaireId` : enseignant désigné titulaire dans Administration › Classes ; null ou absent = sans titulaire. */
 interface Classe { id: number; nom: string; niveau?: string; serie?: string; titulaireId?: number | null; }
+/** Série du référentiel de l'établissement (`/api/series`) : le libellé imprimé en tête du bulletin. */
+interface SerieApi { id: number; code: string; libelle: string; }
 interface Affectation { professeurId: number; matiereId: number; classeId: number; }
 interface Coefficient { matiereId: number; classeId?: number | null; valeur: number; }
 interface EleveApi {
@@ -102,8 +104,18 @@ export function titulaireDeClasse(
   return professeurs.find((item) => item.id === classe.titulaireId)?.nom.trim() || '';
 }
 
+/** Libellé de la série de la classe (« Sciences expérimentales ») ; vide au collège ou hors référentiel. */
+export function libelleSerie(
+  classe: Pick<Classe, 'serie' | 'niveau'> | null | undefined,
+  series: readonly Pick<SerieApi, 'code' | 'libelle'>[],
+): string {
+  const code = (classe?.serie || '').trim();
+  if (!code || estCollege(classe?.niveau)) return '';
+  return series.find((item) => item.code.toLowerCase() === code.toLowerCase())?.libelle.trim() || '';
+}
+
 export async function loadSchoolWorkspace(preferredSessionId?: number, options: WorkspaceOptions = {}): Promise<SchoolWorkspace> {
-  const [annees, centres, sessions, matieres, profs, classes, affectations, coefficients, eleves] = await Promise.all([
+  const [annees, centres, sessions, matieres, profs, classes, affectations, coefficients, eleves, series] = await Promise.all([
     lire<Annee>('/api/annees-scolaires'),
     lire<Centre>('/api/centres'),
     lire<SessionApi>('/api/sessions'),
@@ -113,6 +125,8 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
     lire<Affectation>('/api/affectations'),
     lire<Coefficient>('/api/coefficients'),
     lire<EleveApi>('/api/eleves'),
+    // Libellés des séries (« D » → « Sciences expérimentales ») ; absents sur une ancienne API.
+    lire<SerieApi>('/api/series').catch(() => [] as SerieApi[]),
   ]);
 
   const session = sessions.find((item) => item.id === preferredSessionId) || sessions[0] || null;
@@ -123,7 +137,10 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
       lire<DeliberationApi>(`/api/deliberations?sessionId=${session.id}`).catch(() => [] as DeliberationApi[]),
     ])
     : [[], []];
-  const annee = annees.find((item) => item.courante) || annees[0];
+  // Année scolaire de la session chargée (imprimée sur le bulletin) ; à défaut l'année courante.
+  const annee = annees.find((item) => item.id === session?.anneeScolaireId)
+    || annees.find((item) => item.courante)
+    || annees[0];
   const centre = centres.find((item) => item.id === session?.centreId) || centres[0];
   const teacherName = (matiereId: number, classeId?: number) => {
     const link = affectations.find((item) => item.matiereId === matiereId && (classeId == null || item.classeId === classeId))
@@ -173,6 +190,9 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
       // La classe porte le code du référentiel (« D », « G2 ») ; le bulletin attend « Série D ».
       // Au collège (6e–3e) il n'y a pas de série, même si la session en porte une.
       serie: classe?.serie ? `Série ${classe.serie}` : (classe && estCollege(classe.niveau) ? '' : session?.serie || ''),
+      serieLibelle: libelleSerie(classe, series),
+      niveau: classe?.niveau || '',
+      classeNom: classe?.nom || '',
       classeId: String(eleve.classeId),
       // Titulaire de la classe de l'élève (« 3e → M. X ») : c'est lui qui vise le bulletin.
       titulaire: titulaireDeClasse(classe, profs),
