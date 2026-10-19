@@ -40,7 +40,9 @@ export default defineConfig(() => {
         },
         workbox: {
           // Précache au build : index.html, JS/CSS hachés, polices woff2, icônes, manifest.
-          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,webmanifest}'],
+          // Les photos importées par Vite (hero de la vitrine) sont précachées ; `public/og-image.jpg`,
+          // destiné aux réseaux sociaux, ne l'est pas.
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,webmanifest}', 'assets/*.jpg'],
           // La police variable Material Symbols (≈3,9 Mo) dépasse la limite par défaut de 2 Mio.
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           cleanupOutdatedCaches: true,

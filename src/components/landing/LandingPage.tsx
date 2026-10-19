@@ -4,6 +4,11 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ROUTE_PATHS } from '../../utils/router';
 import { usePrereglageDefaut } from '../../api/prereglages';
 import { bandeauNational } from '../../utils/prereglages';
+import { economieAnnuelle, formatMontant, lienAppel, lienWhatsapp } from './offrePublique';
+import { useOffrePublique } from './useOffrePublique';
+// Photo : Santi Vedrí (Unsplash, https://unsplash.com/photos/O5EMzfdxedg), licence Unsplash — voir CREDITS.md.
+import heroPhotoLarge from '../../assets/landing/hero-classe-1920.jpg';
+import heroPhotoSmall from '../../assets/landing/hero-classe-960.jpg';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -12,12 +17,24 @@ interface LandingPageProps {
   onInscription: () => void;
 }
 
+/** Adresse de contact affichée quand la plateforme ne publie pas de numéro (surchargeable par VITE_CONTACT_EMAIL). */
+const CONTACT_EMAIL: string =
+  (typeof import.meta.env?.VITE_CONTACT_EMAIL === 'string' && import.meta.env.VITE_CONTACT_EMAIL) || 'contact@academiablanc.app';
+
+const MESSAGE_WHATSAPP = 'Bonjour, je souhaite des informations sur AcademiaBlanc pour mon établissement.';
+
+/** Pages légales (routes publiques de l’application). */
+const LIENS_LEGAUX: { href: string; label: string }[] = [
+  { href: '/cgu', label: 'Conditions générales d’utilisation' },
+  { href: '/confidentialite', label: 'Politique de confidentialité' },
+  { href: '/conditions', label: 'Conditions d’utilisation' },
+];
+
 const NAV_LINKS: { href: string; label: string }[] = [
-  { href: '#accueil', label: 'Accueil' },
   { href: '#fonctionnalites', label: 'Fonctionnalités' },
-  { href: '#documents', label: 'Documents' },
   { href: '#comment-ca-marche', label: 'Comment ça marche' },
-  { href: '#a-propos', label: 'À propos' },
+  { href: '#tarifs', label: 'Tarifs' },
+  { href: '#contact', label: 'Contact' },
 ];
 
 interface Fonctionnalite {
@@ -31,13 +48,13 @@ interface Fonctionnalite {
 const FONCTIONNALITES: Fonctionnalite[] = [
   {
     icon: 'hub',
-    title: 'Examen blanc inter-établissements',
+    title: 'Examens blancs inter-établissements et transfert des résultats',
     text:
-      'Plusieurs écoles organisent la même session. L’établissement hôte devient centre d’examen et accueille les candidats extérieurs, rattachés à leur établissement d’origine.',
+      'Plusieurs établissements organisent la même session. L’établissement hôte devient centre d’examen et accueille les candidats extérieurs, rattachés à leur établissement d’origine. À la fin du jury, chaque établissement récupère les résultats de ses candidats.',
     points: [
-      'Classement sur l’ensemble des candidats du centre',
-      'Résultats détaillés par établissement d’origine',
-      'Relevés neutres, sans logo, remis à chaque école',
+      'Classement sur l’ensemble des candidats du centre, résultats détaillés par établissement d’origine',
+      'Transfert des résultats par code personnel vers chaque établissement d’origine',
+      'Relevés neutres, sans logo, remis à chaque établissement',
     ],
     featured: true,
   },
@@ -45,7 +62,7 @@ const FONCTIONNALITES: Fonctionnalite[] = [
     icon: 'account_balance',
     title: 'Un espace par établissement',
     text:
-      'Logo, cachet et signatures enregistrés une fois. République, ministère et devise réglés par préréglage national, repris sur chaque document.',
+      'Logo, cachet et signatures enregistrés une fois ; république, ministère et devise réglés par préréglage national. Les données de chaque établissement sont cloisonnées : aucun autre établissement n’y accède.',
   },
   {
     icon: 'school',
@@ -57,13 +74,13 @@ const FONCTIONNALITES: Fonctionnalite[] = [
     icon: 'group_add',
     title: 'Candidats importés en masse',
     text:
-      'Import CSV ou simple collage depuis un tableur. Matricules et numéros de table attribués automatiquement. Liste des candidats imprimable avec émargement.',
+      'Import CSV ou simple collage depuis un tableur. Matricules et numéros de table attribués automatiquement, liste des candidats et feuille d’émargement imprimables.',
   },
   {
     icon: 'event_repeat',
     title: 'Sessions illimitées',
     text:
-      'BEPC blanc n° 1, n° 2, composition du trimestre : autant de sessions que nécessaire par année. CEPD, BEPC, BAC I, BAC II ou compositions. Archives consultables à tout moment.',
+      'BEPC blanc n° 1, n° 2, composition du trimestre : autant de sessions que nécessaire par année scolaire. CEPD, BEPC, BAC I, BAC II ou compositions. Archives consultables à tout moment.',
   },
   {
     icon: 'grid_on',
@@ -73,15 +90,15 @@ const FONCTIONNALITES: Fonctionnalite[] = [
   },
   {
     icon: 'description',
-    title: 'Relevés et bulletins sur une page A4',
+    title: 'Relevés sur une page A4',
     text:
-      'Moyennes pondérées, rang, moyenne la plus forte et la plus faible de la classe, minimum et maximum par matière, mention, décision et visa des parents. Impression groupée d’une classe entière ou téléchargement PDF.',
+      'Moyennes pondérées, rang, moyennes extrêmes de la classe, minimum et maximum par matière, mention, décision et visa des parents. Impression groupée d’une classe entière ou téléchargement PDF.',
   },
   {
     icon: 'fact_check',
-    title: 'Procès-verbal et tableau de bord',
+    title: 'Procès-verbal, liste des candidats et émargement',
     text:
-      'Palmarès complet avec rang, moyenne, mention et décision, filtres admis / ajournés, export CSV, impression A4 et verrouillage du PV. Effectifs, taux de réussite et répartition des mentions en un coup d’œil.',
+      'Palmarès complet avec rang, moyenne, mention et décision, filtres admis / ajournés, export CSV, verrouillage du PV. Liste des candidats et feuille d’émargement par salle pour le jour de l’épreuve.',
   },
   {
     icon: 'manage_accounts',
@@ -89,53 +106,42 @@ const FONCTIONNALITES: Fonctionnalite[] = [
     text:
       'Comptes secrétaire, enseignant et autres rôles, avec des droits réglés par établissement. Le compte créateur conserve tous les droits.',
   },
-];
-
-const ATOUTS: { icon: string; title: string; text: string }[] = [
   {
-    icon: 'verified',
-    title: 'Fiable',
-    text: 'Moyennes pondérées, rangs, mentions et décisions sont calculés par la plateforme. Plus d’erreurs de report.',
-  },
-  {
-    icon: 'touch_app',
-    title: 'Simple',
-    text: 'Une interface en français, pensée pour le secrétariat et les enseignants, sur ordinateur comme sur téléphone.',
-  },
-  {
-    icon: 'lock',
-    title: 'Souverain',
-    text: 'Chaque établissement dispose de son espace. Ses données sont isolées et conservées sur un serveur sécurisé.',
+    icon: 'install_mobile',
+    title: 'Mobile et hors ligne',
+    text:
+      'Application installable sur téléphone, tablette et ordinateur (PWA). L’interface reste disponible sans connexion ; les données sont conservées sur un serveur sécurisé.',
   },
 ];
 
 const ETAPES: { icon: string; title: string; text: string }[] = [
   {
     icon: 'domain_add',
-    title: 'Créer l’établissement et sa charte',
-    text: 'Nom, logo, cachet, signatures. Le préréglage national renseigne république, ministère et devise.',
+    title: 'Créer le compte de l’établissement',
+    text: 'Nom, logo, cachet, signatures. Le préréglage national renseigne république, ministère et devise. L’essai gratuit démarre aussitôt.',
   },
   {
     icon: 'tune',
     title: 'Classes, matières et programme',
-    text: 'Niveaux et séries, catalogue de matières, coefficients par classe, titulaires et enseignants.',
+    text: 'Niveaux et séries, catalogue de matières, coefficients par classe, titulaires et enseignants. Invitez votre équipe.',
   },
   {
     icon: 'edit_note',
     title: 'Session, candidats et notes',
-    text: 'Ouvrez la session, importez les candidats, saisissez les notes dans la matrice. Rangs et mentions suivent.',
+    text: 'Ouvrez la session, seul ou avec d’autres établissements, importez les candidats, saisissez les notes dans la matrice. Rangs et mentions suivent.',
   },
   {
     icon: 'print',
-    title: 'Imprimer relevés, liste et PV',
-    text: 'Relevés A4 de toute la classe, liste des candidats avec émargement et procès-verbal verrouillé.',
+    title: 'Imprimer et transférer',
+    text: 'Relevés A4 de toute la classe, liste des candidats, feuille d’émargement et procès-verbal verrouillé. Résultats transférés aux établissements d’origine.',
   },
 ];
 
-const REPERES: { value: string; label: string }[] = [
-  { value: 'A4', label: 'Relevé sur une page' },
-  { value: '∞', label: 'Sessions par année' },
-  { value: 'PWA', label: 'Mobile et hors ligne' },
+const AVANTAGES_FORFAIT: string[] = [
+  'Toutes les fonctionnalités, sans restriction',
+  'Sessions et archives illimitées',
+  'Comptes pour toute l’équipe de l’établissement',
+  'Examens inter-établissements et transfert des résultats',
 ];
 
 const PV_LIGNES: [string, string, string, string, string][] = [
@@ -175,54 +181,57 @@ const RouteLink: React.FC<{
   </a>
 );
 
-const btnPrimary =
-  'inline-flex items-center justify-center gap-2 rounded-lg bg-[#0051d5] px-5 py-3 text-[14px] font-bold text-white shadow-md transition-colors hover:bg-[#003cb3] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fc922b]';
-const btnLight =
-  'inline-flex items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/10 px-5 py-3 text-[14px] font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fc922b]';
-const btnOnDark =
-  'inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-[14px] font-bold text-[#00236f] shadow-md transition-colors hover:bg-[#dce1ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fc922b]';
+const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fc922b]';
+const btnPrimary = `inline-flex items-center justify-center gap-2 rounded-lg bg-[#0051d5] px-5 py-3 text-[14px] font-bold text-white shadow-md transition-colors hover:bg-[#003cb3] ${focusRing}`;
+const btnLight = `inline-flex items-center justify-center gap-2 rounded-lg border border-white/35 bg-white/10 px-5 py-3 text-[14px] font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20 ${focusRing}`;
+const btnOnDark = `inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-[14px] font-bold text-[#00236f] shadow-md transition-colors hover:bg-[#dce1ff] ${focusRing}`;
 const btnGhost =
   'inline-flex items-center justify-center gap-2 rounded-lg border border-[#c5c5d3] bg-white px-5 py-3 text-[14px] font-bold text-[#00236f] transition-colors hover:border-[#0051d5] hover:bg-[#f2f3ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0051d5]';
+const lienTexte = 'rounded-sm font-semibold text-[#131b2e] transition-colors hover:text-[#0051d5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0051d5]';
 
 /** Étiquette de document imprimé (en-tête des maquettes). */
 const SheetTag: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <span className="rounded bg-[#eaedff] px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-[#00236f]">{children}</span>
 );
 
+/** En-tête de section : surtitre, titre h2 et chapeau. */
+const SectionHeading: React.FC<{ id: string; surtitre: string; titre: string; children: React.ReactNode }> = ({ id, surtitre, titre, children }) => (
+  <div data-reveal className="max-w-2xl">
+    <span className="text-[11px] font-bold uppercase tracking-widest text-[#0051d5]">{surtitre}</span>
+    <h2 id={id} className="mt-2 text-[28px] font-extrabold leading-tight tracking-tight text-[#00236f] sm:text-[36px]">
+      {titre}
+    </h2>
+    <p className="mt-4 text-[15px] leading-relaxed text-[#444651] sm:text-[16px]">{children}</p>
+  </div>
+);
+
 export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscription }) => {
   // Bandeau national : préréglage par défaut de la plateforme (repli local si l'API est injoignable).
   const prereglageDefaut = usePrereglageDefaut();
   const bandeau = bandeauNational(prereglageDefaut);
+  // Offre commerciale publique : montants et numéros publiés par la plateforme, jamais inventés.
+  const offre = useOffrePublique();
+  const whatsapp = lienWhatsapp(offre.telWhatsapp, MESSAGE_WHATSAPP);
+  const appel = lienAppel(offre.telAppel);
+  const economie = economieAnnuelle(offre);
+  const tarifsConnus = offre.tarifMensuel !== null || offre.tarifAnnuel !== null;
+
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const heroRef = useRef<HTMLElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
-    const hero = heroRef.current;
-    if (!root || !hero) return undefined;
+    if (!root) return undefined;
 
     const mm = gsap.matchMedia(root);
 
-    // Sans préférence « moins d’animations » : apparition du hero, révélations au défilement,
-    // parallaxe léger et micro-interactions. Sinon, rien n’est appliqué et tout reste visible.
+    // Sans préférence « moins d’animations » : entrée du hero au chargement, révélation des sections au
+    // défilement, cascade des cartes et micro-interactions. Sinon, rien n’est appliqué : tout reste visible.
     mm.add('(prefers-reduced-motion: no-preference)', () => {
       const intro = gsap.timeline({ defaults: { ease: 'power3.out' } });
       intro
-        .from('[data-hero]', { y: 28, autoAlpha: 0, duration: 0.8, stagger: 0.12 }, 0.1)
-        .from('[data-hero-visual]', { y: 48, autoAlpha: 0, rotate: 3, duration: 1.1 }, 0.45)
-        .from('[data-hero-visual] [data-row]', { x: -12, autoAlpha: 0, duration: 0.4, stagger: 0.07 }, 0.9);
-
-      gsap.to('[data-parallax]', {
-        yPercent: -14,
-        ease: 'none',
-        scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: 0.6 },
-      });
-      gsap.to('[data-parallax-slow]', {
-        yPercent: 10,
-        ease: 'none',
-        scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: 0.6 },
-      });
+        .from('[data-hero-photo]', { scale: 1.06, duration: 1.6, ease: 'power2.out' }, 0)
+        .from('[data-hero]', { y: 28, autoAlpha: 0, duration: 0.8, stagger: 0.12 }, 0.15);
 
       gsap.utils.toArray<HTMLElement>('[data-reveal]').forEach((element) => {
         gsap.from(element, {
@@ -292,18 +301,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
       return () => cleanups.forEach((fn) => fn());
     });
 
-    // Polices chargées après le premier rendu : les positions de déclenchement sont recalculées.
+    // Polices et image chargées après le premier rendu : les positions de déclenchement sont recalculées.
     const refresh = () => ScrollTrigger.refresh();
     document.fonts?.ready.then(refresh).catch(() => undefined);
     window.addEventListener('load', refresh);
 
     return () => {
       window.removeEventListener('load', refresh);
+      // Supprime tous les tweens et ScrollTriggers créés dans ce contexte.
       mm.revert();
     };
   }, []);
 
   const closeMenu = () => setMenuOpen(false);
+
+  const reperes: { value: string; label: string }[] = [
+    { value: `${offre.dureeEssaiJours} j`, label: 'd’essai gratuit, sans engagement' },
+    { value: 'A4', label: 'Relevé de notes sur une page' },
+    { value: 'PWA', label: 'Mobile et hors ligne' },
+  ];
+
+  const contactHref = whatsapp ?? '#contact';
+  const contactExterne = whatsapp !== null;
 
   return (
     <div ref={rootRef} className="min-h-dvh overflow-x-clip bg-[#faf8ff] text-[#131b2e] antialiased">
@@ -314,23 +333,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
         Aller au contenu
       </a>
 
-      {/* Barre de navigation */}
-      <header className="sticky top-0 z-40 border-b border-[#eaedff] bg-white/85 backdrop-blur-md">
-        <nav aria-label="Navigation principale" className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <a href="#accueil" className="flex min-w-0 shrink-0 items-center gap-2.5" onClick={closeMenu}>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#00236f] text-white">
+      {/* Barre de navigation fixe et translucide */}
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#00133f]/70 text-white backdrop-blur-md supports-[backdrop-filter]:bg-[#00133f]/60">
+        <nav aria-label="Navigation principale" className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+          <a href="#accueil" className={`flex min-w-0 shrink-0 items-center gap-2.5 rounded-lg ${focusRing}`} onClick={closeMenu}>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#00236f]">
               <span className="material-symbols-outlined text-xl">account_balance</span>
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-[16px] font-bold leading-tight tracking-tight text-[#00236f]">AcademiaBlanc</span>
-              <span className="block text-[11px] font-medium leading-tight text-[#444651]">Examens blancs • {prereglageDefaut.sigleMinistere}</span>
+              <span className="block truncate text-[16px] font-bold leading-tight tracking-tight">AcademiaBlanc</span>
+              <span className="block truncate text-[11px] font-medium leading-tight text-white/75">Examens blancs • {prereglageDefaut.sigleMinistere}</span>
             </span>
           </a>
 
-          <ul className="hidden items-center gap-5 lg:flex">
+          <ul className="hidden items-center gap-6 lg:flex">
             {NAV_LINKS.map((link) => (
               <li key={link.href}>
-                <a href={link.href} className="whitespace-nowrap text-[13px] font-semibold text-[#444651] transition-colors hover:text-[#0051d5]">
+                <a href={link.href} className={`whitespace-nowrap rounded-sm text-[13px] font-semibold text-white/85 transition-colors hover:text-white ${focusRing}`}>
                   {link.label}
                 </a>
               </li>
@@ -338,20 +357,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
           </ul>
 
           <div className="hidden shrink-0 items-center gap-2 lg:flex">
-            <RouteLink href={ROUTE_PATHS.connexion} onNavigate={onConnexion} className={`${btnGhost} whitespace-nowrap px-4 py-2 text-[13px]`} magnetic>
+            <RouteLink href={ROUTE_PATHS.connexion} onNavigate={onConnexion} className={`${btnLight} whitespace-nowrap px-4 py-2 text-[13px]`} magnetic>
               <span className="material-symbols-outlined text-base">login</span>
               <span>Se connecter</span>
             </RouteLink>
             <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={`${btnPrimary} whitespace-nowrap px-4 py-2 text-[13px]`} magnetic>
               <span className="material-symbols-outlined text-base">domain_add</span>
-              <span className="2xl:hidden">Créer le compte</span>
-              <span className="hidden 2xl:inline">Créer le compte de mon établissement</span>
+              <span>Créer un compte</span>
             </RouteLink>
           </div>
 
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#eaedff] text-[#00236f] lg:hidden"
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/30 text-white lg:hidden ${focusRing}`}
             aria-expanded={menuOpen}
             aria-controls="menu-mobile"
             aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
@@ -362,14 +380,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
         </nav>
 
         {menuOpen && (
-          <div id="menu-mobile" className="border-t border-[#eaedff] bg-white px-4 py-4 lg:hidden">
+          <div id="menu-mobile" className="border-t border-[#eaedff] bg-white px-4 py-4 text-[#131b2e] lg:hidden">
             <ul className="space-y-1">
               {NAV_LINKS.map((link) => (
                 <li key={link.href}>
                   <a
                     href={link.href}
                     onClick={closeMenu}
-                    className="block rounded-lg px-3 py-2.5 text-[14px] font-semibold text-[#131b2e] hover:bg-[#f2f3ff]"
+                    className="block rounded-lg px-3 py-2.5 text-[14px] font-semibold text-[#131b2e] hover:bg-[#f2f3ff] focus-visible:outline-2 focus-visible:outline-[#0051d5]"
                   >
                     {link.label}
                   </a>
@@ -383,7 +401,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               </RouteLink>
               <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={btnPrimary}>
                 <span className="material-symbols-outlined text-base">domain_add</span>
-                <span>Créer le compte de mon établissement</span>
+                <span>Créer un compte</span>
               </RouteLink>
             </div>
           </div>
@@ -391,147 +409,97 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
       </header>
 
       <main>
-        {/* Accueil */}
+        {/* Accueil : photo pleine largeur, dégradé sombre, texte blanc */}
         <section
           id="accueil"
-          ref={heroRef}
           aria-labelledby="titre-accueil"
-          className="relative isolate flex overflow-hidden bg-[#00236f] text-white lg:min-h-[calc(100svh-4rem)]"
+          className="relative isolate flex min-h-[92svh] overflow-hidden bg-[#00133f] text-white"
         >
-          {/* Voile de lisibilité sous le texte. */}
+          <picture className="absolute inset-0 -z-20" aria-hidden="true">
+            <source media="(max-width: 767px)" srcSet={heroPhotoSmall} />
+            <img
+              data-hero-photo
+              src={heroPhotoLarge}
+              srcSet={`${heroPhotoSmall} 960w, ${heroPhotoLarge} 1920w`}
+              sizes="100vw"
+              width={1920}
+              height={1280}
+              alt=""
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              className="h-full w-full object-cover object-[60%_30%] md:object-[68%_30%]"
+            />
+          </picture>
+          {/* Dégradés de lisibilité (contraste AA du texte blanc) : voile uniforme sur mobile où le texte couvre
+              toute la largeur ; sur écran large, plus dense à gauche sous le texte, photo visible à droite. */}
           <div
-            className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(0,35,111,0.55)_0%,rgba(0,35,111,0.35)_55%,#00236f_100%)]"
+            className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(0,17,55,0.78)_0%,rgba(0,17,55,0.64)_55%,rgba(0,17,55,0.84)_100%)] md:bg-[linear-gradient(90deg,rgba(0,17,55,0.94)_0%,rgba(0,17,55,0.86)_38%,rgba(0,17,55,0.5)_70%,rgba(0,17,55,0.3)_100%)]"
             aria-hidden="true"
           />
           <div
-            className="absolute inset-0 -z-10 bg-[radial-gradient(60%_70%_at_20%_45%,rgba(0,35,111,0.75)_0%,rgba(0,35,111,0)_100%)]"
+            className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(0,17,55,0.5)_0%,rgba(0,17,55,0)_30%,rgba(0,17,55,0.2)_75%,#00133f_100%)]"
             aria-hidden="true"
           />
 
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-12 self-center px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:pb-24 lg:pt-20">
-            <div data-parallax-slow>
+          <div className="mx-auto flex w-full max-w-6xl flex-col justify-center px-4 pb-16 pt-28 sm:px-6 lg:pb-24 lg:pt-36">
+            <div className="max-w-3xl">
               <span
                 data-hero
-                className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90"
+                className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90"
               >
                 <span className="material-symbols-outlined text-sm text-[#fc922b]">flag</span>
-                {bandeau}
+                <span className="truncate">{bandeau}</span>
               </span>
               <h1
                 id="titre-accueil"
                 data-hero
-                className="mt-5 text-[36px] font-extrabold leading-[1.08] tracking-tight sm:text-[46px] lg:text-[56px]"
+                className="mt-5 text-[34px] font-extrabold leading-[1.08] tracking-tight sm:text-[46px] lg:text-[58px]"
               >
-                Les examens blancs,
-                <br />
-                <span className="text-[#90a8ff]">du candidat au procès-verbal.</span>
+                La gestion scolaire et les examens blancs,
+                <br className="hidden sm:block" />
+                <span className="text-[#a9bcff]"> du candidat au procès-verbal.</span>
               </h1>
-              <p data-hero className="mt-5 max-w-xl text-[16px] leading-relaxed text-white/85 sm:text-[18px]">
-                Importez vos candidats, saisissez les notes, laissez la plateforme calculer moyennes, rangs et mentions.
-                Imprimez relevés, liste des candidats et procès-verbal. Seul ou avec d’autres établissements.
+              <p data-hero className="mt-5 max-w-2xl text-[16px] leading-relaxed text-white/90 sm:text-[18px]">
+                Établissements, classes du collège au lycée, matières et programmes. Candidats importés en masse,
+                notes saisies en matrice, moyennes et rangs calculés. Relevés A4, liste des candidats et
+                procès-verbal prêts à imprimer, seul ou avec d’autres établissements.
               </p>
               <div data-hero className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={btnPrimary} magnetic>
                   <span className="material-symbols-outlined text-lg">domain_add</span>
                   <span>Créer le compte de mon établissement</span>
                 </RouteLink>
-                <RouteLink href={ROUTE_PATHS.connexion} onNavigate={onConnexion} className={btnLight} magnetic>
-                  <span className="material-symbols-outlined text-lg">login</span>
-                  <span>Se connecter</span>
-                </RouteLink>
+                <a
+                  href={contactHref}
+                  className={btnLight}
+                  data-magnetic=""
+                  target={contactExterne ? '_blank' : undefined}
+                  rel={contactExterne ? 'noopener noreferrer' : undefined}
+                >
+                  <span className="material-symbols-outlined text-lg">{contactExterne ? 'chat' : 'mail'}</span>
+                  <span>Nous contacter</span>
+                </a>
               </div>
-              <dl data-hero className="mt-10 grid grid-cols-3 gap-4 border-t border-white/15 pt-6">
-                {REPERES.map((item) => (
+              <dl data-hero className="mt-10 grid max-w-2xl grid-cols-3 gap-4 border-t border-white/20 pt-6">
+                {reperes.map((item) => (
                   <div key={item.label} className="flex flex-col">
-                    <dt className="order-2 text-[11px] font-medium leading-snug text-white/70 sm:text-[12px]">{item.label}</dt>
+                    <dt className="order-2 text-[11px] font-medium leading-snug text-white/80 sm:text-[12px]">{item.label}</dt>
                     <dd className="font-mono text-[22px] font-bold text-white sm:text-[26px]">{item.value}</dd>
                   </div>
                 ))}
               </dl>
             </div>
-
-            {/* Aperçu stylisé d’un relevé */}
-            <div data-hero-visual data-parallax className="relative mx-auto w-full max-w-md lg:max-w-none">
-              <div className="absolute -left-6 -top-6 h-24 w-24 rounded-full bg-[#316bf3]/40 blur-2xl" aria-hidden="true" />
-              <div className="absolute -bottom-8 -right-4 h-28 w-28 rounded-full bg-[#fc922b]/30 blur-2xl" aria-hidden="true" />
-              <div
-                className="relative rounded-xl border border-white/20 bg-white p-5 text-[#131b2e] shadow-2xl sm:p-6"
-                role="img"
-                aria-label="Aperçu d’un relevé de notes : matières, notes, coefficients, moyenne, rang, mention et décision"
-              >
-                <div className="flex items-start justify-between gap-3 border-b border-[#eaedff] pb-3">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#0051d5]">Relevé de notes</p>
-                    <p className="mt-1 text-[15px] font-bold text-[#00236f]">BAC II blanc n° 1 • Tle D</p>
-                    <p className="text-[11px] text-[#444651]">Table n° 104 • Année 2025-2026</p>
-                  </div>
-                  <span className="shrink-0 rounded-lg bg-[#eaedff] px-2.5 py-1 font-mono text-[11px] font-bold text-[#00236f]">1 page A4</span>
-                </div>
-                <table className="mt-3 w-full text-[12px]">
-                  <thead>
-                    <tr className="text-left text-[10px] uppercase tracking-wider text-[#757682]">
-                      <th className="py-1 font-semibold">Matière</th>
-                      <th className="py-1 text-right font-semibold">Note /20</th>
-                      <th className="py-1 text-center font-semibold">Coef.</th>
-                      <th className="hidden py-1 text-center font-semibold sm:table-cell">Min – Max</th>
-                    </tr>
-                  </thead>
-                  <tbody className="font-medium">
-                    {[
-                      ['Mathématiques', '4', '15,50', '04,00 – 17,50'],
-                      ['Sciences physiques', '3', '13,00', '05,50 – 16,00'],
-                      ['SVT', '3', '14,25', '06,00 – 18,00'],
-                      ['Philosophie', '2', '12,00', '07,00 – 15,00'],
-                      ['Anglais', '2', '16,00', '05,00 – 17,00'],
-                    ].map(([matiere, coef, note, minMax]) => (
-                      <tr key={matiere} data-row className="border-t border-[#f2f3ff]">
-                        <td className="py-1.5">{matiere}</td>
-                        <td className="py-1.5 text-right font-mono font-bold text-[#00236f]">{note}</td>
-                        <td className="py-1.5 text-center font-mono text-[#444651]">{coef}</td>
-                        <td className="hidden py-1.5 text-center font-mono text-[11px] text-[#757682] sm:table-cell">{minMax}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div data-row className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-[#f2f3ff] px-3 py-2.5">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#444651]">Moyenne</p>
-                    <p className="font-mono text-[20px] font-bold text-[#00236f]">14,21<span className="text-[12px] text-[#757682]">/20</span></p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#444651]">Rang</p>
-                    <p className="font-mono text-[16px] font-bold text-[#0051d5]">3<sup>e</sup> / 62</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="rounded-lg bg-[#00236f] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">Bien</span>
-                    <span className="rounded-lg bg-[#dcfce7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#166534]">Admis</span>
-                  </div>
-                </div>
-                <div data-row className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[11px] text-[#444651]">
-                  <span>Classe : plus forte 16,42 • plus faible 06,13</span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="material-symbols-outlined text-base text-[#0051d5]">verified</span>
-                    Cachet, signatures, visa des parents.
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 
         {/* Fonctionnalités */}
-        <section id="fonctionnalites" aria-labelledby="titre-fonctionnalites" className="py-20 sm:py-24">
+        <section id="fonctionnalites" aria-labelledby="titre-fonctionnalites" className="scroll-mt-16 py-20 sm:py-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div data-reveal className="max-w-2xl">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-[#0051d5]">Fonctionnalités</span>
-              <h2 id="titre-fonctionnalites" className="mt-2 text-[28px] font-extrabold leading-tight tracking-tight text-[#00236f] sm:text-[36px]">
-                Tout l’examen blanc, de la préparation aux résultats.
-              </h2>
-              <p className="mt-4 text-[15px] leading-relaxed text-[#444651] sm:text-[16px]">
-                Une plateforme conçue pour le système éducatif francophone : collège, lycée, séries, coefficients,
-                mentions et décisions tels que vos jurys les pratiquent.
-              </p>
-            </div>
+            <SectionHeading id="titre-fonctionnalites" surtitre="Fonctionnalités" titre="Tout l’examen blanc, de la préparation aux résultats.">
+              Une plateforme conçue pour le système éducatif francophone : collège, lycée, séries, coefficients,
+              mentions et décisions tels que vos jurys les pratiquent.
+            </SectionHeading>
 
             <ul data-cards className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {FONCTIONNALITES.map((item) =>
@@ -546,9 +514,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                     <div className="relative">
                       <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90">
                         <span className="material-symbols-outlined text-sm text-[#fc922b]">groups</span>
-                        Plusieurs écoles, une session
+                        Plusieurs établissements, une session
                       </span>
-                      <div className="mt-4 flex items-center gap-3">
+                      <div className="mt-4 flex items-start gap-3">
                         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
                           <span className="material-symbols-outlined text-2xl">{item.icon}</span>
                         </span>
@@ -559,7 +527,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                     <ul className="relative mt-6 grid gap-2.5 lg:mt-0">
                       {item.points?.map((point) => (
                         <li key={point} className="flex items-start gap-2.5 rounded-lg border border-white/15 bg-white/10 px-3.5 py-2.5 text-[13px] font-semibold backdrop-blur-sm">
-                          <span className="material-symbols-outlined mt-px text-lg text-[#fc922b]">check_circle</span>
+                          <span className="material-symbols-outlined mt-px shrink-0 text-lg text-[#fc922b]">check_circle</span>
                           <span>{point}</span>
                         </li>
                       ))}
@@ -584,18 +552,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
         </section>
 
         {/* Documents imprimés */}
-        <section id="documents" aria-labelledby="titre-documents" className="bg-white py-20 sm:py-24">
+        <section id="documents" aria-labelledby="titre-documents" className="scroll-mt-16 bg-white py-20 sm:py-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div data-reveal className="max-w-2xl">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-[#0051d5]">Documents imprimés</span>
-              <h2 id="titre-documents" className="mt-2 text-[28px] font-extrabold leading-tight tracking-tight text-[#00236f] sm:text-[36px]">
-                Trois documents prêts à imprimer, au format A4.
-              </h2>
-              <p className="mt-4 text-[15px] leading-relaxed text-[#444651] sm:text-[16px]">
-                Chaque document reprend la charte de l’établissement : république, ministère, devise, logo, cachet et
-                signatures. Lors d’un examen inter-établissements, les relevés sont neutres, sans logo.
-              </p>
-            </div>
+            <SectionHeading id="titre-documents" surtitre="Documents imprimés" titre="Des documents prêts à imprimer, au format A4.">
+              Relevé de notes, liste des candidats, feuille d’émargement et procès-verbal reprennent la charte de
+              l’établissement : république, ministère, devise, logo, cachet et signatures. Lors d’un examen
+              inter-établissements, les relevés sont neutres, sans logo.
+            </SectionHeading>
 
             <ul data-cards className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {/* Relevé de notes */}
@@ -702,10 +665,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                   </table>
                   <p className="mt-2 text-[9px] text-[#757682]">… 44 autres candidats, classés par numéro de table.</p>
                 </div>
-                <h3 className="mt-5 text-[17px] font-bold text-[#00236f]">Liste des candidats</h3>
+                <h3 className="mt-5 text-[17px] font-bold text-[#00236f]">Liste des candidats et feuille d’émargement</h3>
                 <p className="mt-2 text-[14px] leading-relaxed text-[#444651]">
-                  Numéros de table et matricules attribués automatiquement, colonne d’émargement pour le jour de
-                  l’épreuve. En inter-établissements, l’établissement d’origine de chaque candidat est indiqué.
+                  Numéros de table et matricules attribués automatiquement, feuille d’émargement par salle pour le jour
+                  de l’épreuve. En inter-établissements, l’établissement d’origine de chaque candidat est indiqué.
                 </p>
               </li>
 
@@ -766,18 +729,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
         </section>
 
         {/* Comment ça marche */}
-        <section id="comment-ca-marche" aria-labelledby="titre-etapes" className="py-20 sm:py-24">
+        <section id="comment-ca-marche" aria-labelledby="titre-etapes" className="scroll-mt-16 py-20 sm:py-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div data-reveal className="max-w-2xl">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-[#0051d5]">Comment ça marche</span>
-              <h2 id="titre-etapes" className="mt-2 text-[28px] font-extrabold leading-tight tracking-tight text-[#00236f] sm:text-[36px]">
-                Quatre étapes. De l’établissement au procès-verbal.
-              </h2>
-              <p className="mt-4 text-[15px] leading-relaxed text-[#444651] sm:text-[16px]">
-                Pas de configuration compliquée. Vous avancez dans l’ordre, à votre rythme, et vous retrouvez vos
-                sessions passées dans les archives.
-              </p>
-            </div>
+            <SectionHeading id="titre-etapes" surtitre="Comment ça marche" titre="Quatre étapes. De l’établissement au procès-verbal.">
+              Pas de configuration compliquée. Vous avancez dans l’ordre, à votre rythme, et vous retrouvez vos
+              sessions passées dans les archives.
+            </SectionHeading>
 
             <div data-steps className="relative mt-12">
               <div
@@ -803,46 +760,203 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
           </div>
         </section>
 
-        {/* À propos */}
-        <section id="a-propos" aria-labelledby="titre-a-propos" className="bg-white py-20 sm:py-24">
+        {/* Tarifs */}
+        <section id="tarifs" aria-labelledby="titre-tarifs" className="scroll-mt-16 bg-white py-20 sm:py-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div data-reveal className="max-w-2xl">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-[#0051d5]">À propos</span>
-              <h2 id="titre-a-propos" className="mt-2 text-[28px] font-extrabold leading-tight tracking-tight text-[#00236f] sm:text-[36px]">
-                Une plateforme pensée pour les établissements du Togo et de Côte d’Ivoire.
-              </h2>
-              <p className="mt-4 text-[15px] leading-relaxed text-[#444651] sm:text-[16px]">
-                AcademiaBlanc gère les examens blancs et les compositions du collège et du lycée. Elle suit les
-                candidats, calcule les moyennes, les rangs et les mentions, et édite des relevés, des listes et des
-                procès-verbaux conformes aux usages du système éducatif francophone. Le secrétariat gagne des heures,
-                les enseignants se concentrent sur les notes, le chef d’établissement signe en confiance.
-              </p>
-              <p className="mt-3 text-[15px] leading-relaxed text-[#444651] sm:text-[16px]">
-                L’application fonctionne sur ordinateur et sur téléphone, y compris hors connexion pour l’interface.
-                Les données sont conservées sur un serveur sécurisé.
-              </p>
-            </div>
+            <SectionHeading id="titre-tarifs" surtitre="Tarifs" titre={`${offre.dureeEssaiJours} jours d’essai gratuit, puis un abonnement au choix.`}>
+              Un seul abonnement par établissement, toutes les fonctionnalités incluses. L’essai démarre à la création
+              du compte, sans paiement ni engagement.
+            </SectionHeading>
 
-            <ul data-cards className="mt-12 grid gap-5 sm:grid-cols-3">
-              {ATOUTS.map((atout) => (
-                <li
-                  key={atout.title}
-                  data-card
-                  className="rounded-xl border border-[#eaedff] bg-[#faf8ff] p-6"
+            <ul data-cards className="mt-12 grid gap-6 lg:grid-cols-2">
+              {/* Mensuel */}
+              <li data-card className="flex flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-6 sm:p-8">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-[20px] font-extrabold tracking-tight text-[#00236f]">Mensuel</h3>
+                    <p className="mt-1 text-[13px] text-[#444651]">Facturé chaque mois, résiliable à tout moment.</p>
+                  </div>
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#eaedff] text-[#0051d5]">
+                    <span className="material-symbols-outlined text-2xl">calendar_month</span>
+                  </span>
+                </div>
+                <div className="mt-6 min-h-[3.5rem]">
+                  {offre.tarifMensuel !== null ? (
+                    <p className="flex flex-wrap items-baseline gap-x-2">
+                      <span className="font-mono text-[34px] font-bold leading-none text-[#00236f]">{formatMontant(offre.tarifMensuel, offre.devise)}</span>
+                      <span className="text-[13px] font-semibold text-[#444651]">par mois</span>
+                    </p>
+                  ) : (
+                    <p className="text-[17px] font-bold leading-snug text-[#00236f]">Tarif communiqué à l’inscription</p>
+                  )}
+                </div>
+                <ul className="mt-6 grid gap-2.5 text-[14px] text-[#131b2e]">
+                  {AVANTAGES_FORFAIT.map((avantage) => (
+                    <li key={avantage} className="flex items-start gap-2.5">
+                      <span className="material-symbols-outlined mt-px shrink-0 text-lg text-[#0051d5]">check_circle</span>
+                      <span>{avantage}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-8 flex flex-col gap-2 sm:flex-row">
+                  <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={btnGhost}>
+                    <span className="material-symbols-outlined text-lg">domain_add</span>
+                    <span>Commencer l’essai gratuit</span>
+                  </RouteLink>
+                  {!tarifsConnus && (
+                    <a href="#contact" className={`${btnGhost} border-transparent bg-transparent`}>
+                      <span className="material-symbols-outlined text-lg">mail</span>
+                      <span>Contact</span>
+                    </a>
+                  )}
+                </div>
+              </li>
+
+              {/* Annuel (recommandé) */}
+              <li
+                data-card
+                className="relative flex flex-col overflow-hidden rounded-xl bg-gradient-to-br from-[#00236f] via-[#1e3a8a] to-[#0051d5] p-6 text-white shadow-lg sm:p-8"
+              >
+                <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#316bf3]/40 blur-3xl" aria-hidden="true" />
+                <div className="relative flex items-start justify-between gap-3">
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white/95">
+                      <span className="material-symbols-outlined text-sm text-[#fc922b]">star</span>
+                      Recommandé
+                    </span>
+                    <h3 className="mt-3 text-[20px] font-extrabold tracking-tight">Annuel</h3>
+                    <p className="mt-1 text-[13px] text-white/85">Un seul paiement pour toute l’année scolaire.</p>
+                  </div>
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
+                    <span className="material-symbols-outlined text-2xl">event_available</span>
+                  </span>
+                </div>
+                <div className="relative mt-6 min-h-[3.5rem]">
+                  {offre.tarifAnnuel !== null ? (
+                    <>
+                      <p className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="font-mono text-[34px] font-bold leading-none">{formatMontant(offre.tarifAnnuel, offre.devise)}</span>
+                        <span className="text-[13px] font-semibold text-white/85">par an</span>
+                      </p>
+                      {economie !== null && (
+                        <p className="mt-2 text-[13px] font-semibold text-[#ffd9b0]">
+                          Soit {formatMontant(economie, offre.devise)} de moins que douze mois au tarif mensuel.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-[17px] font-bold leading-snug">Tarif communiqué à l’inscription</p>
+                  )}
+                </div>
+                <ul className="relative mt-6 grid gap-2.5 text-[14px]">
+                  {AVANTAGES_FORFAIT.map((avantage) => (
+                    <li key={avantage} className="flex items-start gap-2.5">
+                      <span className="material-symbols-outlined mt-px shrink-0 text-lg text-[#fc922b]">check_circle</span>
+                      <span>{avantage}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="relative mt-8 flex flex-col gap-2 sm:flex-row">
+                  <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={btnOnDark} magnetic>
+                    <span className="material-symbols-outlined text-lg">domain_add</span>
+                    <span>Commencer l’essai gratuit</span>
+                  </RouteLink>
+                  {!tarifsConnus && (
+                    <a href="#contact" className={btnLight}>
+                      <span className="material-symbols-outlined text-lg">mail</span>
+                      <span>Contact</span>
+                    </a>
+                  )}
+                </div>
+              </li>
+            </ul>
+
+            <div data-reveal className="mt-8 grid gap-4 rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5 text-[14px] leading-relaxed text-[#444651] sm:grid-cols-3 sm:p-6">
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined mt-0.5 shrink-0 text-xl text-[#0051d5]">hourglass_top</span>
+                <p>
+                  <strong className="font-bold text-[#00236f]">Essai de {offre.dureeEssaiJours} jours.</strong> Toutes les fonctionnalités, dès la
+                  création du compte, sans carte ni paiement.
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined mt-0.5 shrink-0 text-xl text-[#0051d5]">phone_android</span>
+                <p>
+                  <strong className="font-bold text-[#00236f]">Paiement par mobile money.</strong> Le forfait choisi est réglé depuis votre
+                  téléphone, au bénéficiaire indiqué à l’inscription.
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined mt-0.5 shrink-0 text-xl text-[#0051d5]">verified_user</span>
+                <p>
+                  <strong className="font-bold text-[#00236f]">Activation par l’équipe.</strong> Après réception du paiement, l’équipe
+                  AcademiaBlanc active l’abonnement de l’établissement.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Contact */}
+        <section id="contact" aria-labelledby="titre-contact" className="scroll-mt-16 py-20 sm:py-24">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <SectionHeading id="titre-contact" surtitre="Contact" titre="Une question avant de commencer ? Parlons‑en.">
+              Démonstration, organisation d’un examen blanc inter-établissements, modalités de paiement : l’équipe
+              AcademiaBlanc vous répond en français, aux heures ouvrées.
+            </SectionHeading>
+
+            <ul data-cards className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {whatsapp && (
+                <li data-card>
+                  <a
+                    href={whatsapp}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex h-full flex-col rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)] ${focusRing}`}
+                  >
+                    <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#dcfce7] text-[#166534]">
+                      <span className="material-symbols-outlined text-2xl">chat</span>
+                    </span>
+                    <h3 className="mt-4 text-[17px] font-bold text-[#00236f]">WhatsApp</h3>
+                    <p className="mt-1 break-words font-mono text-[15px] font-bold text-[#131b2e]">{offre.telWhatsapp}</p>
+                    <p className="mt-2 text-[14px] leading-relaxed text-[#444651]">Écrivez-nous, nous répondons rapidement.</p>
+                  </a>
+                </li>
+              )}
+              {appel && (
+                <li data-card>
+                  <a
+                    href={appel}
+                    className={`flex h-full flex-col rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)] ${focusRing}`}
+                  >
+                    <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#eaedff] text-[#0051d5]">
+                      <span className="material-symbols-outlined text-2xl">call</span>
+                    </span>
+                    <h3 className="mt-4 text-[17px] font-bold text-[#00236f]">Appel</h3>
+                    <p className="mt-1 break-words font-mono text-[15px] font-bold text-[#131b2e]">{offre.telAppel}</p>
+                    <p className="mt-2 text-[14px] leading-relaxed text-[#444651]">Du lundi au vendredi, aux heures ouvrées.</p>
+                  </a>
+                </li>
+              )}
+              <li data-card>
+                <a
+                  href={`mailto:${CONTACT_EMAIL}`}
+                  className={`flex h-full flex-col rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)] ${focusRing}`}
                 >
                   <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#eaedff] text-[#0051d5]">
-                    <span className="material-symbols-outlined text-2xl">{atout.icon}</span>
+                    <span className="material-symbols-outlined text-2xl">mail</span>
                   </span>
-                  <h3 className="mt-4 text-[17px] font-bold text-[#00236f]">{atout.title}</h3>
-                  <p className="mt-2 text-[14px] leading-relaxed text-[#444651]">{atout.text}</p>
-                </li>
-              ))}
+                  <h3 className="mt-4 text-[17px] font-bold text-[#00236f]">Courriel</h3>
+                  <p className="mt-1 break-all font-mono text-[15px] font-bold text-[#131b2e]">{CONTACT_EMAIL}</p>
+                  <p className="mt-2 text-[14px] leading-relaxed text-[#444651]">Pour une demande détaillée ou un devis destiné à votre direction.</p>
+                </a>
+              </li>
             </ul>
           </div>
         </section>
 
         {/* Appel à l’action final */}
-        <section aria-labelledby="titre-cta" className="py-20 sm:py-24">
+        <section aria-labelledby="titre-cta" className="pb-20 sm:pb-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div
               data-reveal
@@ -850,22 +964,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
             >
               <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-[#316bf3]/40 blur-3xl" aria-hidden="true" />
               <div className="absolute -bottom-12 left-1/3 h-40 w-40 rounded-full bg-[#fc922b]/25 blur-3xl" aria-hidden="true" />
-              <div className="relative grid items-center gap-8 lg:grid-cols-[1.3fr_1fr]">
+              <div className="relative grid items-center gap-8 lg:grid-cols-[1fr_auto]">
                 <div>
                   <h2 id="titre-cta" className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">
                     Prêt pour votre prochaine session ?
                   </h2>
                   <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-white/85 sm:text-[16px]">
                     Créez le compte de votre établissement, invitez votre équipe, importez vos candidats. Le jour du
-                    jury, relevés, liste et procès-verbal sont prêts à imprimer.
+                    jury, relevés, liste des candidats et procès-verbal sont prêts à imprimer.
                   </p>
                 </div>
-                <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
-                  <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={btnOnDark} magnetic>
+                <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-stretch">
+                  <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={`${btnOnDark} lg:whitespace-nowrap`} magnetic>
                     <span className="material-symbols-outlined text-lg">domain_add</span>
-                    <span>Créer le compte</span>
+                    <span>Créer le compte de mon établissement</span>
                   </RouteLink>
-                  <RouteLink href={ROUTE_PATHS.connexion} onNavigate={onConnexion} className={btnLight} magnetic>
+                  <RouteLink href={ROUTE_PATHS.connexion} onNavigate={onConnexion} className={`${btnLight} lg:whitespace-nowrap`} magnetic>
                     <span className="material-symbols-outlined text-lg">login</span>
                     <span>Se connecter</span>
                   </RouteLink>
@@ -878,7 +992,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
 
       {/* Pied de page */}
       <footer className="border-t border-[#eaedff] bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 md:flex-row md:items-start md:justify-between">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
           <div className="max-w-sm">
             <div className="flex items-center gap-2.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#00236f] text-white">
@@ -887,40 +1001,56 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               <span className="text-[16px] font-bold tracking-tight text-[#00236f]">AcademiaBlanc</span>
             </div>
             <p className="mt-3 text-[13px] leading-relaxed text-[#444651]">
-              Gestion des examens blancs, seul ou entre établissements : candidats, notes, moyennes et rangs, relevés,
-              liste des candidats et procès-verbal.
+              Gestion scolaire et examens blancs, seul ou entre établissements : candidats, notes, moyennes et
+              rangs, relevés, liste des candidats, feuille d’émargement et procès-verbal.
             </p>
           </div>
-          <nav aria-label="Pied de page" className="grid grid-cols-2 gap-8 text-[13px]">
-            <div>
+          <nav aria-label="Pied de page" className="contents">
+            <div className="text-[13px]">
               <p className="text-[11px] font-bold uppercase tracking-wider text-[#757682]">Site</p>
               <ul className="mt-3 space-y-2">
                 {NAV_LINKS.map((link) => (
                   <li key={link.href}>
-                    <a href={link.href} className="font-semibold text-[#131b2e] hover:text-[#0051d5]">{link.label}</a>
+                    <a href={link.href} className={lienTexte}>{link.label}</a>
                   </li>
                 ))}
+                <li>
+                  <a href="#documents" className={lienTexte}>Documents imprimés</a>
+                </li>
               </ul>
             </div>
-            <div>
+            <div className="text-[13px]">
               <p className="text-[11px] font-bold uppercase tracking-wider text-[#757682]">Compte</p>
               <ul className="mt-3 space-y-2">
                 <li>
-                  <RouteLink href={ROUTE_PATHS.connexion} onNavigate={onConnexion} className="font-semibold text-[#131b2e] hover:text-[#0051d5]">
+                  <RouteLink href={ROUTE_PATHS.connexion} onNavigate={onConnexion} className={lienTexte}>
                     Se connecter
                   </RouteLink>
                 </li>
                 <li>
-                  <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className="font-semibold text-[#131b2e] hover:text-[#0051d5]">
+                  <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={lienTexte}>
                     Créer un compte
                   </RouteLink>
                 </li>
+                <li>
+                  <a href={`mailto:${CONTACT_EMAIL}`} className={lienTexte}>{CONTACT_EMAIL}</a>
+                </li>
+              </ul>
+            </div>
+            <div className="text-[13px]">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#757682]">Informations légales</p>
+              <ul className="mt-3 space-y-2">
+                {LIENS_LEGAUX.map((lien) => (
+                  <li key={lien.href}>
+                    <a href={lien.href} className={lienTexte}>{lien.label}</a>
+                  </li>
+                ))}
               </ul>
             </div>
           </nav>
         </div>
         <div className="border-t border-[#eaedff] bg-[#faf8ff] px-4 py-4 text-center text-[11px] text-[#444651] sm:px-6">
-          AcademiaBlanc • {bandeau} • © {new Date().getFullYear()}
+          © {new Date().getFullYear()} AcademiaBlanc • {bandeau}
         </div>
       </footer>
     </div>
