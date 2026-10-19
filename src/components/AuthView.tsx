@@ -13,6 +13,21 @@ import {
 import { isPlausibleEmail } from '../utils/safeUrl';
 import { usePrereglageDefaut } from '../api/prereglages';
 import { bandeauNational, drapeau } from '../utils/prereglages';
+import { chargerOffre } from '../api/abonnement';
+import type { Forfait, OffrePublique } from '../utils/abonnement';
+import { ForfaitCards } from './abonnement/ForfaitCards';
+
+/** Offre affichée tant que `/api/public/offre` n'a pas répondu : aucun tarif inventé (« Tarif à confirmer »). */
+const OFFRE_INCONNUE: OffrePublique = {
+  tarifMensuel: 0,
+  tarifAnnuel: 0,
+  devise: 'FCFA',
+  telWhatsapp: '',
+  telAppel: '',
+  beneficiaire: '',
+  instructions: '',
+  dureeEssaiJours: 0,
+};
 
 /** Au-delà de ce délai sans réponse, l’écran prévient que le serveur gratuit est sans doute en train de redémarrer. */
 const DELAI_NOTE_REVEIL_MS = 3_000;
@@ -102,6 +117,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
   }, [initialMode]);
   const changerMode = (next: AuthMode) => {
     setMode(next);
+    setEtapeInscription('infos');
     onModeChange?.(next);
   };
   // Seule la session API authentifiée est affichée : jamais la liste des autres établissements.
@@ -130,29 +146,44 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const connexion = useAppelServeur();
   const inscription = useAppelServeur();
 
+  // Inscription en deux étapes : informations de l'établissement, puis choix du forfait (tarifs publics).
+  const [etapeInscription, setEtapeInscription] = useState<'infos' | 'forfait'>('infos');
+  const [forfait, setForfait] = useState<Forfait>('ANNUEL');
+  const [offre, setOffre] = useState<OffrePublique>(OFFRE_INCONNUE);
+  useEffect(() => {
+    let actif = true;
+    chargerOffre()
+      .then((o) => { if (actif) setOffre(o); })
+      .catch(() => { /* offre indisponible : « Tarif à confirmer » */ });
+    return () => { actif = false; };
+  }, []);
+
+  /** Contrôle des informations de l'établissement ; renvoie le message d'erreur ou `null`. */
+  const erreurInfos = (): string | null => {
+    if (!formData.name.trim()) return 'Le nom officiel de l\'établissement est obligatoire.';
+    if (!formData.principalName.trim()) return 'Le nom du chef d\'établissement (Directeur ou Proviseur) est obligatoire.';
+    if (!isPlausibleEmail(formData.email)) return 'Indiquez une adresse email valide.';
+    if (formData.password.trim().length < 6) return 'Le mot de passe doit contenir au moins 6 caractères.';
+    if (formData.password !== formData.confirmPassword) return 'Les deux mots de passe ne correspondent pas.';
+    return null;
+  };
+
+  const passerAuForfait = (e: React.FormEvent) => {
+    e.preventDefault();
+    const erreur = erreurInfos();
+    setRegError(erreur ?? '');
+    if (!erreur) setEtapeInscription('forfait');
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (inscription.enCours) return;
     setRegError('');
 
-    if (!formData.name.trim()) {
-      setRegError('Le nom officiel de l\'établissement est obligatoire.');
-      return;
-    }
-    if (!formData.principalName.trim()) {
-      setRegError('Le nom du chef d\'établissement (Directeur ou Proviseur) est obligatoire.');
-      return;
-    }
-    if (!isPlausibleEmail(formData.email)) {
-      setRegError('Indiquez une adresse email valide.');
-      return;
-    }
-    if (formData.password.trim().length < 6) {
-      setRegError('Le mot de passe doit contenir au moins 6 caractères.');
-      return;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      setRegError('Les deux mots de passe ne correspondent pas.');
+    const erreur = erreurInfos();
+    if (erreur) {
+      setRegError(erreur);
+      setEtapeInscription('infos');
       return;
     }
 
@@ -166,6 +197,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         telephone: formData.phone.trim(),
         region: formData.region.trim(),
         typeEtablissement: formData.type.trim(),
+        forfait,
       }));
       // Le compte vit sur le serveur : aucun double local (et surtout pas le mot de passe) n'est écrit dans le
       // navigateur, sinon il serait relu plus tard comme un espace de démonstration ou par un autre compte.
@@ -305,9 +337,70 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
       {/* Corps (défile en interne si trop haut) */}
       <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5">
-        {mode === 'register' ? (
-          <form onSubmit={handleRegister} className="space-y-3" aria-busy={inscription.enCours}>
+        {mode === 'register' && etapeInscription === 'forfait' ? (
+          <form onSubmit={handleRegister} className="space-y-4" aria-busy={inscription.enCours} data-testid="etape-forfait">
             {regError && blocErreur(regError)}
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[#444651]">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#dcfce7] text-[#166534]">
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">check</span>
+              </span>
+              <span>Établissement</span>
+              <span className="text-[#c5c5d3]">/</span>
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#00236f] text-white text-[11px]">2</span>
+              <span className="text-[#00236f]">Forfait</span>
+            </div>
+            <div>
+              <h2 className="text-[16px] font-bold text-[#00236f]">Choisissez votre forfait</h2>
+              <p className="text-[12px] text-[#444651] mt-0.5">
+                Pour <strong className="text-[#131b2e]">{formData.name.trim()}</strong>. Le règlement se fait par mobile money après la création du compte ;
+                votre espace est activé par la plateforme dès réception.
+              </p>
+            </div>
+            <ForfaitCards
+              valeur={forfait}
+              onChange={setForfait}
+              tarifMensuel={offre.tarifMensuel}
+              tarifAnnuel={offre.tarifAnnuel}
+              devise={offre.devise}
+              dureeEssaiJours={offre.dureeEssaiJours}
+              disabled={inscription.enCours}
+            />
+
+            {inscription.attenteLongue && noteReveil}
+
+            <div className="pt-1 flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setEtapeInscription('infos')}
+                disabled={inscription.enCours}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#f2f3ff] text-[#444651] text-[13px] font-semibold hover:bg-[#e2e7ff] transition-colors disabled:opacity-60"
+              >
+                <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+                <span>Retour</span>
+              </button>
+              <button
+                type="submit"
+                disabled={inscription.enCours}
+                data-testid="bouton-creer-compte"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#00236f] text-white text-[13px] font-bold hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95 disabled:opacity-60 disabled:cursor-wait disabled:active:scale-100"
+              >
+                <span className={`material-symbols-outlined text-lg ${inscription.enCours ? 'animate-spin' : ''}`} aria-hidden="true">
+                  {inscription.enCours ? 'progress_activity' : 'check_circle'}
+                </span>
+                <span>{inscription.enCours ? 'Création en cours…' : 'Créer le compte et passer au paiement'}</span>
+              </button>
+            </div>
+          </form>
+        ) : mode === 'register' ? (
+          <form onSubmit={passerAuForfait} className="space-y-3" data-testid="etape-infos">
+            {regError && blocErreur(regError)}
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[#444651]">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#00236f] text-white text-[11px]">1</span>
+              <span className="text-[#00236f]">Établissement</span>
+              <span className="text-[#c5c5d3]">/</span>
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#eaedff] text-[#444651] text-[11px]">2</span>
+              <span>Forfait</span>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Nom de l'établissement */}
@@ -463,18 +556,14 @@ export const AuthView: React.FC<AuthViewProps> = ({
               </div>
             </div>
 
-            {inscription.attenteLongue && noteReveil}
-
             <div className="pt-1 flex justify-end">
               <button
                 type="submit"
-                disabled={inscription.enCours}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#00236f] text-white text-[13px] font-bold hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95 disabled:opacity-60 disabled:cursor-wait disabled:active:scale-100"
+                data-testid="bouton-continuer-forfait"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#00236f] text-white text-[13px] font-bold hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95"
               >
-                <span className={`material-symbols-outlined text-lg ${inscription.enCours ? 'animate-spin' : ''}`} aria-hidden="true">
-                  {inscription.enCours ? 'progress_activity' : 'check_circle'}
-                </span>
-                <span>{inscription.enCours ? 'Création en cours…' : 'Créer le compte'}</span>
+                <span>Continuer : choisir le forfait</span>
+                <span className="material-symbols-outlined text-lg" aria-hidden="true">arrow_forward</span>
               </button>
             </div>
           </form>
