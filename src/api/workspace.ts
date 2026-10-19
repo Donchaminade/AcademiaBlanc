@@ -18,7 +18,7 @@ async function lire<T>(path: string): Promise<T[]> {
 
 interface Annee { id: number; libelle: string; courante: boolean; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
-interface SessionApi extends SessionTypeExamen { id: number; nom: string; serie?: string; anneeScolaireId: number; centreId: number; }
+interface SessionApi extends SessionTypeExamen { id: number; nom: string; statut?: string; serie?: string; anneeScolaireId: number; centreId: number; }
 interface Matiere { id: number; nom: string; code: string; }
 interface Professeur { id: number; nom: string; }
 /** `titulaireId` : enseignant désigné titulaire dans Administration › Classes ; null ou absent = sans titulaire. */
@@ -46,8 +46,8 @@ export interface ExamOption { id: number; label: string; }
 export interface WorkspaceOptions {
   /**
    * `true` : la liste affiche tous les élèves enregistrés, quelle que soit leur session.
-   * Sinon (défaut), les élèves rattachés à une autre session que la session chargée sont écartés ;
-   * ceux sans session restent toujours visibles.
+   * Sinon (défaut), seuls restent les élèves de la session chargée, ceux de ses sessions sœurs
+   * (même examen, même année scolaire) et ceux sans session.
    */
   toutesSessions?: boolean;
 }
@@ -78,17 +78,61 @@ export interface SchoolWorkspace {
   coefficientsCount: number;
 }
 
+/** Champs d'une session qui déterminent ses « sœurs » : même examen dans la même année scolaire. */
+export type SessionFamille = Pick<SessionApi, 'id' | 'anneeScolaireId' | 'typeExamenId' | 'typeExamen'>;
+
 /**
- * Élèves à afficher pour la session chargée : ceux de cette session et ceux sans session.
- * Avec `toutesSessions`, aucun élève enregistré n'est écarté.
+ * Identifiants des sessions sœurs de `session` (elle comprise) : même année scolaire et même type
+ * d'examen (par référentiel, sinon par libellé). Un « BEPC blanc n°2 » en février reprend ainsi les
+ * élèves importés pour le « BEPC blanc n°1 » de novembre, sans réimport.
+ */
+export function sessionsSoeurs(session: SessionFamille | null | undefined, sessions: readonly SessionFamille[]): number[] {
+  if (!session) return [];
+  const memeType = (autre: SessionFamille) => (session.typeExamenId != null && autre.typeExamenId != null
+    ? session.typeExamenId === autre.typeExamenId
+    : (session.typeExamen || '').trim().toLowerCase() !== '' && (session.typeExamen || '').trim().toLowerCase() === (autre.typeExamen || '').trim().toLowerCase());
+  const ids = sessions
+    .filter((autre) => autre.anneeScolaireId === session.anneeScolaireId && memeType(autre))
+    .map((autre) => autre.id);
+  return ids.includes(session.id) ? ids : [session.id, ...ids];
+}
+
+/**
+ * Élèves à afficher pour la session chargée : ceux de cette session, ceux de ses sessions sœurs
+ * (`soeurs`, cf. {@link sessionsSoeurs}) et ceux sans session. Avec `toutesSessions`, aucun élève
+ * enregistré n'est écarté.
  */
 export function filtrerRoster<T extends { sessionId?: number | null }>(
   eleves: T[],
   sessionId: number | null,
   options: WorkspaceOptions = {},
+  soeurs: readonly number[] = [],
 ): T[] {
   if (options.toutesSessions || sessionId == null) return eleves;
-  return eleves.filter((eleve) => eleve.sessionId == null || eleve.sessionId === sessionId);
+  return eleves.filter((eleve) => eleve.sessionId == null || eleve.sessionId === sessionId || soeurs.includes(eleve.sessionId));
+}
+
+/** Miroir de `SessionStatut.estArchivee` côté API : archivée, clôturée, fermée ou terminée (casse et accents ignorés). */
+export function estSessionArchivee(statut: string | null | undefined): boolean {
+  const normalise = (statut || '').trim().normalize('NFD').replace(/\p{M}/gu, '').toUpperCase();
+  return /^(ARCHIV|CLOTUR|FERME|TERMIN)/.test(normalise);
+}
+
+/**
+ * Session chargée à l'ouverture : celle demandée si elle existe ; sinon une session encore ouverte
+ * (de l'année courante de préférence) plutôt qu'une session archivée ; à défaut la première de la liste.
+ * Ainsi, après avoir archivé le « BEPC blanc n°1 », on arrive directement sur le « n°2 ».
+ */
+export function sessionParDefaut<S extends Pick<SessionApi, 'id' | 'statut' | 'anneeScolaireId'>>(
+  sessions: readonly S[],
+  preferredSessionId: number | undefined,
+  annees: readonly Pick<Annee, 'id' | 'courante'>[] = [],
+): S | null {
+  const demandee = sessions.find((item) => item.id === preferredSessionId);
+  if (demandee) return demandee;
+  const ouvertes = sessions.filter((item) => !estSessionArchivee(item.statut));
+  const anneeCourante = annees.find((item) => item.courante)?.id;
+  return ouvertes.find((item) => item.anneeScolaireId === anneeCourante) || ouvertes[0] || sessions[0] || null;
 }
 
 /**
@@ -129,7 +173,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
     lire<SerieApi>('/api/series').catch(() => [] as SerieApi[]),
   ]);
 
-  const session = sessions.find((item) => item.id === preferredSessionId) || sessions[0] || null;
+  const session = sessionParDefaut(sessions, preferredSessionId, annees);
   const [notes, deliberations]: [NoteApi[], DeliberationApi[]] = session
     ? await Promise.all([
       lire<NoteApi>(`/api/notes?sessionId=${session.id}`),
@@ -169,7 +213,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
   const coefsPourClasse = (classeId: number): Record<string, number> =>
     Object.fromEntries(matieres.map((matiere) => [String(matiere.id), coefficientEffectif(coefficients, matiere.id, classeId).valeur]));
 
-  const roster = filtrerRoster(eleves, session?.id ?? null, options);
+  const roster = filtrerRoster(eleves, session?.id ?? null, options, sessionsSoeurs(session, sessions));
 
   const candidates: Candidate[] = roster.map((eleve) => {
     const classe = classes.find((item) => item.id === eleve.classeId);

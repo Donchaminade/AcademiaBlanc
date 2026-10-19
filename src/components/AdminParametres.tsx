@@ -879,7 +879,11 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               };
               void run(() => sessionEdit
                 ? apiSend(`/api/sessions/${sessionEdit.id}`, 'PUT', body).then(() => undefined)
-                : apiSend('/api/sessions', 'POST', body).then(() => undefined), sessionEdit ? 'Session mise à jour.' : 'Session créée.', reset.session);
+                : apiSend('/api/sessions', 'POST', body).then(() => undefined),
+              sessionEdit
+                ? 'Session mise à jour.'
+                : 'Session créée. Choisissez-la dans la barre latérale (« Session d’Examen Blanc ») pour saisir ses notes et imprimer ses bulletins : les élèves des sessions du même examen de l’année y sont déjà candidats.',
+              reset.session);
             }}>
               <Field label="Examen" className="lg:col-span-2">
                 <select
