@@ -15,8 +15,10 @@ import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
 import { TITRE_TITULAIRE, aUnTitulaire, nomTitulaireAffiche } from '../utils/titulaire';
+import { etablissementOrigineAffiche, groupeDeClassement } from '../utils/sessionMode';
 import { BulletinFooter } from './BulletinFooter';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
+import { LigneCentreExamen, SignaturesInter } from './BulletinInterBlocs';
 
 interface AllBulletinsPrintModalProps {
   candidates: Candidate[];
@@ -27,6 +29,10 @@ interface AllBulletinsPrintModalProps {
   selectedSession?: string;
   /** Libellé long du type d'examen de la session active (référentiel de la plateforme) ; absent en démonstration. */
   examTypeLong?: string;
+  /** Session inter-établissements : mêmes règles que `BulletinView` (sans logo ni cachet, centre d'examen, rang par niveau / série). */
+  sessionInter?: boolean;
+  /** Nom du centre d'examen (établissement hôte) en session inter-établissements. */
+  centreExamen?: string;
 }
 
 export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
@@ -37,10 +43,15 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
   onClose,
   selectedSession,
   examTypeLong,
+  sessionInter = false,
+  centreExamen = '',
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'admis' | 'rattrapage'>('all');
   const sealCaption = establishmentCaption(settings.institutionName);
   const yearCaption = academicYearCaption(settings.academicYear);
+  // Inter-établissements : aucun sceau ni filigrane de l'établissement hôte sur les relevés.
+  const afficherSceau = !sessionInter && Boolean(settings.sealUrl && settings.sealUrl.trim() !== '');
+  const porteeLibelle = sessionInter ? 'du groupe' : 'de la classe';
   const fmtMoyenne = (value: number | null | undefined) => (value == null ? '—' : value.toFixed(2));
 
   const filteredCandidates = candidates.filter((c) => {
@@ -79,7 +90,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
               </span>
             </div>
             <p className="text-[12px] text-white/80">
-              Établissement : <strong className="text-white">{settings.institutionName}</strong> • Format ISO 216 / A4 avec saut de page automatique
+              {sessionInter ? 'Centre d’examen' : 'Établissement'} : <strong className="text-white">{(sessionInter && centreExamen) || settings.institutionName}</strong> • Format ISO 216 / A4 avec saut de page automatique
             </p>
           </div>
         </div>
@@ -155,7 +166,9 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
           });
           const ministryMarkLabel = ministryMark(settings);
           const regionalAuthority = (settings.regionalAuthority || '').trim();
-          const camarades = camaradesDeClasse(candidate, candidates);
+          // Classe en interne ; groupe niveau / série de toute la session en inter-établissements.
+          const camarades = sessionInter ? groupeDeClassement(candidate, candidates, true) : camaradesDeClasse(candidate, candidates);
+          const cohorteRangMatiere = sessionInter ? camarades : candidates;
 
           return (
             <div
@@ -165,8 +178,8 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
               }`}
               style={{ pageBreakAfter: isLast ? 'auto' : 'always', breakAfter: isLast ? 'auto' : 'page' }}
             >
-              {/* Watermark Background Emblem (only if seal uploaded) */}
-              {settings.sealUrl && settings.sealUrl.trim() !== '' && (
+              {/* Watermark Background Emblem (only if seal uploaded; never in inter-établissements) */}
+              {afficherSceau && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none overflow-hidden">
                   <img
                     alt="Armoiries Officielles"
@@ -184,9 +197,10 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                   {regionalAuthority ? <p className="bulletin-ministry-sigle">{regionalAuthority}</p> : null}
                 </div>
 
-                {/* Central Academic Seal */}
+                {/* Central Academic Seal — remplacé par la ligne « Centre d'examen » en inter-établissements */}
+                {sessionInter ? <div className="bulletin-seal" aria-hidden="true" /> : (
                 <div className="bulletin-seal">
-                  {settings.sealUrl && settings.sealUrl.trim() !== '' ? (
+                  {afficherSceau ? (
                     <div className="bulletin-seal-mark w-16 h-16 rounded-full bg-[#f2f3ff] flex items-center justify-center p-1.5 shadow-sm border border-[#eaedff] overflow-hidden">
                       <img
                         alt="Sceau Académique Officiel"
@@ -207,12 +221,15 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                   )}
                   <span className="bulletin-seal-caption">{sealCaption}</span>
                 </div>
+                )}
 
                 <div className="bulletin-header-right">
                   <p className="bulletin-republic-name">{settings.countryName}</p>
                   <p className="bulletin-republic-motto">{settings.motto}</p>
                 </div>
               </div>
+
+              {sessionInter && <LigneCentreExamen centreExamen={centreExamen} compact />}
 
               {/* Bande de l'année académique */}
               <div className="bulletin-ribbon relative z-10 py-1.5 px-3 bg-[#eaedff] rounded border border-[#dce1ff]">
@@ -276,7 +293,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                   </span>
 
                   <span className="bulletin-field-value bulletin-field-school text-[12px] text-[#131b2e] font-medium">
-                    {candidate.originSchool}
+                    {sessionInter ? etablissementOrigineAffiche(candidate, centreExamen) : candidate.originSchool}
                   </span>
                   <span className="bulletin-field-value bulletin-field-center text-[12px] text-[#00236f] font-semibold">
                     {candidate.examCenterName}
@@ -305,7 +322,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       <th className="py-1.5 px-2 font-semibold text-center">Coef</th>
                       <th className="py-1.5 px-2 font-semibold text-right">Total Coef</th>
                       <th className="py-1.5 px-2 font-semibold text-center">Rang</th>
-                      <th className="py-1.5 px-2 font-semibold text-center">Min / Max classe</th>
+                      <th className="py-1.5 px-2 font-semibold text-center">{sessionInter ? 'Min / Max groupe' : 'Min / Max classe'}</th>
                       <th className="py-1.5 px-3 font-semibold text-left">Appréciation du professeur</th>
                     </tr>
                   </thead>
@@ -315,7 +332,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       const coef = coefDuCandidat(candidate, subj);
                       const scoreTotal = gradeData ? (gradeData.score * coef).toFixed(2) : '—';
                       const isEven = sIdx % 2 === 0;
-                      const subjectRankValue = computeSubjectRank(candidate.id, subj.id, candidates);
+                      const subjectRankValue = computeSubjectRank(candidate.id, subj.id, cohorteRangMatiere);
                       const professorAppreciation = appreciationAffichee(gradeData);
 
                       return (
@@ -415,7 +432,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       <span className="text-[18px] text-[#00236f] font-bold leading-none my-0">
                         {stats.average.toFixed(2)}
                       </span>
-                      <span className="text-[10px] text-[#444651] whitespace-nowrap">/ 20 • classe {fmtMoyenne(stats.classAverage)}</span>
+                      <span className="text-[10px] text-[#444651] whitespace-nowrap">/ 20 • {sessionInter ? 'groupe' : 'classe'} {fmtMoyenne(stats.classAverage)}</span>
                     </div>
 
                     <div className="bulletin-metric bg-white rounded-xs px-1.5 py-1 text-center border border-[#eaedff] flex flex-col justify-center">
@@ -431,7 +448,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       <span className="text-[15px] text-[#00236f] font-bold leading-none my-0">
                         {fmtMoyenne(stats.classHighestAverage)}
                       </span>
-                      <span className="text-[10px] text-[#444651]">de la classe</span>
+                      <span className="text-[10px] text-[#444651]">{porteeLibelle}</span>
                     </div>
 
                     <div className="bulletin-metric bg-white rounded-xs px-1.5 py-1 text-center border border-[#eaedff] flex flex-col justify-center">
@@ -439,13 +456,14 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       <span className="text-[15px] text-[#ba1a1a] font-bold leading-none my-0">
                         {fmtMoyenne(stats.classLowestAverage)}
                       </span>
-                      <span className="text-[10px] text-[#444651]">de la classe</span>
+                      <span className="text-[10px] text-[#444651]">{porteeLibelle}</span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Signatures Section: Le Titulaire et Le Proviseur */}
+              {/* Signatures : président du jury et chef du centre en inter-établissements ; titulaire et proviseur sinon */}
+              {sessionInter ? <SignaturesInter chefCentre={settings.jurySignerName} compact /> : (
               <div className="bulletin-signatures relative z-10 pt-0.5 grid grid-cols-2 gap-1.5 max-w-xl mx-auto text-center">
                 {/* Le Titulaire */}
                 <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[46px] bg-[#f2f3ff]/50 px-2 py-0.5 rounded-xs border border-[#eaedff]">
@@ -485,6 +503,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                   <span className="text-[9px] text-[#444651] italic leading-tight">Sceau officiel</span>
                 </div>
               </div>
+              )}
 
               {/* Visa des parents : avis et observations laissés à la main quand l'élève rapporte le relevé */}
               <div className="bulletin-visa-parents relative z-10 max-w-xl mx-auto mt-1.5 bg-[#f2f3ff]/50 px-3 py-1.5 rounded-xs border border-[#eaedff]">
@@ -507,7 +526,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
               </div>
 
               {/* Dernier élément de la page : filet doré puis « NOM DE L'ÉTABLISSEMENT • Devise » */}
-              <BulletinFooter institutionName={settings.institutionName} institutionMotto={settings.institutionMotto} />
+              {!sessionInter && <BulletinFooter institutionName={settings.institutionName} institutionMotto={settings.institutionMotto} />}
             </div>
           );
         })}
