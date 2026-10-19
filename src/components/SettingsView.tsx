@@ -211,7 +211,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4 md:space-y-6">
+    <div className="settings-ui p-4 md:p-8 max-w-5xl mx-auto space-y-4 md:space-y-6">
       {/* Header */}
       <div className="settings-chrome bg-white rounded p-4 md:p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
         <div>

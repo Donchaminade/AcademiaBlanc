@@ -697,8 +697,369 @@
   .bulletin-sheet .text-\[9px\] { font-size: 8px !important; }
 }
 
-.emargement-sheet {
+/* Gabarit commun des documents imprimés en paysage : masqué à l'écran, affiché par `body[data-print-mode]`. */
+.document-paysage {
   display: none;
+}
+
+.document-paysage-entete {
+  display: grid;
+  grid-template-columns: 68mm minmax(0, 1fr) 60mm;
+  column-gap: 5mm;
+  align-items: center;
+  padding-bottom: 2mm;
+  margin-bottom: 3mm;
+  border-bottom: 2px solid var(--color-or);
+  box-shadow: 0 2.5px 0 0 #fff, 0 3px 0 0 var(--color-primary);
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.document-paysage-etab {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  min-width: 0;
+}
+
+.document-paysage-logo {
+  width: 16mm;
+  height: 16mm;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.document-paysage-etab-texte {
+  min-width: 0;
+}
+
+.document-paysage-etab-nom {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-primary);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.document-paysage-etab-devise {
+  font-size: 8px;
+  font-style: italic;
+  color: #333;
+  margin-top: 0.6mm;
+}
+
+.document-paysage-centre {
+  text-align: center;
+  min-width: 0;
+}
+
+.document-paysage-republique {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.document-paysage-devise-nationale {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.document-paysage-ministere {
+  font-size: 7.5px;
+  text-transform: uppercase;
+  color: #333;
+  letter-spacing: 0.02em;
+}
+
+.document-paysage-titre {
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-primary);
+  margin: 1.2mm 0 0.6mm;
+  line-height: 1.15;
+}
+
+.document-paysage-sous-titre {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.document-paysage-sep {
+  color: var(--color-or);
+}
+
+.document-paysage-meta {
+  margin: 0;
+  text-align: right;
+  font-size: 8.5px;
+  line-height: 1.45;
+}
+
+.document-paysage-meta-ligne {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1.5mm;
+  white-space: nowrap;
+}
+
+.document-paysage-meta dt {
+  color: #555;
+  text-transform: uppercase;
+  font-size: 7.5px;
+  letter-spacing: 0.03em;
+  align-self: center;
+}
+
+.document-paysage-meta dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.document-paysage-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 9.5px;
+}
+
+.document-paysage-table thead {
+  display: table-header-group;
+}
+
+.document-paysage-table th,
+.document-paysage-table td {
+  border: 0.4px solid #8792b8;
+  padding: 1mm 1.5mm;
+  vertical-align: middle;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+/* En-tête de tableau bleu institutionnel, texte blanc (même thème que la grille des notes à l'écran). */
+.document-paysage-table th {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary-container);
+  font-weight: 700;
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  overflow-wrap: normal;
+  hyphens: manual;
+}
+
+.document-paysage-table tbody tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.document-paysage-table tbody tr:nth-child(even) td {
+  background: #f4f6fd;
+}
+
+.document-paysage-table .c { text-align: center; }
+.document-paysage-table .r { text-align: right; }
+.document-paysage-table .mono {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+}
+.document-paysage-table .nom {
+  font-weight: 700;
+}
+.document-paysage-table .vide {
+  color: #777;
+  font-style: italic;
+  text-align: center;
+  padding: 4mm;
+}
+
+.document-paysage-table tfoot {
+  display: table-footer-group;
+}
+
+.document-paysage-pied td {
+  border: none;
+  border-top: 0.6px solid var(--color-or);
+  padding: 1.5mm 0 0;
+  text-align: center;
+  font-size: 7.5px;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #fff !important;
+}
+
+.document-paysage-pied-complement::before {
+  content: ' • ';
+  color: var(--color-or);
+}
+
+/* Ligne de totaux (bilan des archives). */
+.document-paysage-table .synthese td {
+  background: #e6ebff !important;
+  font-weight: 700;
+  border-top: 1px solid var(--color-primary);
+}
+
+/* Liste des candidats : ~30 lignes par page A4 paysage. */
+.candidats-table td {
+  height: 5.8mm;
+}
+
+/* Feuille d'émargement : lignes hautes pour signer (≥ 9 mm), cases de signature blanches. */
+.emargement-table td {
+  height: 9.5mm;
+}
+
+.emargement-table .signature {
+  background: #fff !important;
+}
+
+.emargement-bas {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  column-gap: 10mm;
+  margin-top: 5mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  font-size: 9.5px;
+}
+
+.emargement-comptage {
+  display: flex;
+  flex-direction: column;
+  gap: 2.2mm;
+  padding-top: 1mm;
+}
+
+.emargement-comptage span {
+  display: flex;
+  align-items: baseline;
+  gap: 2mm;
+  font-weight: 600;
+}
+
+.emargement-comptage i {
+  display: inline-block;
+  flex: 1;
+  max-width: 28mm;
+  border-bottom: 0.5px dotted #000;
+  height: 3.5mm;
+}
+
+.emargement-signature {
+  text-align: center;
+}
+
+.emargement-signature-titre {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 8.5px;
+  color: var(--color-primary);
+}
+
+.emargement-signature-espace {
+  height: 16mm;
+}
+
+.emargement-signature-nom {
+  border-top: 0.5px solid #000;
+  padding-top: 1mm;
+  font-weight: 600;
+}
+
+/* Bilan des archives : graphique à barres en CSS pur (taux de réussite par session). */
+.archives-graphique {
+  margin-top: 5mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.archives-graphique-titre {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-primary);
+  margin-bottom: 2mm;
+}
+
+.archives-barres {
+  display: flex;
+  align-items: stretch;
+  gap: 4mm;
+  height: 42mm;
+  padding: 0 4mm;
+  border-bottom: 0.8px solid #000;
+  border-left: 0.5px solid #000;
+}
+
+.archives-barre {
+  flex: 1 1 0;
+  max-width: 40mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+}
+
+.archives-barre-valeur {
+  font-size: 8.5px;
+  font-weight: 700;
+  margin-bottom: 0.8mm;
+  white-space: nowrap;
+}
+
+.archives-barre-colonne {
+  width: 100%;
+  background: linear-gradient(to top, var(--color-primary), var(--color-secondary));
+  border: 0.4px solid var(--color-primary);
+  border-bottom: none;
+  min-height: 0.4mm;
+}
+
+.archives-barre-colonne.sans-valeur {
+  background: transparent;
+  border: 0.4px dashed #999;
+  height: 0.4mm;
+}
+
+.archives-barres-libelles {
+  display: flex;
+  gap: 4mm;
+  padding: 1mm 4mm 0;
+}
+
+.archives-barres-libelles > div {
+  flex: 1 1 0;
+  max-width: 40mm;
+  min-width: 0;
+  text-align: center;
+  font-size: 8px;
+  line-height: 1.2;
+}
+
+.archives-barres-libelles strong {
+  display: block;
+  font-size: 8.5px;
+  color: var(--color-primary);
+}
+
+.archives-barres-libelles span {
+  display: block;
+  color: #444;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media print {
@@ -725,16 +1086,6 @@
     margin: 0 !important;
   }
 
-  body[data-print-mode='emargement'] .students-ui,
-  body[data-print-mode='emargement'] aside,
-  body[data-print-mode='emargement'] .no-print {
-    display: none !important;
-  }
-
-  body[data-print-mode='emargement'] .emargement-sheet {
-    display: block !important;
-  }
-
   body[data-print-mode='emargement'] .pl-80,
   body[data-print-mode='archives'] .pl-80,
   body[data-print-mode='candidats'] .pl-80,
@@ -742,28 +1093,55 @@
     padding-left: 0 !important;
   }
 
-  /* Liste des candidats (émargement par classe) : même gabarit A4 portrait que le PV. */
+  /* Documents en paysage (liste des candidats, feuille d'émargement, bilan des archives) : l'écran est
+     masqué, seule la feuille `.document-paysage` du mode demandé est imprimée, sur une page nommée A4 paysage.
+     Les règles @page du bulletin et du registre (portrait) ne sont pas modifiées. */
+  @page paysage {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
   body[data-print-mode='candidats'] .students-ui,
+  body[data-print-mode='emargement'] .students-ui,
+  body[data-print-mode='archives'] .settings-chrome,
+  body[data-print-mode='archives'] .archives-ui,
   body[data-print-mode='candidats'] aside,
+  body[data-print-mode='emargement'] aside,
+  body[data-print-mode='archives'] aside,
   body[data-print-mode='candidats'] header,
-  body[data-print-mode='candidats'] .no-print {
+  body[data-print-mode='emargement'] header,
+  body[data-print-mode='archives'] header,
+  body[data-print-mode='candidats'] .no-print,
+  body[data-print-mode='emargement'] .no-print,
+  body[data-print-mode='archives'] .no-print {
     display: none !important;
   }
 
-  body[data-print-mode='candidats'] .candidats-sheet {
+  body[data-print-mode='archives'] .settings-ui {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body[data-print-mode='candidats'] .candidats-sheet,
+  body[data-print-mode='emargement'] .emargement-sheet,
+  body[data-print-mode='archives'] .archives-sheet {
     display: block !important;
-    width: 194mm;
-    max-width: 194mm;
-    margin: 0 auto;
+  }
+
+  .document-paysage {
+    page: paysage;
+    /* Largeur utile A4 paysage : 297 mm − 2 × 8 mm. */
+    width: 281mm;
+    max-width: 281mm;
+    margin: 0 auto !important;
+    padding: 0 !important;
     color: #000;
-    font-size: 9px;
-    line-height: 1.2;
+    font-family: var(--font-inter);
+    font-size: 9.5px;
+    line-height: 1.25;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-  }
-
-  body[data-print-mode='archives'] .settings-chrome {
-    display: none !important;
   }
 
   /* PV de délibération / palmarès : l'écran est masqué, seul le gabarit A4 portrait est imprimé. */
@@ -787,17 +1165,8 @@
   }
 }
 
-.registre-sheet,
-.candidats-sheet {
+.registre-sheet {
   display: none;
-}
-
-.candidats-table td {
-  height: 7mm;
-}
-
-.candidats-table .candidats-emargement {
-  background: #fff;
 }
 
 .registre-head {

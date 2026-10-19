@@ -176,6 +176,8 @@ export interface ArchivedSession {
   statut?: string;
   archivedAt: string;
   candidatesCount: number;
+  /** Élèves classés (au moins une note), dénominateur des taux ; absent pour une archive saisie à la main. */
+  classesCount?: number;
   /** Admis : moyenne affichée ≥ 10/20. Les taux portent sur les élèves classés (au moins une note). */
   admittedCount: number;
   admittedRate: number;

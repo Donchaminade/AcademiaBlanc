@@ -8,6 +8,7 @@ import {
 import { archiverSession, loadArchives, retirerArchive } from '../api/archives';
 import { printDocument } from '../utils/printDocument';
 import { confirmDelete } from '../utils/alerts';
+import { BilanArchivesSheet } from './print/BilanArchivesSheet';
 
 interface ArchivedSessionsSectionProps {
   settings: AppSettings;
@@ -357,7 +358,9 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
   }, [sortedSessionsChronological]);
 
   return (
-    <div className="space-y-6">
+    <>
+    {/* Écran : masqué à l'impression du bilan (`body[data-print-mode='archives']`) au profit de la feuille paysage. */}
+    <div className="archives-ui space-y-6">
       {/* Banner: Archiving & Multi-Year Overview */}
       <div className="min-w-0 bg-gradient-to-r from-[#00236f] via-[#003cb3] to-[#0051d5] rounded-xl p-6 text-white shadow-md border border-[#90a8ff]/20">
         <div className="space-y-1.5">
@@ -418,9 +421,10 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
 
           <button
             type="button"
-            onClick={() => printDocument('archives', `Archives_${settings.institutionName}`)}
+            onClick={() => printDocument('archives', `Bilan_sessions_${settings.institutionName}`)}
             className="inline-flex max-w-full shrink-0 items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold text-[12px] text-left transition-all border border-white/20"
-            title="Imprimer le rapport de comparaison pluriannuel"
+            title="Imprimer le bilan des sessions d'examen (A4 paysage : tableau comparatif et graphique)"
+            data-testid="bouton-imprimer-bilan"
           >
             <span className="material-symbols-outlined text-base shrink-0">print</span>
             <span className="whitespace-nowrap">Imprimer Bilan</span>
@@ -1168,5 +1172,7 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
         </div>
       )}
     </div>
+    <BilanArchivesSheet sessions={sessions} settings={settings} demonstration={!usingApi} />
+    </>
   );
 };

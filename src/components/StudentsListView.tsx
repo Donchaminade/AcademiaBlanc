@@ -5,8 +5,11 @@ import { subjectsFor } from '../utils/programme';
 import { confirmDelete } from '../utils/alerts';
 import { getToken } from '../api/client';
 import { csvListeCandidats } from '../utils/sessionMode';
+import { candidatsSansNumero, numeroTableAffiche } from '../utils/numerosTable';
+import { confirmAction } from '../utils/alerts';
 import { ImportElevesPanel } from './ImportElevesPanel';
 import { ListeCandidatsSheet } from './ListeCandidatsSheet';
+import { FeuilleEmargementSheet } from './print/FeuilleEmargementSheet';
 
 interface OptionApi { id: number; label: string; }
 
@@ -44,6 +47,12 @@ interface StudentsListViewProps {
   selectedCenter: string;
   settings?: AppSettings;
   onRenumberAlphabetically?: (startNumber?: number) => void | Promise<void>;
+  /**
+   * Attribue un numéro de table aux seuls candidats qui n'en ont pas (import ou inscription antérieurs à la
+   * numérotation automatique) : séquence stable par classe puis nom, à partir du premier numéro paramétré,
+   * enregistrée via `PUT /api/eleves/{id}` en session connectée.
+   */
+  onAssignMissingTableNumbers?: () => void | Promise<void>;
   onBatchAddCandidates?: (candidates: Candidate[]) => void;
   onOpenBatchPrint?: () => void;
   /** Présent en session API : l'import passe par le serveur. Absent : mode démonstration local. */
@@ -70,6 +79,7 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
   selectedCenter,
   settings,
   onRenumberAlphabetically,
+  onAssignMissingTableNumbers,
   onBatchAddCandidates,
   onOpenBatchPrint,
   importApi,
@@ -110,6 +120,28 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
 
   /** Nom imprimé en tête de la liste des candidats : le centre d'examen en inter, l'établissement sinon. */
   const nomEnTeteListe = (sessionInter && centreExamen) || settings?.institutionName || selectedCenter;
+
+  /** Candidats sans numéro de table (numero_table absent sur le serveur, affiché « — » et jamais 0). */
+  const sansNumero = candidatsSansNumero(candidates);
+  const [attributionEnCours, setAttributionEnCours] = useState(false);
+
+  const attribuerNumerosManquants = async () => {
+    if (!onAssignMissingTableNumbers || sansNumero.length === 0 || attributionEnCours) return;
+    const premier = settings?.startTableNumber || 1;
+    const ok = await confirmAction({
+      title: 'Attribuer les numéros de table manquants ?',
+      text: `${sansNumero.length} candidat${sansNumero.length > 1 ? 's' : ''} sans numéro recevr${sansNumero.length > 1 ? 'ont' : 'a'} un numéro séquentiel (par classe puis par nom, à partir du n° ${premier}, en sautant les numéros déjà pris). Les numéros existants ne changent pas.`,
+      confirmText: 'Attribuer',
+      icon: 'question',
+    });
+    if (!ok) return;
+    setAttributionEnCours(true);
+    try {
+      await onAssignMissingTableNumbers();
+    } finally {
+      setAttributionEnCours(false);
+    }
+  };
 
   const exporterListeCsv = () => {
     const blob = new Blob([csvListeCandidats(candidates, sessionInter ? centreExamen : '')], { type: 'text/csv;charset=utf-8' });
@@ -483,6 +515,20 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
             </button>
           )}
 
+          {onAssignMissingTableNumbers && sansNumero.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void attribuerNumerosManquants()}
+              disabled={attributionEnCours}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#fff3e0] text-[#8a4b00] border border-[#ffcc80] text-[12px] font-semibold hover:bg-[#ffe6c2] transition-colors disabled:opacity-60 disabled:cursor-wait"
+              title="Certains candidats n'ont pas de numéro de table : attribuer les numéros manquants (par classe puis nom) sans toucher aux numéros existants"
+              data-testid="bouton-numeros-manquants"
+            >
+              <span className="material-symbols-outlined text-base">pin</span>
+              <span className="truncate">{attributionEnCours ? 'Attribution…' : <>Attribuer les n° de table manquants ({sansNumero.length})</>}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => printDocument('emargement', `Emargement_${selectedSession}`)}
@@ -540,8 +586,8 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
           return (
             <li key={cand.id} className="bg-white rounded border border-[#eaedff] shadow-xs p-3">
               <div className="flex items-start gap-3">
-                <span className="shrink-0 w-12 h-12 rounded bg-[#eaedff] text-[#00236f] font-mono font-bold text-[14px] flex items-center justify-center" title="Numéro de table">
-                  {cand.tableNumber}
+                <span className="shrink-0 w-12 h-12 rounded bg-[#eaedff] text-[#00236f] font-mono font-bold text-[14px] flex items-center justify-center" title={numeroTableAffiche(cand) ? 'Numéro de table' : 'Numéro de table non attribué'}>
+                  {numeroTableAffiche(cand, '—')}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-[14px] text-[#131b2e] leading-tight break-words">{cand.fullName}</p>
@@ -591,7 +637,7 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
                 <button
                   type="button"
                   onClick={() => {
-                    void confirmDelete(`${cand.fullName} (Table ${cand.tableNumber})`, 'L’élève sera retiré de la liste des candidats.').then((ok) => {
+                    void confirmDelete(`${cand.fullName}${numeroTableAffiche(cand) ? ` (Table ${cand.tableNumber})` : ''}`, 'L’élève sera retiré de la liste des candidats.').then((ok) => {
                       if (ok) onDeleteCandidate(cand.id);
                     });
                   }}
@@ -632,8 +678,8 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
                     key={cand.id}
                     className={`${isEven ? 'bg-white' : 'bg-[#faf8ff]'} hover:bg-[#eaedff]/60 transition-colors`}
                   >
-                    <td className="py-2.5 px-3 font-mono font-bold text-center text-[#00236f]">
-                      {cand.tableNumber}
+                    <td className="py-2.5 px-3 font-mono font-bold text-center text-[#00236f]" title={numeroTableAffiche(cand) ? undefined : 'Numéro de table non attribué'}>
+                      {numeroTableAffiche(cand, '—')}
                     </td>
                     <td className="py-2.5 px-3 font-bold text-[#131b2e]">
                       {cand.fullName}
@@ -710,7 +756,7 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
                       <button
                         type="button"
                         onClick={() => {
-                          void confirmDelete(`${cand.fullName} (Table ${cand.tableNumber})`, 'L’élève sera retiré de la liste des candidats.').then((ok) => {
+                          void confirmDelete(`${cand.fullName}${numeroTableAffiche(cand) ? ` (Table ${cand.tableNumber})` : ''}`, 'L’élève sera retiré de la liste des candidats.').then((ok) => {
                             if (ok) onDeleteCandidate(cand.id);
                           });
                         }}
@@ -1100,33 +1146,17 @@ OUATTARA Fatimata, F, 24/07/2006, Lycée Sainte Marie, +225 05 44 55 66"
       selectedSession={selectedSession}
       examType={examType}
       academicYear={settings?.academicYear}
+      settings={settings}
     />
-    <div className="emargement-sheet p-6 text-[#131b2e]">
-      <h1 className="text-[18px] font-bold text-center">Feuille d'émargement</h1>
-      <p className="text-center text-[12px] mt-1">{selectedSession} • {selectedCenter}</p>
-      <table className="w-full mt-4 border-collapse text-[12px]">
-        <thead>
-          <tr>
-            <th className="border border-black px-2 py-1 text-left">N° table</th>
-            <th className="border border-black px-2 py-1 text-left">Nom et prénoms</th>
-            <th className="border border-black px-2 py-1 text-left">Matricule</th>
-            <th className="border border-black px-2 py-1 text-left">Signature</th>
-          </tr>
-        </thead>
-        <tbody>
-          {[...candidates]
-            .sort((a, b) => a.tableNumber - b.tableNumber)
-            .map((cand) => (
-              <tr key={cand.id}>
-                <td className="border border-black px-2 py-2">{cand.tableNumber}</td>
-                <td className="border border-black px-2 py-2">{cand.fullName}</td>
-                <td className="border border-black px-2 py-2">{cand.matricule}</td>
-                <td className="border border-black px-2 py-2 h-8"></td>
-              </tr>
-            ))}
-        </tbody>
-      </table>
-    </div>
+    <FeuilleEmargementSheet
+      candidates={candidates}
+      sessionInter={sessionInter}
+      centreExamen={nomEnTeteListe}
+      selectedSession={selectedSession}
+      examType={examType}
+      academicYear={settings?.academicYear}
+      settings={settings}
+    />
     </>
   );
 };

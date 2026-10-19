@@ -19,6 +19,7 @@ import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, TOGO_SETTINGS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
+import { attribuerNumerosManquants, candidatsSansNumero } from './utils/numerosTable';
 import { ApiError, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, isUnavailable, refreshSession, roleLabel, setSession } from './api/client';
 import { cleLocale, parametresDepuisServeur, parametresInitiauxConnecte, purgerSessionLocale } from './api/espaceConnecte';
 import {
@@ -716,6 +717,33 @@ export default function App() {
     showToast(`Tables générées automatiquement de ${base} à ${base + candidates.length - 1} selon l'ordre alphabétique des noms (A → Z) !`);
   };
 
+  /**
+   * Écriture : numéros de table des seuls candidats qui n'en ont pas (élèves importés ou inscrits avant la
+   * numérotation automatique du serveur, `numero_table` null). Séquence stable par classe puis nom à partir du
+   * premier numéro paramétré ; les numéros existants ne bougent pas. En session API, `PUT /api/eleves/{id}`
+   * pour chaque élève complété, puis relecture de la liste.
+   */
+  const handleAssignMissingTableNumbers = async (): Promise<void> => {
+    const manquants = candidatsSansNumero(candidates).length;
+    if (manquants === 0) {
+      toastSuccess('Tous les candidats ont déjà un numéro de table.');
+      return;
+    }
+    const completes = attribuerNumerosManquants(candidates, settings.startTableNumber || 1);
+    if (usingApi) {
+      try {
+        const modifies = await renumeroterEleves(candidates, completes);
+        await applyWorkspace(activeSessionId ?? undefined);
+        toastSuccess(`${modifies} numéro(s) de table attribué(s) et enregistré(s) sur le serveur.`);
+      } catch (err) {
+        signalerErreur(err, 'Numéros de table non enregistrés.');
+      }
+      return;
+    }
+    handleUpdateCandidates(completes);
+    showToast(`${manquants} numéro(s) de table attribué(s) aux candidats qui n'en avaient pas.`);
+  };
+
   const handleDownloadPdf = () => {
     if (!selectedCandidate) return;
     printDocument(
@@ -1032,6 +1060,7 @@ export default function App() {
               centreExamen={activeCentreExamen}
               examType={usingApi ? activeExamType : undefined}
               onRenumberAlphabetically={handleRenumberAlphabetically}
+              onAssignMissingTableNumbers={handleAssignMissingTableNumbers}
               onBatchAddCandidates={handleBatchAddCandidates}
               onOpenBatchPrint={peutImprimer ? () => setIsBatchPrintModalOpen(true) : undefined}
               importApi={usingApi ? {
