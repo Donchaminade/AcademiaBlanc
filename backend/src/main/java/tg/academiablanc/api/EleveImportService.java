@@ -19,16 +19,20 @@ import org.springframework.web.server.ResponseStatusException;
 import tg.academiablanc.domain.AnneeScolaire;
 import tg.academiablanc.domain.Classe;
 import tg.academiablanc.domain.Eleve;
+import tg.academiablanc.domain.SessionExamen;
 import tg.academiablanc.repo.AnneeScolaireRepository;
 import tg.academiablanc.repo.ClasseRepository;
 import tg.academiablanc.repo.EleveRepository;
+import tg.academiablanc.repo.ParametresBulletinRepository;
 import tg.academiablanc.repo.SessionExamenRepository;
 import tg.academiablanc.security.Tenant;
 
 /**
  * Import en masse d'élèves pour l'établissement du jeton : crée la classe au besoin,
  * attribue un matricule à chaque élève via {@link MatriculeService} et ignore les doublons
- * (même nom dans la même classe).
+ * (même nom dans la même classe). Les élèves rattachés à une session reçoivent le numéro de
+ * table suivant libre dans cette session ; en session inter-établissements, chaque ligne peut
+ * porter l'établissement d'origine du candidat (texte libre, établissement hôte si vide).
  */
 @Service
 public class EleveImportService {
@@ -44,10 +48,15 @@ public class EleveImportService {
   /** Une ligne d'import ; le matricule n'est pas accepté, il est toujours attribué par le serveur. */
   public record Ligne(@NotBlank @Size(max = 180) String nomComplet, @NotBlank @Size(min = 1, max = 1) String genre,
                       @Size(max = 20) String dateNaissance, @Size(max = 120) String lieuNaissance,
-                      Long classeId, @Size(max = 120) String classeNom, Long sessionId) {}
+                      Long classeId, @Size(max = 120) String classeNom, Long sessionId,
+                      @Size(max = 180) String etablissementOrigine) {}
 
-  /** Classe et session par défaut pour toutes les lignes ; chaque ligne peut les surcharger. */
-  public record Demande(Long classeId, @Size(max = 120) String classeNom, Long sessionId, @NotEmpty @Valid List<Ligne> eleves) {}
+  /**
+   * Classe, session et établissement d'origine par défaut pour toutes les lignes ; chaque ligne peut
+   * les surcharger. Un établissement d'origine vide laisse la colonne nulle (élève de l'établissement).
+   */
+  public record Demande(Long classeId, @Size(max = 120) String classeNom, Long sessionId,
+                        @Size(max = 180) String etablissementOrigine, @NotEmpty @Valid List<Ligne> eleves) {}
 
   public record LigneIgnoree(String nomComplet, String motif) {}
 
@@ -58,14 +67,17 @@ public class EleveImportService {
   private final AnneeScolaireRepository annees;
   private final SessionExamenRepository sessions;
   private final MatriculeService matricules;
+  private final ParametresBulletinRepository parametres;
 
   public EleveImportService(EleveRepository eleves, ClasseRepository classes, AnneeScolaireRepository annees,
-                            SessionExamenRepository sessions, MatriculeService matricules) {
+                            SessionExamenRepository sessions, MatriculeService matricules,
+                            ParametresBulletinRepository parametres) {
     this.eleves = eleves;
     this.classes = classes;
     this.annees = annees;
     this.sessions = sessions;
     this.matricules = matricules;
+    this.parametres = parametres;
   }
 
   @Transactional
@@ -78,6 +90,8 @@ public class EleveImportService {
     Map<Long, Set<String>> nomsParClasse = new HashMap<>();
     List<String> classesCreees = new ArrayList<>();
     List<LigneIgnoree> ignorees = new ArrayList<>();
+    // Prochain numéro de table par session : lu une fois, puis incrémenté au fil des lignes créées.
+    Map<Long, Integer> prochainNumeroParSession = new HashMap<>();
     int crees = 0;
 
     for (int i = 0; i < demande.eleves().size(); i++) {
@@ -93,6 +107,7 @@ public class EleveImportService {
       Classe classe = resoudreClasse(etab, classeId, classeNom, numero, classesResolues, classesCreees);
       Long sessionId = ligne.sessionId() != null ? ligne.sessionId() : demande.sessionId();
       if (sessionId != null) verifierSession(sessionId);
+      String origine = vide(ligne.etablissementOrigine()) ? demande.etablissementOrigine() : ligne.etablissementOrigine();
 
       Set<String> noms = nomsParClasse.computeIfAbsent(classe.getId(), id -> {
         Set<String> existants = new HashSet<>();
@@ -115,6 +130,12 @@ public class EleveImportService {
       eleve.setDateNaissance(vide(ligne.dateNaissance()) ? null : ligne.dateNaissance().trim());
       eleve.setLieuNaissance(vide(ligne.lieuNaissance()) ? null : ligne.lieuNaissance().trim());
       eleve.setGenre(genre);
+      eleve.setEtablissementOrigine(vide(origine) ? null : espaces(origine));
+      if (sessionId != null) {
+        int table = prochainNumeroParSession.computeIfAbsent(sessionId, id -> prochainNumeroTable(etab, id));
+        eleve.setNumeroTable(table);
+        prochainNumeroParSession.put(sessionId, table + 1);
+      }
       eleves.save(eleve);
       crees++;
     }
@@ -159,6 +180,31 @@ public class EleveImportService {
   private void verifierSession(Long id) {
     var session = sessions.findById(id).orElseThrow(EleveImportService::absent);
     Tenant.same(session.getEtablissementId());
+  }
+
+  /**
+   * Numéro de table suivant dans une session : le plus grand numéro déjà attribué aux candidats de la
+   * session et de ses sessions sœurs (même examen, même année), plus un ; à défaut le premier numéro
+   * de table paramétré pour l'établissement (Paramètres › numérotation), sinon 1.
+   */
+  public int prochainNumeroTable(Long etab, Long sessionId) {
+    SessionExamen session = sessions.findById(sessionId).orElseThrow(EleveImportService::absent);
+    Set<Long> famille = new HashSet<>();
+    famille.add(session.getId());
+    for (SessionExamen autre : sessions.findByEtablissementIdOrderByNomAsc(etab)) {
+      if (session.memeExamenMemeAnnee(autre)) famille.add(autre.getId());
+    }
+    int max = 0;
+    for (Eleve eleve : eleves.findByEtablissementIdOrderByNomCompletAsc(etab)) {
+      if (eleve.getSessionId() != null && famille.contains(eleve.getSessionId()) && eleve.getNumeroTable() != null) {
+        max = Math.max(max, eleve.getNumeroTable());
+      }
+    }
+    if (max > 0) return max + 1;
+    return parametres.findById(etab)
+        .map(params -> params.getPremierNumeroTable())
+        .filter(premier -> premier != null && premier > 0)
+        .orElse(1);
   }
 
   static String niveauPour(String nomClasse) {

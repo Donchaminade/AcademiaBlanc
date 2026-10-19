@@ -10,8 +10,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import tg.academiablanc.domain.CycleExamen;
+import tg.academiablanc.domain.Etablissement;
+import tg.academiablanc.domain.ModeSession;
 import tg.academiablanc.domain.SessionExamen;
 import tg.academiablanc.domain.TypeExamen;
+import tg.academiablanc.repo.EtablissementRepository;
 import tg.academiablanc.repo.SessionExamenRepository;
 import tg.academiablanc.repo.TypeExamenRepository;
 
@@ -30,10 +33,12 @@ public class TypeExamenService {
 
   private final TypeExamenRepository types;
   private final SessionExamenRepository sessions;
+  private final EtablissementRepository etablissements;
 
-  public TypeExamenService(TypeExamenRepository types, SessionExamenRepository sessions) {
+  public TypeExamenService(TypeExamenRepository types, SessionExamenRepository sessions, EtablissementRepository etablissements) {
     this.types = types;
     this.sessions = sessions;
+    this.etablissements = etablissements;
   }
 
   /** Fiche d'un type pour la plateforme, avec le nombre de sessions (tous établissements) qui l'utilisent. */
@@ -51,7 +56,11 @@ public class TypeExamenService {
   /** Fiche d'un type pour les établissements : lecture seule, sans compteur. */
   public record TypeExamenChoix(Long id, String code, String libelleCourt, String libelleLong, CycleExamen cycle, int ordre) {}
 
-  /** Session d'examen enrichie du type du référentiel (ou du repli texte pour une session non rattachée). */
+  /**
+   * Session d'examen enrichie du type du référentiel (ou du repli texte pour une session non rattachée).
+   * {@code mode} : INTERNE ou INTER_ETABLISSEMENTS ; {@code centreExamen} : nom de l'établissement hôte
+   * ({@code etablissement.nom}) quand la session est inter-établissements, null en mode interne.
+   */
   public record SessionVue(
       Long id,
       Long etablissementId,
@@ -68,7 +77,9 @@ public class TypeExamenService {
       boolean typeExamenHorsReferentiel,
       String serie,
       String statut,
-      Instant archiveeLe
+      Instant archiveeLe,
+      ModeSession mode,
+      String centreExamen
   ) {}
 
   /* ------------------------------------------------------------------ */
@@ -197,8 +208,15 @@ public class TypeExamenService {
         horsReferentiel,
         session.getSerie(),
         session.getStatut(),
-        session.getArchiveeLe()
+        session.getArchiveeLe(),
+        ModeSession.ouDefaut(session.getMode()),
+        session.estInterEtablissements() ? nomCentre(session.getEtablissementId()) : null
     );
+  }
+
+  /** Nom du centre d'examen d'une session inter-établissements : l'établissement qui l'a créée. */
+  public String nomCentre(Long etablissementId) {
+    return etablissements.findById(etablissementId).map(Etablissement::getNom).orElse(null);
   }
 
   /**

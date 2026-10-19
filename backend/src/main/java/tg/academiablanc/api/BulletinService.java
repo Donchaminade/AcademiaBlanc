@@ -22,6 +22,7 @@ import tg.academiablanc.domain.Coefficient;
 import tg.academiablanc.domain.Eleve;
 import tg.academiablanc.domain.Etablissement;
 import tg.academiablanc.domain.Matiere;
+import tg.academiablanc.domain.ModeSession;
 import tg.academiablanc.domain.Note;
 import tg.academiablanc.domain.Professeur;
 import tg.academiablanc.domain.Serie;
@@ -106,6 +107,13 @@ public class BulletinService {
    * (« NOM DE L'ÉTABLISSEMENT • Devise ») ; la devise est celle propre à l'établissement
    * ({@code etablissement.devise}), pas la devise nationale de l'en-tête, et vaut null si aucune n'est saisie.
    * {@code entete} : données du bandeau de titre du bulletin, toutes lues en base (voir {@link EnteteBulletin}).
+   * {@code modeSession} : INTERNE ou INTER_ETABLISSEMENTS. En session inter-établissements :
+   * {@code centreExamen} est le nom de l'établissement hôte (celui qui a créé la session), {@code responsableCentre}
+   * le nom de son responsable (signe comme chef du centre à la place du titulaire), {@code etablissementOrigine}
+   * l'établissement d'origine du candidat ({@code eleve.etablissement_origine}, l'hôte si vide), et le rang comme
+   * les extrêmes « de classe » sont calculés sur tous les candidats de la session du même niveau et de la même
+   * série, toutes classes confondues. En mode interne ces trois champs valent null (sauf l'origine saisie) et le
+   * calcul est inchangé : rang sur toute la session, extrêmes par classe.
    */
   public record BulletinVue(Long eleveId, String nomComplet, String matricule, String titulaireNom, BigDecimal moyenne,
                             Integer rang, String mention, String appreciation, BigDecimal totalPoints,
@@ -113,7 +121,9 @@ public class BulletinService {
                             BigDecimal moyenneClasse, BigDecimal moyenneClasseMax, BigDecimal moyenneClasseMin,
                             List<LigneBulletin> lignes,
                             String etablissementNom, String etablissementDevise,
-                            EnteteBulletin entete) {}
+                            EnteteBulletin entete,
+                            ModeSession modeSession, String centreExamen, String etablissementOrigine,
+                            String responsableCentre) {}
 
   /**
    * Bandeau de titre du bulletin : rien n'y est figé, chaque champ vient de la base et vaut null s'il manque.
@@ -161,6 +171,15 @@ public class BulletinService {
     List<Note> sessionNotes = notes.findByEtablissementIdAndSessionId(user.etablissementId(), sessionId);
     List<Coefficient> coefs = coefficients.findByEtablissementId(user.etablissementId());
     Map<Long, String> titulaireParClasse = titulairesParClasse(user.etablissementId());
+    boolean inter = session.estInterEtablissements();
+    // Groupe de comparaison d'un élève : sa classe en mode interne ; en inter-établissements, tous les
+    // candidats de la session du même niveau et de la même série (les classes du centre sont confondues).
+    Map<Long, Classe> classeParId = new HashMap<>();
+    for (Classe classe : classes.findByEtablissementIdOrderByNomAsc(user.etablissementId())) classeParId.put(classe.getId(), classe);
+    Map<Long, String> groupeParEleve = new HashMap<>();
+    for (Eleve eleve : roster) {
+      groupeParEleve.put(eleve.getId(), inter ? cleNiveauSerie(classeParId.get(eleve.getClasseId())) : "classe:" + eleve.getClasseId());
+    }
 
     // Programme de chaque classe (matière → coefficient) ; une classe sans ligne n'a pas de programme défini.
     Map<Long, Map<Long, BigDecimal>> programmes = new HashMap<>();
@@ -189,28 +208,31 @@ public class BulletinService {
       // Moyenne réelle, jamais majorée : la délibération du jury ne porte que l'observation et la signature.
       moyennes.put(eleve.getId(), GradeCalculator.moyenne(lignes));
     }
-    Map<Long, Integer> rangsGeneraux = GradeCalculator.rangsCompetition(moyennes);
+    // Rang général : sur toute la session en mode interne ; par niveau / série en inter-établissements
+    // (un candidat de Tle D n'est classé qu'avec les candidats de Tle D, de tous les établissements).
+    Map<Long, Integer> rangsGeneraux = inter ? rangsParGroupe(moyennes, groupeParEleve) : GradeCalculator.rangsCompetition(moyennes);
 
-    // Extrêmes par classe (même session) : moyenne de classe, moyenne la plus forte et la plus faible,
+    // Extrêmes par groupe (même session) : moyenne de classe, moyenne la plus forte et la plus faible,
     // sur les élèves qui ont au moins une note. Les élèves sans classe forment un groupe à part.
-    Map<Long, List<BigDecimal>> moyennesParClasse = new HashMap<>();
+    Map<String, List<BigDecimal>> moyennesParClasse = new HashMap<>();
     for (Eleve eleve : roster) {
       BigDecimal moyenne = moyennes.get(eleve.getId());
-      if (moyenne != null) moyennesParClasse.computeIfAbsent(eleve.getClasseId(), ignored -> new ArrayList<>()).add(moyenne);
+      if (moyenne != null) moyennesParClasse.computeIfAbsent(groupeParEleve.get(eleve.getId()), ignored -> new ArrayList<>()).add(moyenne);
     }
 
-    // Notes extrêmes par classe et par matière, sur les notes présentes.
-    Map<Long, Map<Long, List<BigDecimal>>> notesParClasseEtMatiere = new HashMap<>();
+    // Notes extrêmes par groupe et par matière, sur les notes présentes.
+    Map<String, Map<Long, List<BigDecimal>>> notesParClasseEtMatiere = new HashMap<>();
     for (Eleve eleve : roster) {
       for (Ligne ligne : lignesParEleve.get(eleve.getId())) {
         if (ligne.absent() || ligne.note() == null) continue;
-        notesParClasseEtMatiere.computeIfAbsent(eleve.getClasseId(), ignored -> new HashMap<>())
+        notesParClasseEtMatiere.computeIfAbsent(groupeParEleve.get(eleve.getId()), ignored -> new HashMap<>())
             .computeIfAbsent(ligne.matiereId(), ignored -> new ArrayList<>())
             .add(ligne.note());
       }
     }
 
-    // Rang par matière : parmi les élèves qui ont cette matière à leur programme et une note présente.
+    // Rang par matière : parmi les élèves qui ont cette matière à leur programme et une note présente
+    // (toute la session en interne, le niveau / la série en inter-établissements).
     Map<Long, Map<Long, Integer>> rangsMatieres = new HashMap<>();
     for (Matiere matiere : subjects) {
       Map<Long, BigDecimal> valeurs = new HashMap<>();
@@ -223,12 +245,14 @@ public class BulletinService {
           valeurs.put(eleve.getId(), ligne.note());
         }
       }
-      rangsMatieres.put(matiere.getId(), GradeCalculator.rangsCompetition(valeurs));
+      rangsMatieres.put(matiere.getId(), inter ? rangsParGroupe(valeurs, groupeParEleve) : GradeCalculator.rangsCompetition(valeurs));
     }
 
     Etablissement etablissement = etablissements.findById(user.etablissementId()).orElse(null);
     String etablissementNom = etablissement == null ? null : etablissement.getNom();
     String etablissementDevise = etablissement == null ? null : vide(etablissement.getDevise());
+    String centreExamen = inter ? etablissementNom : null;
+    String responsableCentre = inter && etablissement != null ? vide(etablissement.getNomResponsable()) : null;
     Map<Long, EnteteBulletin> enteteParClasse = entetesParClasse(session, user.etablissementId());
 
     List<BulletinVue> vues = new ArrayList<>();
@@ -236,7 +260,7 @@ public class BulletinService {
       List<Ligne> lignes = lignesParEleve.get(eleve.getId());
       BigDecimal moyenne = moyennes.get(eleve.getId());
       List<LigneBulletin> detail = new ArrayList<>();
-      Map<Long, List<BigDecimal>> notesDeLaClasse = notesParClasseEtMatiere.getOrDefault(eleve.getClasseId(), Map.of());
+      Map<Long, List<BigDecimal>> notesDeLaClasse = notesParClasseEtMatiere.getOrDefault(groupeParEleve.get(eleve.getId()), Map.of());
       for (Ligne ligne : lignes) {
         Matiere matiere = matiereParId.get(ligne.matiereId());
         Integer rangMatiere = rangsMatieres.get(matiere.getId()).get(eleve.getId());
@@ -255,7 +279,7 @@ public class BulletinService {
             Appreciation.pourLigne(ligne.note(), note != null && note.isAbsent(), note == null ? null : note.getAppreciation())
         ));
       }
-      List<BigDecimal> moyennesDeLaClasse = moyennesParClasse.getOrDefault(eleve.getClasseId(), List.of());
+      List<BigDecimal> moyennesDeLaClasse = moyennesParClasse.getOrDefault(groupeParEleve.get(eleve.getId()), List.of());
       BulletinVue vue = new BulletinVue(
           eleve.getId(),
           eleve.getNomComplet(),
@@ -275,11 +299,35 @@ public class BulletinService {
           detail,
           etablissementNom,
           etablissementDevise,
-          enteteParClasse.computeIfAbsent(eleve.getClasseId(), ignored -> enteteSession(session, user.etablissementId()))
+          enteteParClasse.computeIfAbsent(eleve.getClasseId(), ignored -> enteteSession(session, user.etablissementId())),
+          ModeSession.ouDefaut(session.getMode()),
+          centreExamen,
+          premierNonVide(eleve.getEtablissementOrigine(), inter ? etablissementNom : null),
+          responsableCentre
       );
       vues.add(vue);
     }
     return vues;
+  }
+
+  /** Clé du groupe niveau / série d'une classe (« 3e », « Tle|D ») ; une classe inconnue forme son propre groupe. */
+  static String cleNiveauSerie(Classe classe) {
+    if (classe == null) return "classe:?";
+    String niveau = ClasseNiveauUtil.canonique(classe.getNiveau()).orElse(vide(classe.getNiveau()));
+    boolean college = ClasseNiveauUtil.cycleDe(classe.getNiveau()).filter(ClasseNiveauUtil.Cycle.COLLEGE::equals).isPresent();
+    String serie = college ? null : vide(classe.getSerie());
+    return (niveau == null ? "" : niveau.toUpperCase(Locale.ROOT)) + "|" + (serie == null ? "" : serie.toUpperCase(Locale.ROOT));
+  }
+
+  /** Classement compétition calculé séparément dans chaque groupe (clé du groupe par élève). */
+  static Map<Long, Integer> rangsParGroupe(Map<Long, BigDecimal> valeurs, Map<Long, String> groupeParEleve) {
+    Map<String, Map<Long, BigDecimal>> parGroupe = new HashMap<>();
+    for (Map.Entry<Long, BigDecimal> entry : valeurs.entrySet()) {
+      parGroupe.computeIfAbsent(groupeParEleve.getOrDefault(entry.getKey(), "?"), ignored -> new HashMap<>()).put(entry.getKey(), entry.getValue());
+    }
+    Map<Long, Integer> rangs = new HashMap<>();
+    for (Map<Long, BigDecimal> groupe : parGroupe.values()) rangs.putAll(GradeCalculator.rangsCompetition(groupe));
+    return rangs;
   }
 
   /**
