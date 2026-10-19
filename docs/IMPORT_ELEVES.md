@@ -6,15 +6,31 @@ depuis l'écran Administration, ou avec `curl`.
 
 ## 1. Depuis l'application
 
-Administration → section **Élèves** → bloc **Importer une liste** (sous le formulaire
-« Inscrire l'élève »).
+Deux entrées, **connecté avec le compte de l'établissement**, mènent au même import serveur :
+
+- **1. Liste des Candidats** → bouton **Import en Masse (CSV)** ;
+- **Administration** → section **Élèves** → bloc **Importer une liste** (sous le formulaire
+  « Inscrire l'élève »).
 
 1. Collez la liste ci-dessous dans la zone de texte (une ligne par élève :
-   `NOM Prénoms;Genre;JJ/MM/AAAA;Lieu`, genre `M` ou `F`, date et lieu facultatifs).
+   `NOM Prénoms;Genre;JJ/MM/AAAA;Lieu`, genre `M` ou `F`, date et lieu facultatifs ;
+   une liste copiée depuis un tableur, séparée par des tabulations, est acceptée).
 2. Classe : choisissez une classe existante ou **Nouvelle classe…** et tapez `3e`
    (la classe est créée automatiquement sur l'année scolaire courante, niveau « Troisième »).
-3. Session : facultative.
-4. Cliquez sur **Importer la liste**. Le résultat affiche le nombre d'élèves créés et ignorés.
+3. Session : la session active est présélectionnée ; « Sans session » rend l'élève visible
+   dans toutes les sessions.
+4. Cliquez sur **Importer la liste**. Un message confirme « 11 élèves enregistrés dans la base
+   de l'établissement, 0 ignoré » et la liste est relue depuis le serveur : elle reste identique
+   après actualisation de la page. Toute erreur du serveur (droit `ELEVES:CREER` manquant,
+   classe d'un autre établissement…) est affichée et **aucune ligne n'est ajoutée**.
+
+La carte « Candidats inscrits » affiche le compteur **N élèves en base** lu sur l'API. La liste
+montre les élèves de la session active et ceux sans session ; le filtre **Toutes les sessions**
+affiche aussi ceux rattachés à une autre session, pour ne jamais cacher un élève enregistré.
+
+Hors connexion (mode démonstration), la fenêtre d'import affiche l'avertissement « Données de
+démonstration, non enregistrées sur le serveur — connectez-vous » : les lignes ne vont que dans
+l'espace local du navigateur.
 
 Relancer le même import ne crée pas de doublons : un élève déjà présent dans la même
 classe (même nom, accents et casse ignorés) est ignoré et listé.
