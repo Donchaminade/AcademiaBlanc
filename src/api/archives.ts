@@ -51,6 +51,7 @@ export function toArchivedSession(archive: ArchiveApi): ArchivedSession {
     statut: archive.statut,
     archivedAt: dateFr(archive.archiveeLe),
     candidatesCount: archive.effectif,
+    classesCount: Number.isFinite(Number(archive.classes)) ? Number(archive.classes) : undefined,
     admittedCount: archive.admis,
     admittedRate: Number(archive.tauxReussite) || 0,
     failedCount: archive.ajournes,
