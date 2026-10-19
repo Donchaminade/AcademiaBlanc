@@ -1159,7 +1159,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
           )}
 
           {droits('classes').voir && (
-          <SectionCard id="classes" icon="meeting_room" title="Classes & titulaires" description="Collège (6e à 3e) sans série ; lycée (2nde à Tle) avec une série du référentiel. Enseignant titulaire de chaque classe." count={classes.length}>
+          <SectionCard id="classes" icon="meeting_room" title="Classes & titulaires" description="Collège (6e à 3e) sans série ; lycée (2nde à Tle) avec une série du référentiel. Le titulaire de chaque classe vise le bulletin de ses élèves." count={classes.length}>
             <DataTable<Classe>
               rows={classes}
               editingId={classeEdit?.id}
@@ -1188,7 +1188,13 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                     </button>
                   );
                 } },
-                { header: 'Titulaire', render: (r) => r.titulaireId ? nom(profs, r.titulaireId) : <span className="text-[#757682]">non désigné</span> },
+                // Le titulaire vise le bulletin de sa classe : une classe sans titulaire imprime une ligne à compléter.
+                { header: 'Titulaire', render: (r) => r.titulaireId ? nom(profs, r.titulaireId) : (
+                  <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#9a3412]" title="Le bulletin de cette classe laissera le visa du titulaire à compléter à la main.">
+                    <span className="material-symbols-outlined text-base">warning</span>
+                    Aucun titulaire affecté
+                  </span>
+                ) },
                 { header: 'Année', render: (r) => nom(annees, r.anneeScolaireId) },
               ]}
               onEdit={(r) => void open<Classe>(`/api/classes/${r.id}`, (detail) => {
@@ -1282,11 +1288,15 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                   />
                 </div>
               )}
-              <Field label="Titulaire" className="lg:col-span-4">
-                <select value={classe.titulaireId} onChange={(e) => setClasse({ ...classe, titulaireId: e.target.value })} className={field}>
+              <Field label="Titulaire (visa du bulletin)" className="lg:col-span-4">
+                <select value={classe.titulaireId} onChange={(e) => setClasse({ ...classe, titulaireId: e.target.value })} className={field} data-testid="classe-titulaire">
                   <option value="">Sans titulaire</option>
                   {profs.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}
                 </select>
+                <span className="block text-[11px] text-[#757682] mt-1">
+                  Son nom est imprimé sous « Le Titulaire » sur le bulletin de chaque élève de la classe.
+                  {profs.length === 0 && ' Ajoutez d’abord un enseignant ci-dessus.'}
+                </span>
               </Field>
               <FormActions editing={!!classeEdit} createLabel="Créer la classe" updateLabel="Mettre à jour la classe" onCancel={reset.classe} />
             </form>

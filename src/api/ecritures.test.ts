@@ -176,28 +176,27 @@ describe('ecritures : écritures de l’espace de travail', () => {
     assert.equal(appels.length, 0);
   });
 
-  it('sauvegarderDeliberation envoie PUT /api/deliberations avec bonus, observation et signature', async () => {
+  it('sauvegarderDeliberation envoie PUT /api/deliberations avec observation et signature, sans aucun point ajouté', async () => {
     const delibere: Candidate = {
       ...candidat,
-      juryBonus: 0.25,
-      generalObservation: ' « Repêchage accordé. » ',
+      generalObservation: ' « Observation du conseil. » ',
       digitalSignature: { signedAt: '2026-06-01T10:00:00.000Z', signer: 'Dr. Traoré (Le Proviseur)', shaHash: 'ABC123' },
     };
-    reponse = () => json({ eleveId: 42, sessionId: 5, bonusJury: 0.25, observation: '« Repêchage accordé. »',
+    reponse = () => json({ eleveId: 42, sessionId: 5, observation: '« Observation du conseil. »',
       signature: { signeLe: '2026-06-01T10:00:00Z', signataire: 'Dr. Traoré (Le Proviseur)', empreinte: 'ABC123' } });
     const vue = await sauvegarderDeliberation(delibere, 5);
     assert.equal(appels[0].method, 'PUT');
     assert.ok(appels[0].url.endsWith('/api/deliberations'));
     assert.deepEqual(appels[0].body, {
-      eleveId: 42, sessionId: 5, bonusJury: 0.25, observation: '« Repêchage accordé. »',
+      eleveId: 42, sessionId: 5, observation: '« Observation du conseil. »',
       signature: { signeLe: '2026-06-01T10:00:00.000Z', signataire: 'Dr. Traoré (Le Proviseur)', empreinte: 'ABC123' },
     });
     // La réponse du serveur fait foi dans la fiche du candidat.
     const relu = appliquerDeliberation(candidat, vue);
-    assert.equal(relu.juryBonus, 0.25);
-    assert.equal(relu.generalObservation, '« Repêchage accordé. »');
+    assert.ok(!('bonusJury' in appels[0].body), 'aucun bonus de repêchage ne part au serveur');
+    assert.equal(relu.generalObservation, '« Observation du conseil. »');
     assert.deepEqual(relu.digitalSignature, { signedAt: '2026-06-01T10:00:00Z', signer: 'Dr. Traoré (Le Proviseur)', shaHash: 'ABC123' });
-    assert.equal(appliquerDeliberation(candidat, { eleveId: 42, sessionId: 5, bonusJury: 0, observation: null, signature: null }).juryBonus, undefined);
+    assert.equal(appliquerDeliberation(candidat, { eleveId: 42, sessionId: 5, observation: null, signature: null }).generalObservation, '');
 
     await assert.rejects(() => sauvegarderDeliberation(delibere, null), /Aucune session/);
     await assert.rejects(() => sauvegarderDeliberation({ ...delibere, id: 'cand-7' }, 5), /absente de la base/);
@@ -222,12 +221,13 @@ describe('ecritures : écritures de l’espace de travail', () => {
     assert.equal(envoye.logoUrl, DEFAULT_SETTINGS.logoUrl);
     // Sceau officiel volontairement vide : chaîne vide (zone vierge), pas null (valeur par défaut).
     assert.equal(envoye.sceauOfficielUrl, '');
-    assert.equal(envoye.nomSignataireJury, DEFAULT_SETTINGS.jurySignerName);
-    assert.equal(envoye.nomTitulaire, DEFAULT_SETTINGS.principalTeacherName);
+    assert.equal(envoye.titreSignataireJury, DEFAULT_SETTINGS.jurySignerTitle);
     assert.equal(envoye.premierNumeroTable, 201);
     assert.equal(envoye.numerotationAutomatique, false);
-    // Ni les libellés de la session / du profil, ni l'en-tête officiel (porté par la fiche de l'établissement).
-    for (const interdit of ['institutionName', 'academicYear', 'sessionName', 'examType', 'pays', 'deviseNationale', 'ministere']) {
+    // Ni les libellés de la session / du profil, ni l'en-tête officiel (porté par la fiche de l'établissement),
+    // ni les noms des signataires : le titulaire vient de la classe de l'élève, le signataire officiel de la fiche.
+    for (const interdit of ['institutionName', 'academicYear', 'sessionName', 'examType', 'pays', 'deviseNationale', 'ministere',
+      'nomSignataireJury', 'nomTitulaire', 'titreTitulaire']) {
       assert.equal(interdit in envoye, false, `${interdit} ne doit pas partir dans la charte`);
     }
   });
@@ -264,7 +264,6 @@ const GESTIONNAIRES_ECRITURE = [
   'handleUpdateSettings',
   'handleUpdateGrade',
   'handleUpdateAppreciation',
-  'handleApplyJuryBonus',
   'handleSign',
   'handleAddNewCandidate',
   'handleBatchAddCandidates',

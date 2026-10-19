@@ -21,7 +21,8 @@ interface Centre { id: number; nom: string; code: string; ville?: string; }
 interface SessionApi extends SessionTypeExamen { id: number; nom: string; serie?: string; anneeScolaireId: number; centreId: number; }
 interface Matiere { id: number; nom: string; code: string; }
 interface Professeur { id: number; nom: string; }
-interface Classe { id: number; nom: string; niveau?: string; serie?: string; titulaireId?: number; }
+/** `titulaireId` : enseignant désigné titulaire dans Administration › Classes ; null ou absent = sans titulaire. */
+interface Classe { id: number; nom: string; niveau?: string; serie?: string; titulaireId?: number | null; }
 interface Affectation { professeurId: number; matiereId: number; classeId: number; }
 interface Coefficient { matiereId: number; classeId?: number | null; valeur: number; }
 interface EleveApi {
@@ -88,6 +89,19 @@ export function filtrerRoster<T extends { sessionId?: number | null }>(
   return eleves.filter((eleve) => eleve.sessionId == null || eleve.sessionId === sessionId);
 }
 
+/**
+ * Nom du titulaire d'une classe (visa du bulletin) : l'enseignant que l'administration a affecté à la classe.
+ * Chaîne vide si la classe n'a pas de titulaire ou si l'enseignant n'est pas lisible : le bulletin laisse
+ * alors la ligne à compléter, sans jamais substituer un nom de démonstration.
+ */
+export function titulaireDeClasse(
+  classe: Pick<Classe, 'titulaireId'> | null | undefined,
+  professeurs: readonly Pick<Professeur, 'id' | 'nom'>[],
+): string {
+  if (classe?.titulaireId == null) return '';
+  return professeurs.find((item) => item.id === classe.titulaireId)?.nom.trim() || '';
+}
+
 export async function loadSchoolWorkspace(preferredSessionId?: number, options: WorkspaceOptions = {}): Promise<SchoolWorkspace> {
   const [annees, centres, sessions, matieres, profs, classes, affectations, coefficients, eleves] = await Promise.all([
     lire<Annee>('/api/annees-scolaires'),
@@ -105,7 +119,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
   const [notes, deliberations]: [NoteApi[], DeliberationApi[]] = session
     ? await Promise.all([
       lire<NoteApi>(`/api/notes?sessionId=${session.id}`),
-      // Délibérations du jury (repêchage, observation, signature) : absentes sur une ancienne API.
+      // Délibérations du jury (observation, signature) : absentes sur une ancienne API.
       lire<DeliberationApi>(`/api/deliberations?sessionId=${session.id}`).catch(() => [] as DeliberationApi[]),
     ])
     : [[], []];
@@ -160,6 +174,8 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
       // Au collège (6e–3e) il n'y a pas de série, même si la session en porte une.
       serie: classe?.serie ? `Série ${classe.serie}` : (classe && estCollege(classe.niveau) ? '' : session?.serie || ''),
       classeId: String(eleve.classeId),
+      // Titulaire de la classe de l'élève (« 3e → M. X ») : c'est lui qui vise le bulletin.
+      titulaire: titulaireDeClasse(classe, profs),
       sessionId: eleve.sessionId ?? null,
       examCenter: centre?.code || '',
       examCenterName: centre ? `${centre.nom}${centre.ville ? ` (${centre.ville})` : ''}` : '',

@@ -6,15 +6,15 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
 import java.time.Instant;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Décision du jury pour un élève dans une session : bonus de repêchage ajouté à la moyenne,
- * observation générale portée sur le bulletin et signature électronique apposée depuis l'application.
+ * Décision du jury pour un élève dans une session : observation générale portée sur le bulletin et
+ * signature électronique apposée depuis l'application. Aucun point n'est ajouté à la moyenne (le bonus
+ * de repêchage a été supprimé en V17 : le bulletin porte la moyenne réelle).
  */
 @Entity
 @Table(name = "deliberation_jury")
@@ -34,9 +34,6 @@ public class DeliberationJury implements TenantOwned {
 
   @Column(name = "session_id", nullable = false)
   private Long sessionId;
-
-  @Column(name = "bonus_jury", nullable = false)
-  private BigDecimal bonusJury = BigDecimal.ZERO;
 
   @Column(columnDefinition = "TEXT")
   private String observation;

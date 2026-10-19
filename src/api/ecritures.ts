@@ -46,12 +46,15 @@ export interface SignatureApi {
   empreinte: string | null;
 }
 
-/** Délibération du jury pour un élève dans une session (`GET/PUT /api/deliberations`). */
+/**
+ * Délibération du jury pour un élève dans une session (`GET/PUT /api/deliberations`) : observation
+ * portée sur le bulletin et signature électronique. Elle ne modifie jamais la moyenne, qui reste
+ * la moyenne réelle Σ(note × coef) / Σ coef.
+ */
 export interface DeliberationApi {
   id?: number;
   eleveId: number;
   sessionId: number;
-  bonusJury: number | null;
   observation: string | null;
   signature: SignatureApi | null;
 }
@@ -202,12 +205,11 @@ export function versInstant(signedAt: string): string {
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 }
 
-/** Corps de `PUT /api/deliberations` à partir de l'état complet du candidat (bonus, observation, signature). */
+/** Corps de `PUT /api/deliberations` à partir de l'état complet du candidat (observation, signature). */
 export function versDeliberation(candidate: Candidate, sessionId: number): Omit<DeliberationApi, 'id'> {
   return {
     eleveId: Number(candidate.id),
     sessionId,
-    bonusJury: candidate.juryBonus ?? 0,
     observation: candidate.generalObservation?.trim() || null,
     signature: candidate.digitalSignature
       ? {
@@ -219,7 +221,7 @@ export function versDeliberation(candidate: Candidate, sessionId: number): Omit<
   };
 }
 
-/** Enregistre la décision du jury (repêchage, observation) et la signature du bulletin d'un élève. */
+/** Enregistre l'observation du conseil et la signature du bulletin d'un élève. */
 export async function sauvegarderDeliberation(candidate: Candidate, sessionId: number | null): Promise<DeliberationApi> {
   exigerEleveApi(candidate);
   if (!sessionId) {
@@ -231,10 +233,8 @@ export async function sauvegarderDeliberation(candidate: Candidate, sessionId: n
 /** Reporte une délibération lue sur l'API dans la fiche du candidat. */
 export function appliquerDeliberation(candidate: Candidate, vue: DeliberationApi | undefined): Candidate {
   if (!vue) return candidate;
-  const bonus = Number(vue.bonusJury ?? 0);
   return {
     ...candidate,
-    juryBonus: bonus > 0 ? bonus : undefined,
     generalObservation: vue.observation ?? '',
     digitalSignature: vue.signature
       ? { signedAt: vue.signature.signeLe, signer: vue.signature.signataire ?? '', shaHash: vue.signature.empreinte ?? '' }

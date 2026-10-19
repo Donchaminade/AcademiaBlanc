@@ -17,8 +17,10 @@ import tg.academiablanc.security.Tenant;
 /**
  * Charte du bulletin portée par l'établissement du jeton : cachet et signatures téléversés (table
  * {@code etablissement}) et paramètres d'affichage de l'écran Paramètres (table {@code parametres_bulletin}) :
- * logo, sceau officiel, signataires, numérotation des tables. L'en-tête officiel (république, devise,
- * ministère) relève de la fiche de l'établissement ({@link ProfilEtablissementService}), pas de la charte.
+ * logo, sceau officiel, titre du signataire officiel, numérotation des tables. L'en-tête officiel (république,
+ * devise, ministère) relève de la fiche de l'établissement ({@link ProfilEtablissementService}), pas de la charte.
+ * Les noms des signataires non plus : le titulaire est l'enseignant affecté à la classe de l'élève
+ * ({@link BulletinService}), le signataire officiel est le responsable de la fiche de l'établissement.
  * Une valeur vide signifie « emplacement libre » pour une image et « valeur par défaut du logiciel » pour un texte.
  */
 @Service
@@ -44,18 +46,14 @@ public class CharteService {
       String logoUrl,
       String sceauOfficielUrl,
       String titreSignataireJury,
-      String nomSignataireJury,
-      String titreTitulaire,
-      String nomTitulaire,
       Integer premierNumeroTable,
       Boolean numerotationAutomatique
   ) {
     static Charte of(Etablissement school, ParametresBulletin params) {
       return new Charte(
           school.getSceauUrl(), school.getSignatureProviseurUrl(), school.getSignatureTitulaireUrl(),
-          params.getLogoUrl(), params.getSceauOfficielUrl(), params.getTitreSignataireJury(), params.getNomSignataireJury(),
-          params.getTitreTitulaire(), params.getNomTitulaire(), params.getPremierNumeroTable(),
-          params.getNumerotationAutomatique());
+          params.getLogoUrl(), params.getSceauOfficielUrl(), params.getTitreSignataireJury(),
+          params.getPremierNumeroTable(), params.getNumerotationAutomatique());
     }
   }
 
@@ -79,9 +77,6 @@ public class CharteService {
     params.setSceauOfficielUrl(request.sceauOfficielUrl() != null && request.sceauOfficielUrl().isBlank()
         ? "" : normalise(request.sceauOfficielUrl(), "sceau officiel"));
     params.setTitreSignataireJury(texte(request.titreSignataireJury(), 120, "titre du signataire"));
-    params.setNomSignataireJury(texte(request.nomSignataireJury(), 180, "nom du signataire"));
-    params.setTitreTitulaire(texte(request.titreTitulaire(), 120, "titre du titulaire"));
-    params.setNomTitulaire(texte(request.nomTitulaire(), 180, "nom du titulaire"));
     if (request.premierNumeroTable() != null && (request.premierNumeroTable() < 1 || request.premierNumeroTable() > 99_999)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le premier numéro de table doit être compris entre 1 et 99999.");
     }

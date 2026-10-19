@@ -151,7 +151,6 @@ export const INITIAL_SCHOOLS: SchoolAccount[] = [
       ...TOGO_SETTINGS,
       institutionName: 'Collège Protestant de Lomé',
       jurySignerName: 'M. le Directeur Général Pasteur E. ADJOLOU',
-      principalTeacherName: 'M. le Titulaire K. AGBEMEDJI',
       sessionName: 'Session Régionale du Baccalauréat Blanc',
       academicYear: 'Année Scolaire 2024-2025',
       startTableNumber: 101,
@@ -290,7 +289,6 @@ export function createSchoolAccount(params: {
     institutionName: params.name,
     jurySignerTitle: defaultTitle,
     jurySignerName: params.principalName,
-    principalTeacherTitle: 'Le Titulaire',
     startTableNumber: 101,
     autoAssignTables: true,
   };

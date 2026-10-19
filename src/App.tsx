@@ -239,6 +239,8 @@ export default function App() {
       const next: AppSettings = {
         ...base,
         institutionName: session?.nomEtablissement || prev.institutionName,
+        // Devise propre de la fiche (pied de page) : jamais la valeur de démonstration en session connectée.
+        institutionMotto: profil?.devise ?? '',
         academicYear: workspace.academicYear || prev.academicYear,
         sessionName: workspace.sessionName || prev.sessionName,
         // Libellé long du référentiel de la plateforme ; vide tant qu'aucune session n'existe (jamais la valeur de démo).
@@ -246,7 +248,10 @@ export default function App() {
       };
       // République, devise et ministère viennent de l'établissement (préréglage national appliqué, puis ajusté).
       const avecEnTete = appliquerEnTeteAuxSettings(next, profil?.enTete);
-      return charte ? applyCharte(avecEnTete, charte) : avecEnTete;
+      const avecCharte = charte ? applyCharte(avecEnTete, charte) : avecEnTete;
+      // Le signataire officiel est le responsable de la fiche de l'établissement (page Profil), jamais la valeur
+      // de démonstration ; le titulaire n'est pas un paramètre : il vient de la classe de chaque élève.
+      return { ...avecCharte, jurySignerName: profil ? profil.nomResponsable : '' };
     });
     // Les libellés viennent exclusivement de l'API : vide tant qu'aucune session / aucun centre n'existe.
     setSelectedSession(workspace.sessionName);
@@ -475,14 +480,21 @@ export default function App() {
   const computedStats = useMemo(() => {
     if (!selectedCandidate) {
       return {
-        totalCoef: 29,
+        totalCoef: 0,
         totalPoints: 0,
+        totalCoefProgramme: 0,
+        pointsMax: 0,
         average: 0,
+        evaluated: false,
         rank: 1,
         totalCandidates: 0,
         mention: 'AJOURNÉ' as const,
         decision: "AJOURNÉ À L'EXAMEN BLANC" as const,
         differenceToPromo: 0,
+        classAverage: null,
+        classHighestAverage: null,
+        classLowestAverage: null,
+        classEvaluatedCount: 0,
       };
     }
     return allStats[selectedCandidate.id] || computeCandidateStats(selectedCandidate, subjects, candidates);
@@ -560,33 +572,7 @@ export default function App() {
     return true;
   };
 
-  /**
-   * Écriture : décision du jury (bonus de repêchage et observation du bulletin). En session API,
-   * `PUT /api/deliberations` puis mise à jour du candidat à partir de la réponse.
-   */
-  const handleApplyJuryBonus = async (candidateId: string, bonus: number): Promise<void> => {
-    const cible = candidates.find((c) => c.id === candidateId);
-    if (!cible) return;
-    const delibere: Candidate = {
-      ...cible,
-      juryBonus: bonus,
-      generalObservation: `« Délibération spéciale du Jury : bonus de repêchage de +${bonus.toFixed(2)} pts accordé au vu de l'assiduité. »`,
-    };
-    if (usingApi) {
-      try {
-        const vue = await sauvegarderDeliberation(delibere, activeSessionId);
-        remplacerCandidat(appliquerDeliberation(cible, vue));
-        toastSuccess(`Délibération enregistrée sur le serveur : +${bonus.toFixed(2)} pts pour ${cible.fullName}.`);
-      } catch (err) {
-        signalerErreur(err, 'Délibération non enregistrée.');
-      }
-      return;
-    }
-    handleUpdateCandidates(candidates.map((c) => (c.id === candidateId ? delibere : c)));
-    showToast(`Délibération enregistrée : +${bonus.toFixed(2)} pts de rachat accordés.`);
-  };
-
-  /** Écriture : signature électronique du bulletin du candidat sélectionné (même enregistrement que la délibération). */
+  /** Écriture : signature électronique du bulletin du candidat sélectionné (enregistrée avec l'observation du conseil dans la délibération). */
   const handleSign = async (signedAt: string, signer: string, shaHash: string): Promise<void> => {
     if (!selectedCandidate) return;
     const signe: Candidate = { ...selectedCandidate, digitalSignature: { signedAt, signer, shaHash } };
@@ -806,9 +792,10 @@ export default function App() {
     navigate('connexion');
   };
 
-  // Fiche enregistrée depuis le profil : le nom suit dans la barre latérale, les bulletins et la session.
+  // Fiche enregistrée depuis le profil : le nom et le signataire officiel suivent dans la barre latérale, les bulletins
+  // et la session ; la devise propre alimente le pied de page du bulletin.
   const handleProfilChanged = (profil: ProfilEtablissement) => {
-    setSettings((prev) => ({ ...prev, institutionName: profil.nom }));
+    setSettings((prev) => ({ ...prev, institutionName: profil.nom, jurySignerName: profil.nomResponsable, institutionMotto: profil.devise ?? '' }));
     const session = getSession();
     if (session) setSession({ ...session, nomEtablissement: profil.nom });
   };
@@ -1055,7 +1042,6 @@ export default function App() {
               onUpdateGrade={handleUpdateGrade}
               onUpdateAppreciation={handleUpdateAppreciation}
               peutAnnoter={!usingApi || can('NOTES', 'CREER') || can('NOTES', 'MODIFIER')}
-              onApplyJuryBonus={handleApplyJuryBonus}
               usingApi={usingApi}
               onSelectCandidate={(c) => setSelectedCandidateId(c.id)}
               onNavigateToBulletin={(c) => {
