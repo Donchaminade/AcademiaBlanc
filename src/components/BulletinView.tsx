@@ -4,6 +4,7 @@ import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, minis
 import { appreciationFromAverage, computeSubjectRank, formatSubjectRank } from '../utils/bulletinMetrics';
 import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
+import { subjectsFor } from '../utils/programme';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
 
 interface BulletinViewProps {
@@ -110,7 +111,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             >
               {candidates.map((cand) => (
                 <option key={cand.id} value={cand.id}>
-                  {cand.tableNumber} - {cand.fullName} ({cand.serie.replace(/.* - /, '')})
+                  {cand.tableNumber} - {cand.fullName}{cand.serie ? ` (${cand.serie.replace(/.* - /, '')})` : ''}
                 </option>
               ))}
             </select>
@@ -328,7 +329,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 {selectedCandidate.dob} à {selectedCandidate.birthPlace}
               </span>
               <span className="bulletin-field-value bulletin-field-genre text-[13px] text-[#131b2e] font-medium">
-                {selectedCandidate.gender === 'M' ? 'Masculin (M)' : 'Féminin (F)'} • {selectedCandidate.serie}
+                {selectedCandidate.gender === 'M' ? 'Masculin (M)' : 'Féminin (F)'}{selectedCandidate.serie ? ` • ${selectedCandidate.serie}` : ''}
               </span>
 
               <span className="bulletin-field-label bulletin-field-school text-[10px] text-[#444651] uppercase font-bold tracking-wider">
@@ -371,7 +372,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y-0 text-[#131b2e]">
-                {subjects.map((subj, idx) => {
+                {subjectsFor(selectedCandidate, subjects).map((subj, idx) => {
                   const gradeData = selectedCandidate.grades[subj.id];
                   const coef = coefDuCandidat(selectedCandidate, subj);
                   const scoreTotal = gradeData ? (gradeData.score * coef).toFixed(2) : '—';

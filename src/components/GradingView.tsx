@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Candidate, Subject, CandidateComputedStats } from '../types';
 import { decisionBucket } from '../utils/bulletinMetrics';
+import { horsProgramme, subjectsFor } from '../utils/programme';
 
 interface GradingViewProps {
   candidates: Candidate[];
@@ -55,7 +56,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
   // Candidates with complete grades
   const completedCount = React.useMemo(() => {
     return candidates.filter((c) =>
-      subjects.every((s) => c.grades[s.id] && c.grades[s.id].score !== undefined && c.grades[s.id].score > 0)
+      subjectsFor(c, subjects).every((s) => c.grades[s.id] && c.grades[s.id].score !== undefined && c.grades[s.id].score > 0)
     ).length;
   }, [candidates, subjects]);
 
@@ -400,12 +401,16 @@ export const GradingView: React.FC<GradingViewProps> = ({
                 <th className="py-2.5 px-3 font-semibold sticky left-16 bg-[#00236f] z-10 min-w-[200px]">
                   Candidat &amp; Matricule
                 </th>
-                {subjects.map((s) => (
-                  <th key={s.id} className="py-2.5 px-2 font-semibold text-center min-w-[70px]">
-                    <div className="truncate text-[11px]">{s.name.slice(0, 7)}.</div>
-                    <div className="text-[10px] text-[#90a8ff] font-mono">c.{s.coef}</div>
-                  </th>
-                ))}
+                {subjects.map((s) => {
+                  // Avec des programmes de classe, le coefficient dépend de la classe : il est affiché dans chaque cellule.
+                  const parClasse = Object.keys(s.coefParClasse ?? {}).length > 0;
+                  return (
+                    <th key={s.id} className="py-2.5 px-2 font-semibold text-center min-w-[70px]" title={s.name}>
+                      <div className="truncate text-[11px]">{s.name.slice(0, 7)}.</div>
+                      <div className="text-[10px] text-[#90a8ff] font-mono">{parClasse ? 'c. selon classe' : `c.${s.coef}`}</div>
+                    </th>
+                  );
+                })}
                 <th className="py-2.5 px-2 font-semibold text-right min-w-[65px]">Points</th>
                 <th className="py-2.5 px-2 font-semibold text-right min-w-[70px]">Moyenne</th>
                 <th className="py-2.5 px-2 font-semibold text-center min-w-[60px]">Rang</th>
@@ -440,6 +445,14 @@ export const GradingView: React.FC<GradingViewProps> = ({
                     {/* Subject Inputs */}
                     {subjects.map((s) => {
                       const grade = cand.grades[s.id]?.score ?? 0;
+                      if (horsProgramme(cand, s.id, subjects)) {
+                        return (
+                          <td key={s.id} className="py-1 px-1.5 text-center text-[#757682]" title="Matière hors programme de la classe de cet élève">
+                            <span className="inline-block w-14 py-1 font-mono text-[11px] rounded border border-dashed border-[#dce1ff] bg-[#f8f9ff]">—</span>
+                          </td>
+                        );
+                      }
+                      const coefCellule = s.coefParClasse?.[cand.classeId ?? ''];
                       return (
                         <td key={s.id} className="py-1 px-1.5 text-center">
                           <input
@@ -449,7 +462,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
                             step="0.5"
                             value={grade}
                             disabled={juryLocked}
-                            title={juryLocked ? 'PV verrouillé : déverrouillez le registre pour modifier les notes' : 'Note sur 20'}
+                            title={juryLocked ? 'PV verrouillé : déverrouillez le registre pour modifier les notes' : `Note sur 20${coefCellule !== undefined ? ` — coefficient ${coefCellule}` : ''}`}
                             onChange={(e) => handleScoreChange(cand.id, s.id, e.target.value)}
                             className={`w-14 text-center font-mono text-[12px] py-1 px-1 rounded border outline-none font-semibold transition-colors ${
                               grade >= 14

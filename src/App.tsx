@@ -22,6 +22,7 @@ import type { ProfilEtablissement } from './api/etablissement';
 import { usePermissions } from './api/permissions';
 import { confirmAction, showError } from './utils/alerts';
 import { loadSchoolWorkspace, ExamOption, WorkspaceOptions } from './api/workspace';
+import { horsProgramme } from './utils/programme';
 import { applyCharte, charteChanged, loadCharte, saveCharte } from './api/charte';
 import {
   getRegisteredSchools,
@@ -431,6 +432,11 @@ export default function App() {
 
   // Update a grade for a candidate
   const handleUpdateGrade = (candidateId: string, subjectId: string, newScore: number) => {
+    const cible = candidates.find((c) => c.id === candidateId);
+    if (horsProgramme(cible, subjectId, subjects)) {
+      showToast('Cette matière n’est pas au programme de la classe de cet élève.');
+      return;
+    }
     const updated = candidates.map((c) => {
       if (c.id !== candidateId) return c;
       const currentApprec = c.grades[subjectId]?.appreciation || 'Travail évalué.';
