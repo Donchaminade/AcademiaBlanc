@@ -15,7 +15,7 @@ import { AllBulletinsPrintModal } from './components/AllBulletinsPrintModal';
 import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
-import { DEFAULT_SETTINGS, INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
+import { DEFAULT_SETTINGS, INITIAL_SUBJECTS, TOGO_SETTINGS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
 import { ApiError, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, refreshSession, roleLabel, setSession } from './api/client';
 import {
   appliquerDeliberation,
@@ -38,7 +38,7 @@ import { confirmAction, showError, toastSuccess } from './utils/alerts';
 import { loadSchoolWorkspace, ExamOption, WorkspaceOptions } from './api/workspace';
 import { horsProgramme } from './utils/programme';
 import { APPRECIATION_LONGUEUR_MAX, appreciationManuelleValide, normaliserAppreciationManuelle } from './utils/appreciation';
-import { applyCharte, charteChanged, loadCharte } from './api/charte';
+import { applyCharte, charteChanged, loadCharte, parametresSansDemonstration } from './api/charte';
 import {
   getRegisteredSchools,
   getCurrentSchoolId,
@@ -72,8 +72,11 @@ export default function App() {
 
   const [settings, setSettings] = useState<AppSettings>(() => {
     const data = getSchoolData(getCurrentSchoolId());
-    return data.settings;
+    // Jeton présent : aucune image de démonstration en attendant la charte de l'établissement.
+    return getToken() ? parametresSansDemonstration(data.settings) : data.settings;
   });
+  // Dernière modification du logo, du cachet ou des signatures sur le serveur (affichée dans Paramètres et Profil).
+  const [charteModifieeLe, setCharteModifieeLe] = useState<string | null>(null);
 
   // En mode API, aucune matière de démonstration : la liste vient de l'espace de travail chargé.
   const [subjects, setSubjects] = useState<Subject[]>(() => (getToken() ? [] : INITIAL_SUBJECTS));
@@ -179,6 +182,7 @@ export default function App() {
       try {
         const charte = charteModifiee ? await sauvegarderParametres(newSettings) : null;
         const profil = enTeteModifie ? await sauvegarderEnTete(newSettings) : null;
+        if (charte) setCharteModifieeLe(charte.modifieLe ?? null);
         setSettings((prev) => {
           let next = charte ? applyCharte(prev, charte) : prev;
           // Préréglage déjà appliqué par l'API : la fiche renvoyée a été reportée dans `newSettings`.
@@ -232,10 +236,12 @@ export default function App() {
     setActiveClasseId(workspace.classeId);
     setActiveExamType(workspace.examType);
     setActiveExamTypeLong(workspace.examTypeLong);
+    if (charte) setCharteModifieeLe(charte.modifieLe ?? null);
     setSettings((prev) => {
       // En session API, les paramètres viennent du serveur (charte) ou des valeurs par défaut du logiciel :
-      // rien n'est repris des réglages de démonstration mémorisés dans le navigateur.
-      const base: AppSettings = charte ? DEFAULT_SETTINGS : prev;
+      // rien n'est repris des réglages de démonstration mémorisés dans le navigateur, et aucune image de
+      // démonstration (logo, sceau du logiciel) n'est affichée pour un vrai compte : sans logo, ses initiales.
+      const base: AppSettings = parametresSansDemonstration(charte ? DEFAULT_SETTINGS : prev);
       const next: AppSettings = {
         ...base,
         institutionName: session?.nomEtablissement || prev.institutionName,
@@ -285,7 +291,7 @@ export default function App() {
     setSelectedCandidateId('');
     setSelectedSession('');
     setSelectedCenter('');
-    setSettings((prev) => ({ ...prev, institutionName: session?.nomEtablissement || 'Plateforme AcademiaBlanc' }));
+    setSettings((prev) => ({ ...parametresSansDemonstration(prev), institutionName: session?.nomEtablissement || 'Plateforme AcademiaBlanc' }));
     setIsSignatureModalOpen(false);
     setIsSmsModalOpen(false);
     setIsSearchModalOpen(false);
@@ -367,6 +373,7 @@ export default function App() {
     setSelectedSession('');
     setSelectedCenter('');
     setSettings(getSchoolData(currentSchoolId).settings);
+    setCharteModifieeLe(null);
     setAdminTarget({ section: null, nonce: 0 });
     setIsSignatureModalOpen(false);
     setIsSmsModalOpen(false);
@@ -1015,6 +1022,8 @@ export default function App() {
               onProfilChanged={handleProfilChanged}
               onLogout={usingApi ? handleLogout : undefined}
               onConnexion={usingApi ? undefined : ouvrirConnexion}
+              charteModifieeLe={charteModifieeLe}
+              onRetablirSceauDemo={usingApi ? undefined : () => void handleUpdateSettings({ ...settings, sealUrl: TOGO_SETTINGS.sealUrl })}
             />
           )}
 
@@ -1083,6 +1092,7 @@ export default function App() {
               activeSessionId={activeSessionId}
               onOpenSession={openArchivedSession}
               onOpenAdmin={usingApi ? openAdmin : undefined}
+              charteModifieeLe={charteModifieeLe}
             />
           )}
         </main>

@@ -11,8 +11,10 @@ import tg.academiablanc.domain.Ressource;
 import tg.academiablanc.security.PermissionService;
 
 /**
- * Cachet et signatures du bulletin de l'établissement porté par le jeton.
- * Lecture possible avec BULLETINS:VOIR ou PARAMETRES:VOIR (affichage des bulletins), écriture avec PARAMETRES:MODIFIER.
+ * Logo, cachet et signatures de l'établissement porté par le jeton, et paramètres d'affichage du bulletin.
+ * Les images arrivent en data URL dans le corps JSON et sont conservées en base (1 Mo maximum chacune, sinon 413).
+ * Une image envoyée vide ou nulle est retirée. Lecture possible avec BULLETINS:VOIR ou PARAMETRES:VOIR
+ * (affichage des bulletins), écriture avec PARAMETRES:MODIFIER.
  */
 @RestController
 @RequestMapping("/api/etablissement/charte")

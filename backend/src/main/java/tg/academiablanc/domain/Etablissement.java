@@ -57,6 +57,17 @@ public class Etablissement {
   @Column(nullable = false)
   private boolean actif = true;
 
+  /**
+   * Logo de l'établissement (barre latérale, profil), conservé en base sous forme de data URL ;
+   * null = aucun logo, le client affiche les initiales de l'établissement.
+   */
+  @Column(name = "logo_url", columnDefinition = "TEXT")
+  private String logoUrl;
+
+  /** Dernière modification du logo, du cachet ou des signatures. */
+  @Column(name = "charte_modifiee_le")
+  private Instant charteModifieeLe;
+
   /** Cachet affiché dans la carte « Le Proviseur » du bulletin ; null = cachet physique. */
   @Column(name = "sceau_url", columnDefinition = "TEXT")
   private String sceauUrl;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppSettings, Candidate, CandidateComputedStats, AdminSection } from '../types';
 import { DEFAULT_SETTINGS, TOGO_SETTINGS } from '../data/mockData';
 import { PREREGLAGES_DEMONSTRATION } from '../data/prereglagesDemo';
@@ -12,9 +12,8 @@ import {
 } from '../utils/prereglages';
 import { ArchivedSessionsSection } from './ArchivedSessionsSection';
 import { AdminParametres } from './AdminParametres';
-import { CharteAssetUpload } from './CharteAssetUpload';
-import { CharteField } from '../api/charte';
-import { isSafeImageUrl } from '../utils/safeUrl';
+import { CharteImagesPanel, ImageCharte } from './CharteImagesPanel';
+import { parametresSansDemonstration } from '../api/charte';
 import { confirmAction } from '../utils/alerts';
 
 interface SettingsViewProps {
@@ -42,7 +41,18 @@ interface SettingsViewProps {
   onOpenSession?: (sessionId: number) => void;
   /** Ouvre l'écran Administration (API) sur une section donnée. */
   onOpenAdmin?: (section?: AdminSection) => void;
+  /** Dernière modification du logo, du cachet ou des signatures sur le serveur (ISO 8601). */
+  charteModifieeLe?: string | null;
 }
+
+/** Images de la charte telles qu'enregistrées : reprises dans le formulaire après chaque relecture du serveur. */
+const imagesDe = (settings: AppSettings): Pick<AppSettings, ImageCharte> => ({
+  logoUrl: settings.logoUrl,
+  sealUrl: settings.sealUrl,
+  sceauUrl: settings.sceauUrl,
+  signatureProviseurUrl: settings.signatureProviseurUrl,
+  signatureTitulaireUrl: settings.signatureTitulaireUrl,
+});
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
@@ -56,19 +66,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   activeSessionId = null,
   onOpenSession,
   onOpenAdmin,
+  charteModifieeLe = null,
 }) => {
   const [activeTab, setActiveTab] = useState<'branding' | 'archives' | 'admin'>('branding');
   const [formData, setFormData] = useState<AppSettings>(settings);
-  const [logoInputUrl, setLogoInputUrl] = useState('');
-  const [sealInputUrl, setSealInputUrl] = useState('');
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('Paramètres enregistrés !');
-  const logoFileInputRef = useRef<HTMLInputElement>(null);
-  const sealFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Les images affichées sont toujours celles enregistrées (serveur en session connectée) : une relecture
+  // de l'espace ou un refus du serveur ne doit jamais laisser un aperçu qui n'existe nulle part ailleurs.
+  useEffect(() => {
+    setFormData((prev) => ({ ...prev, ...imagesDe(settings) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.logoUrl, settings.sealUrl, settings.sceauUrl, settings.signatureProviseurUrl, settings.signatureTitulaireUrl]);
 
   /**
    * Point de passage unique des enregistrements : le formulaire reflète la saisie, la confirmation
-   * n'apparaît qu'après l'accord du gestionnaire (sur le serveur en session connectée).
+   * n'apparaît qu'après l'accord du gestionnaire (sur le serveur en session connectée). En cas de refus,
+   * les aperçus d'images reviennent aux valeurs enregistrées ; la saisie des textes est conservée.
    */
   const enregistrer = async (
     next: AppSettings,
@@ -78,7 +93,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   ): Promise<boolean> => {
     setFormData(next);
     const ok = await onUpdateSettings(next, options);
-    if (ok === false) return false;
+    if (ok === false) {
+      setFormData((prev) => ({ ...prev, ...imagesDe(settings) }));
+      return false;
+    }
     setToastMessage(usingApi && message === 'Paramètres enregistrés !' ? 'Paramètres enregistrés sur le serveur.' : message);
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), duree);
@@ -140,60 +158,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleFileChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    field: 'logoUrl' | 'sealUrl'
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/') || file.size > 1_500_000) {
-      setToastMessage('Choisissez une image (PNG, JPG, WEBP, GIF) de moins de 1,5 Mo.');
-      setShowSavedToast(true);
-      setTimeout(() => setShowSavedToast(false), 3000);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string' && isSafeImageUrl(reader.result)) {
-        void enregistrer({ ...formData, [field]: reader.result }, 'Paramètres enregistrés !');
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const applyLogoUrl = () => {
-    if (!isSafeImageUrl(logoInputUrl)) {
-      setToastMessage('URL de logo refusée : utilisez une adresse http(s).');
-      setShowSavedToast(true);
-      setTimeout(() => setShowSavedToast(false), 3000);
-      return;
-    }
-    void enregistrer({ ...formData, logoUrl: logoInputUrl.trim() }, 'Paramètres enregistrés !')
-      .then((ok) => { if (ok) setLogoInputUrl(''); });
-  };
-
-  const applySealUrl = () => {
-    if (!isSafeImageUrl(sealInputUrl)) {
-      setToastMessage('URL de sceau refusée : utilisez une adresse http(s).');
-      setShowSavedToast(true);
-      setTimeout(() => setShowSavedToast(false), 3000);
-      return;
-    }
-    void enregistrer({ ...formData, sealUrl: sealInputUrl.trim() }, 'Paramètres enregistrés !')
-      .then((ok) => { if (ok) setSealInputUrl(''); });
-  };
-
   const showError = (message: string) => {
     setToastMessage(message);
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3500);
   };
 
-  const applyCharteAsset = (field: CharteField, dataUrl: string) => {
-    void enregistrer({ ...formData, [field]: dataUrl }, dataUrl
-      ? 'Image enregistrée : elle apparaît désormais sur le bulletin.'
-      : "Image retirée : l'emplacement reste vide pour une apposition à la main.");
+  const applyCharteAsset = (champ: ImageCharte, dataUrl: string): Promise<boolean> => {
+    const messages: Record<ImageCharte, [string, string]> = {
+      logoUrl: [
+        usingApi ? 'Logo enregistré dans la base de l’établissement : il sera retrouvé à chaque connexion.' : 'Logo enregistré.',
+        'Logo retiré : les initiales de l’établissement sont affichées.',
+      ],
+      sealUrl: [
+        'Sceau officiel enregistré : il apparaît au centre du bulletin et en filigrane.',
+        "Sceau retiré : l'emplacement restera vide sur le bulletin pour apposition manuelle.",
+      ],
+      sceauUrl: ['Cachet enregistré : il apparaît désormais sur le bulletin.', "Cachet retiré : l'emplacement reste vide pour une apposition à la main."],
+      signatureProviseurUrl: ['Signature enregistrée : elle apparaît désormais sur le bulletin.', "Signature retirée : l'emplacement reste vide pour une signature à la main."],
+      signatureTitulaireUrl: ['Signature enregistrée : elle apparaît désormais sur le bulletin.', "Signature retirée : l'emplacement reste vide pour une signature à la main."],
+    };
+    return enregistrer({ ...formData, [champ]: dataUrl }, messages[champ][dataUrl ? 0 : 1], 3000);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -204,14 +189,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleResetDefaults = async () => {
     const ok = await confirmAction({
       title: 'Rétablir les valeurs par défaut ?',
-      text: 'Les logos et paramètres officiels par défaut remplaceront la configuration actuelle.',
+      text: usingApi
+        ? 'Les textes du bulletin (signataires, numérotation) reviennent aux valeurs par défaut du logiciel. Le logo, le sceau, le cachet et les signatures enregistrés dans la base de l’établissement sont conservés.'
+        : 'Les logos et paramètres officiels par défaut remplaceront la configuration actuelle.',
       confirmText: 'Rétablir',
       icon: 'warning',
     });
     if (ok) {
-      // En session API, les libellés portés par le serveur (session, fiche de l'établissement) sont conservés.
+      // En session API, les libellés portés par le serveur (session, fiche de l'établissement) sont conservés,
+      // et aucune image de démonstration ne doit partir au serveur ni remplacer celles de l'établissement.
       void enregistrer(usingApi ? {
-        ...DEFAULT_SETTINGS,
+        ...parametresSansDemonstration(DEFAULT_SETTINGS),
+        ...imagesDe(settings),
         institutionName: formData.institutionName,
         academicYear: formData.academicYear,
         sessionName: formData.sessionName,
@@ -315,217 +304,49 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column: Logo & Seal Management */}
+          {/* Colonne gauche : images de l'établissement (même composant que la page Profil) */}
         <div className="lg:col-span-5 space-y-6">
-          {/* Logo Card */}
-          <div className="bg-white p-5 rounded border border-[#eaedff] shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-[#eaedff] pb-2">
+          <div className="bg-white p-5 rounded border border-[#eaedff] shadow-xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#eaedff] pb-2">
               <h3 className="text-[14px] font-bold text-[#00236f] uppercase tracking-wide flex items-center gap-2">
                 <span className="material-symbols-outlined text-lg text-[#0051d5]">image</span>
-                Logo Principal de l'Académie
+                Logo, Sceau, Cachet &amp; Signatures
               </h3>
-            </div>
-
-            {/* Logo Preview */}
-            <div className="flex flex-col items-center justify-center p-4 bg-[#f2f3ff] rounded border border-dashed border-[#dce1ff]">
-              <div className="w-24 h-24 bg-white rounded-lg p-2 shadow-xs flex items-center justify-center border border-[#eaedff] overflow-hidden">
-                <img
-                  src={formData.logoUrl}
-                  alt="Aperçu Logo"
-                  className="max-h-full max-w-full object-contain"
-                />
-              </div>
-              <span className="text-[11px] text-[#444651] mt-2 font-medium">
-                Logo affiché en barre latérale et sur l'en-tête A4
-              </span>
-            </div>
-
-            {/* Upload File Button */}
-            <div>
-              <input
-                ref={logoFileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileChange(e, 'logoUrl')}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => logoFileInputRef.current?.click()}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded bg-[#0051d5] text-white text-[12px] font-bold hover:bg-[#003ea8] transition-all shadow-xs"
-              >
-                <span className="material-symbols-outlined text-base">upload_file</span>
-                <span>Téléverser une image (PNG / JPG / SVG)</span>
-              </button>
-            </div>
-
-            {/* URL input alternative */}
-            <div className="space-y-1">
-              <label className="block text-[11px] font-bold uppercase text-[#444651]">
-                Ou renseigner l'URL d'une image
-              </label>
-              <div className="flex gap-1.5">
-                <input
-                  type="url"
-                  placeholder="https://.../mon-logo.png"
-                  value={logoInputUrl}
-                  onChange={(e) => setLogoInputUrl(e.target.value)}
-                  className="flex-1 bg-[#f2f3ff] text-[12px] py-1.5 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
-                />
-                <button
-                  type="button"
-                  onClick={applyLogoUrl}
-                  className="px-3 py-1.5 rounded bg-[#eaedff] text-[#00236f] text-[12px] font-semibold hover:bg-[#dce1ff]"
-                >
-                  OK
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Sceau du Jury Card */}
-          <div className="bg-white p-5 rounded border border-[#eaedff] shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-[#eaedff] pb-2">
-              <h3 className="text-[14px] font-bold text-[#00236f] uppercase tracking-wide flex items-center gap-2">
-                <span className="material-symbols-outlined text-lg text-[#0051d5]">verified</span>
-                Sceau Officiel du Jury / DEXCO
-              </h3>
-            </div>
-
-            <div className="flex flex-col items-center justify-center p-4 bg-[#f2f3ff] rounded border border-dashed border-[#dce1ff]">
-              {formData.sealUrl && formData.sealUrl.trim() !== '' ? (
-                <div className="w-20 h-20 rounded-full bg-white p-2 shadow-xs flex items-center justify-center border border-[#eaedff] overflow-hidden">
-                  <img
-                    src={formData.sealUrl}
-                    alt="Aperçu Sceau"
-                    className="max-h-full max-w-full object-contain"
-                  />
-                </div>
-              ) : (
-                <div className="w-20 h-20 rounded-full border-2 border-dashed border-[#a0a5b5] bg-white flex flex-col items-center justify-center p-1 text-center shadow-2xs">
-                  <span className="material-symbols-outlined text-[#6b7280] text-xl">ink_pen</span>
-                  <span className="text-[8.5px] text-[#4b5563] uppercase font-bold leading-tight mt-0.5">
-                    Zone Vierge
-                  </span>
-                  <span className="text-[7.5px] text-[#9ca3af]">
-                    (Tampon manuel)
-                  </span>
-                </div>
+              {usingApi && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#dcfce7] text-[#166534]">
+                  Base de l’établissement
+                </span>
               )}
-              <span className="text-[11px] text-[#444651] mt-2 font-medium text-center">
-                {formData.sealUrl && formData.sealUrl.trim() !== ''
-                  ? 'Sceau numérique actif (imprimé au centre et en filigrane).'
-                  : 'Aucun sceau téléversé : l\'emplacement est laissé totalement vide sur le bulletin pour apposition d\'un cachet physique manuel à l\'encre.'}
-              </span>
             </div>
-
-            {/* Clear / Reset Seal Button */}
-            {formData.sealUrl && formData.sealUrl.trim() !== '' ? (
-              <button
-                type="button"
-                onClick={() => {
-                  void enregistrer({ ...formData, sealUrl: '' },
-                    "Sceau supprimé : l'emplacement restera vide sur le bulletin pour apposition manuelle.", 3000);
-                }}
-                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11.5px] font-bold border border-amber-200 transition-colors shadow-2xs"
-              >
-                <span className="material-symbols-outlined text-base text-amber-700">ink_eraser</span>
-                <span>Ne rien mettre (laisser vide pour tampon manuel)</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  void enregistrer({ ...formData, sealUrl: TOGO_SETTINGS.sealUrl },
-                    'Sceau officiel par défaut réactivé.', 3000);
-                }}
-                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-[#eaedff] hover:bg-[#dce1ff] text-[#00236f] text-[11.5px] font-bold border border-[#dce1ff] transition-colors"
-              >
-                <span className="material-symbols-outlined text-base text-[#0051d5]">verified</span>
-                <span>Rétablir le Sceau Officiel de l'État</span>
-              </button>
-            )}
-
-            <div>
-              <input
-                ref={sealFileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileChange(e, 'sealUrl')}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => sealFileInputRef.current?.click()}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded bg-[#0051d5] text-white text-[12px] font-bold hover:bg-[#003ea8] transition-all shadow-xs"
-              >
-                <span className="material-symbols-outlined text-base">upload_file</span>
-                <span>Téléverser un Sceau / Cachet Spécifique</span>
-              </button>
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-[11px] font-bold uppercase text-[#444651]">
-                Ou URL d'un Sceau
-              </label>
-              <div className="flex gap-1.5">
-                <input
-                  type="url"
-                  placeholder="https://.../mon-sceau.png"
-                  value={sealInputUrl}
-                  onChange={(e) => setSealInputUrl(e.target.value)}
-                  className="flex-1 bg-[#f2f3ff] text-[12px] py-1.5 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
-                />
-                <button
-                  type="button"
-                  onClick={applySealUrl}
-                  className="px-3 py-1.5 rounded bg-[#eaedff] text-[#00236f] text-[12px] font-semibold hover:bg-[#dce1ff]"
-                >
-                  OK
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Cachet & signatures des cartes « Le Titulaire » / « Le Proviseur » */}
-          <div className="bg-white p-5 rounded border border-[#eaedff] shadow-xs space-y-1">
-            <div className="flex items-center justify-between border-b border-[#eaedff] pb-2 mb-1">
-              <h3 className="text-[14px] font-bold text-[#00236f] uppercase tracking-wide flex items-center gap-2">
-                <span className="material-symbols-outlined text-lg text-[#0051d5]">approval</span>
-                Cachet &amp; Signatures du Bulletin
-              </h3>
-            </div>
-            <p className="text-[11px] text-[#444651] leading-snug pb-1">
-              Images affichées dans les cartes « Le Titulaire » et
-              « {formData.jurySignerTitle || 'Le Proviseur'} » en bas du bulletin. Sans image, l'emplacement
-              reste vide pour le cachet humide et les signatures à la main.
+            <p className="text-[11px] text-[#444651] leading-snug">
+              {usingApi
+                ? 'Ces images sont celles de la fiche de l’établissement : enregistrées dans sa base, elles sont relues à chaque connexion, depuis tout poste. Elles se gèrent aussi depuis « Profil de l’établissement › Charte graphique ».'
+                : 'Logo de la barre latérale, sceau officiel du bulletin, cachet et signatures des cartes « Le Titulaire » et « Le Proviseur ».'}
             </p>
 
-            <CharteAssetUpload
-              label="Sceau / cachet de l'établissement"
-              hint="Cachet rond ou rectangulaire, idéalement PNG détouré (fond transparent)."
-              icon="approval"
-              shape="round"
-              value={formData.sceauUrl}
-              onChange={(dataUrl) => applyCharteAsset('sceauUrl', dataUrl)}
+            <CharteImagesPanel
+              settings={formData}
+              usingApi={usingApi}
+              modifieLe={charteModifieeLe}
+              onChange={applyCharteAsset}
               onError={showError}
+              onRetablirSceauDemo={() => {
+                void enregistrer({ ...formData, sealUrl: TOGO_SETTINGS.sealUrl }, 'Sceau de démonstration réactivé.', 3000);
+              }}
             />
-            <CharteAssetUpload
-              label={`Signature du ${(formData.jurySignerTitle || 'Proviseur').replace(/^le\s+/i, '')}`}
-              hint="Signature manuscrite scannée, affichée à côté du cachet."
-              icon="draw"
-              value={formData.signatureProviseurUrl}
-              onChange={(dataUrl) => applyCharteAsset('signatureProviseurUrl', dataUrl)}
-              onError={showError}
-            />
-            <CharteAssetUpload
-              label="Signature du Titulaire"
-              hint="Optionnelle : signature scannée du titulaire de la classe."
-              icon="draw"
-              value={formData.signatureTitulaireUrl}
-              onChange={(dataUrl) => applyCharteAsset('signatureTitulaireUrl', dataUrl)}
-              onError={showError}
-            />
+
+            {usingApi && onOpenProfil && (
+              <div className="pt-3 border-t border-[#eaedff]">
+                <button
+                  type="button"
+                  onClick={onOpenProfil}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#eaedff] hover:bg-[#dce1ff] text-[#00236f] text-[11px] font-bold shadow-2xs transition-colors"
+                >
+                  <span className="material-symbols-outlined text-sm">account_balance</span>
+                  <span>Ouvrir le profil de l’établissement</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

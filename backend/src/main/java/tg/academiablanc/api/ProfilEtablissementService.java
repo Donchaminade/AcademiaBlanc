@@ -67,13 +67,18 @@ public class ProfilEtablissementService {
       String devise,
       boolean actif,
       Instant creeLe,
+      /** Logo conservé en base (data URL) ; null = aucun logo, le client affiche les initiales. Modifié via la charte. */
+      String logoUrl,
+      /** Dernière modification du logo, du cachet ou des signatures ; null si aucune image n'a été enregistrée. */
+      Instant charteModifieeLe,
       EnTete enTete
   ) {
     static Profil of(Etablissement school) {
       return new Profil(
           school.getId(), school.getNom(), school.getCode(), school.getTypeEtablissement(), school.getVille(),
           school.getRegion(), school.getAdresse(), school.getTelephone(), school.getEmail(), school.getNomResponsable(),
-          school.getDevise(), school.isActif(), school.getCreeLe(), EnTete.of(school));
+          school.getDevise(), school.isActif(), school.getCreeLe(), school.getLogoUrl(), school.getCharteModifieeLe(),
+          EnTete.of(school));
     }
   }
 
