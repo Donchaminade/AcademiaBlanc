@@ -85,6 +85,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   const signataireTitre = sessionInter ? TITRE_CHEF_CENTRE : (settings?.jurySignerTitle?.trim() || "Le Chef d'établissement");
   const signataireNom = (settings?.jurySignerName ?? '').trim();
   const dateEdition = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const bulletinsSignes = candidates.filter((cand) => Boolean(cand.digitalSignature)).length;
   const origine = (cand: Candidate): string => (sessionInter ? etablissementOrigineAffiche(cand, nomCentre) : cand.originSchool);
 
   // Palmarès : par moyenne décroissante ; en inter-établissements, par niveau / série puis moyenne
@@ -406,14 +407,16 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
             </span>
           </div>
           <p className="text-[12px] text-[#444651] break-words">
-            Certificat d'intégrité DEXCO : <span className="font-mono text-[#00236f] font-semibold">SHA256: 7f8b91c...e9b488a1</span> • Horodatage certifié : 15-05-2025 à 18:42:09 GMT.
+            {bulletinsSignes > 0
+              ? `${bulletinsSignes} bulletin${bulletinsSignes > 1 ? 's' : ''} signé${bulletinsSignes > 1 ? 's' : ''} électroniquement sur ${candidates.length} • Procès-verbal édité le ${dateEdition}.`
+              : `Aucun bulletin signé électroniquement pour l'instant • Procès-verbal édité le ${dateEdition}.`}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-white text-[#0051d5] text-[12px] font-semibold shadow-xs border border-[#eaedff]">
-            <span className="material-symbols-outlined text-base">verified</span>
-            <span>Signé par Dr. Aminata Traoré</span>
+            <span className="material-symbols-outlined text-base">{signataireNom ? 'verified' : 'badge'}</span>
+            <span>{signataireNom ? `${signataireTitre} : ${signataireNom}` : 'Signataire à renseigner dans le profil de l’établissement'}</span>
           </span>
         </div>
       </div>

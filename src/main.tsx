@@ -2,7 +2,14 @@ import {createRoot} from 'react-dom/client';
 import {registerSW} from 'virtual:pwa-register';
 import App from './App.tsx';
 import {MiseAJourBanner} from './components/MiseAJourBanner';
-import {doitAppliquerSansDemander, optionsNavigateur, planifierVerifications, signalerNouvelleVersion} from './pwa/miseAJour';
+import {
+  appliquerVersionEnAttente,
+  doitAppliquerSansDemander,
+  optionsNavigateur,
+  planifierVerifications,
+  rechargerUneFois,
+  signalerNouvelleVersion,
+} from './pwa/miseAJour';
 import './index.css';
 
 // Service worker généré au build (Workbox) : précache de l'application, de ses styles, polices et icônes
@@ -11,14 +18,23 @@ import './index.css';
 // le bandeau « Nouvelle version disponible — Actualiser » ; la présence d'une mise à jour est vérifiée toutes
 // les heures et au retour sur l'onglet (voir src/pwa/miseAJour.ts).
 const chargeA = performance.now();
-const appliquerMiseAJour = registerSW({
+const appliquer = () => appliquerVersionEnAttente({
+  activer: () => activerVersionEnAttente(),
+  priseDeControle: () => new Promise<void>((resolve) => {
+    navigator.serviceWorker?.addEventListener('controllerchange', () => resolve(), {once: true});
+  }),
+  attendre: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  recharger: () => window.location.reload(),
+});
+const activerVersionEnAttente = registerSW({
   immediate: true,
+  onNeedReload: () => rechargerUneFois(),
   onNeedRefresh() {
     if (doitAppliquerSansDemander(performance.now() - chargeA)) {
-      void appliquerMiseAJour();
+      void appliquer();
       return;
     }
-    signalerNouvelleVersion(() => appliquerMiseAJour());
+    signalerNouvelleVersion(appliquer);
   },
   onRegisteredSW(_url, registration) {
     if (registration) planifierVerifications(registration, optionsNavigateur());

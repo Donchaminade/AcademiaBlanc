@@ -5,15 +5,20 @@ interface SignatureModalProps {
   candidate: Candidate;
   onClose: () => void;
   onSign: (signedAt: string, signer: string, shaHash: string) => void;
+  /** Signataire proposé : le responsable de l'établissement (paramètres), jamais un nom de démonstration en session connectée. */
+  signataireParDefaut?: string;
+  titreParDefaut?: string;
 }
 
 export const SignatureModal: React.FC<SignatureModalProps> = ({
   candidate,
   onClose,
   onSign,
+  signataireParDefaut = '',
+  titreParDefaut = 'Chef d\'établissement',
 }) => {
-  const [signerName, setSignerName] = useState('Dr. Aminata Traoré');
-  const [role, setRole] = useState('Proviseure de l\'Établissement');
+  const [signerName, setSignerName] = useState(signataireParDefaut);
+  const [role, setRole] = useState(titreParDefaut);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleConfirm = async () => {

@@ -98,7 +98,8 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
     fullName: '',
     dob: '15/05/2006',
     birthPlace: 'Lomé',
-    originSchool: 'Lycée Moderne de Tokoin',
+    // L'élève vient par défaut de l'établissement lui-même, jamais d'un établissement de démonstration.
+    originSchool: settings?.institutionName || '',
     gender: 'M' as 'M' | 'F',
     parentPhone: '+228 90 12 34 56',
     parentEmail: 'parent.contact@edu.tg',
@@ -217,7 +218,7 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
         const fullName = parts[0];
         const gender = parts[1]?.toUpperCase() === 'F' ? 'F' : 'M';
         const dob = parts[2] || '14/09/2006';
-        const school = parts[3] || 'Lycée Moderne de Tokoin';
+        const school = parts[3] || settings?.institutionName || '';
         const phone = parts[4] || '+228 90 00 00 00';
 
         const initialGrades: Record<string, { score: number; appreciation: string }> = {};

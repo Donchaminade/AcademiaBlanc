@@ -83,6 +83,53 @@ export function optionsNavigateur(): OptionsVerification {
   };
 }
 
+/** Délai maximal d'attente du nouveau contrôleur avant de recharger quand même. */
+export const DELAI_MAX_PRISE_DE_CONTROLE_MS = 3_000;
+
+let rechargementDemande = false;
+
+/**
+ * Recharge la page une seule fois, quel que soit le nombre de signaux (bandeau, événement « controlling »
+ * de workbox-window) : deux rechargements concurrents annuleraient parfois la navigation en cours.
+ */
+export function rechargerUneFois(recharger: () => void = () => window.location.reload()): void {
+  if (rechargementDemande) return;
+  rechargementDemande = true;
+  recharger();
+}
+
+/** Réservé aux tests : réarme le garde-fou de rechargement. */
+export function reinitialiserRechargement(): void {
+  rechargementDemande = false;
+}
+
+export interface OptionsApplication {
+  /** Envoie SKIP_WAITING au service worker en attente (`registerSW()` de vite-plugin-pwa). */
+  activer: () => Promise<void>;
+  /**
+   * Promesse résolue quand le nouveau service worker contrôle la page (`controllerchange`). Créée juste
+   * avant l'activation : une promesse préparée au chargement serait déjà résolue par la première prise de
+   * contrôle, et la page se rechargerait pendant que l'ancien service worker est encore aux commandes
+   * (navigation qui ne se termine jamais).
+   */
+  priseDeControle: () => Promise<void>;
+  attendre: (ms: number) => Promise<void>;
+  recharger: () => void;
+}
+
+/**
+ * Applique la version en attente puis recharge : dès que le nouveau service worker contrôle la page, ou
+ * au plus tard après `DELAI_MAX_PRISE_DE_CONTROLE_MS`. workbox-window ne recharge de lui-même que si un
+ * service worker contrôlait déjà la page au chargement ; à la toute première visite, sans ce garde-fou,
+ * le bouton « Actualiser » resterait sans effet.
+ */
+export async function appliquerVersionEnAttente(options: OptionsApplication): Promise<void> {
+  const priseDeControle = options.priseDeControle();
+  await options.activer();
+  await Promise.race([priseDeControle, options.attendre(DELAI_MAX_PRISE_DE_CONTROLE_MS)]);
+  rechargerUneFois(options.recharger);
+}
+
 type Ecouteur = () => void;
 
 export interface EtatMiseAJour {

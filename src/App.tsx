@@ -1161,6 +1161,8 @@ export default function App() {
           candidate={selectedCandidate}
           onClose={() => setIsSignatureModalOpen(false)}
           onSign={handleSign}
+          signataireParDefaut={settings.jurySignerName}
+          titreParDefaut={settings.jurySignerTitle || 'Chef d’établissement'}
         />
       )}
 
