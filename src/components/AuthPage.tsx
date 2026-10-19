@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { AuthView, type AuthMode } from './AuthView';
 import { ROUTE_PATHS } from '../utils/router';
+import { LiensLegaux } from './legal/LiensLegaux';
 
 interface AuthPageProps {
   mode: AuthMode;
@@ -59,7 +60,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         </div>
       </header>
 
-      <main className="flex flex-1 items-center justify-center p-3 sm:p-6">
+      <main className="flex flex-1 flex-col items-center justify-center gap-3 p-3 sm:p-6">
         <AuthView
           embedded
           hideCloseButton
@@ -69,6 +70,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           onApiReady={onApiReady}
           onClose={onClose}
         />
+        {/* Documents légaux sous le formulaire (nouvel onglet : la saisie en cours n’est pas perdue) */}
+        <LiensLegaux nouvelOnglet className="w-full max-w-4xl" />
       </main>
     </div>
   );

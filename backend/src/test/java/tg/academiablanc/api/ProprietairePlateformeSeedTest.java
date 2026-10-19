@@ -96,7 +96,7 @@ class ProprietairePlateformeSeedTest {
     // 4. L'inscription avec cet email reste impossible : pas de second établissement pour le propriétaire.
     mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"Doublon\",\"ville\":\"Lome\",\"email\":\"" + EMAIL
-                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"X\"}"))
+                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"X\",\"acceptationConditions\":true}"))
         .andExpect(status().is4xxClientError());
 
     // 5. Un redémarrage avec le même mot de passe ne touche à rien.

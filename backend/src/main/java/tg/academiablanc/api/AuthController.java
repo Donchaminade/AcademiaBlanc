@@ -1,5 +1,6 @@
 package tg.academiablanc.api;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -35,6 +36,7 @@ public class AuthController {
   private final JwtService jwtService;
   private final PlatformOwnerService platformOwners;
   private final PermissionService droits;
+  private final AcceptationConditionsService acceptations;
 
   public AuthController(
       EtablissementRepository etablissements,
@@ -43,7 +45,8 @@ public class AuthController {
       PasswordEncoder passwordEncoder,
       JwtService jwtService,
       PlatformOwnerService platformOwners,
-      PermissionService droits
+      PermissionService droits,
+      AcceptationConditionsService acceptations
   ) {
     this.etablissements = etablissements;
     this.utilisateurs = utilisateurs;
@@ -52,6 +55,7 @@ public class AuthController {
     this.jwtService = jwtService;
     this.platformOwners = platformOwners;
     this.droits = droits;
+    this.acceptations = acceptations;
   }
 
   public record SignupRequest(
@@ -62,7 +66,11 @@ public class AuthController {
       @NotBlank @Size(max = 180) String nomResponsable,
       @Size(max = 40) String telephone,
       @Size(max = 120) String region,
-      @Size(max = 160) String typeEtablissement
+      @Size(max = 160) String typeEtablissement,
+      /** Case « J’ai lu et j’accepte… » : doit valoir {@code true}, sinon 400. */
+      Boolean acceptationConditions,
+      /** Version des conditions affichée par le client (repli : {@code app.conditions.version}). */
+      @Size(max = 40) String versionConditions
   ) {}
 
   public record LoginRequest(
@@ -94,11 +102,20 @@ public class AuthController {
       List<String> permissions
   ) {}
 
+  /**
+   * Inscription publique : 400 tant que les conditions ne sont pas acceptées. La preuve d'acceptation
+   * (version, instant UTC du serveur, IP, agent utilisateur) est écrite dans la même transaction que
+   * l'établissement et son OWNER : aucun compte sans acceptation, aucune acceptation sans compte.
+   */
   @PostMapping("/signup")
-  public AuthResponse signup(@Valid @RequestBody SignupRequest request) {
+  @ResponseStatus(HttpStatus.CREATED)
+  @Transactional
+  public AuthResponse signup(@Valid @RequestBody SignupRequest request, HttpServletRequest requete) {
+    AcceptationConditionsService.exigerAcceptation(request.acceptationConditions());
     EtablissementService.Creation created = creation.creer(
         request.nom(), request.ville(), request.email(), request.motDePasse(), request.nomResponsable(),
         request.telephone(), request.region(), request.typeEtablissement(), null);
+    acceptations.enregistrer(created.owner(), request.versionConditions(), requete);
     return reponse(created.owner(), created.etablissement());
   }
 
