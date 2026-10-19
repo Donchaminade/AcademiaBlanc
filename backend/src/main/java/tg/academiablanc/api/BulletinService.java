@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -58,6 +59,7 @@ public class BulletinService {
   private final AnneeScolaireRepository annees;
   private final SerieRepository series;
   private final ParametresBulletinRepository parametres;
+  private final ExamenCommunService examenCommun;
 
   public BulletinService(
       SessionExamenRepository sessions,
@@ -72,8 +74,10 @@ public class BulletinService {
       TypeExamenRepository typesExamen,
       AnneeScolaireRepository annees,
       SerieRepository series,
-      ParametresBulletinRepository parametres
+      ParametresBulletinRepository parametres,
+      ExamenCommunService examenCommun
   ) {
+    this.examenCommun = examenCommun;
     this.sessions = sessions;
     this.eleves = eleves;
     this.matieres = matieres;
@@ -124,6 +128,8 @@ public class BulletinService {
    * pour une classe de collège, « Le Proviseur » au lycée, le type de la fiche de l'établissement tranchant quand il
    * est connu, sauf titre saisi dans le profil ({@code parametres_bulletin.titre_signataire_jury}) ; voir
    * {@link TitreChefEtablissement}. Son nom est {@code etablissement.nom_responsable}.
+   * {@code examenCommun} : non null pour une session issue d'un transfert ; le rang, {@code moyenneClasse*} et les
+   * rangs / extrêmes des lignes sont alors ceux de l'examen commun (voir {@link ExamenCommun}).
    */
   public record BulletinVue(Long eleveId, String nomComplet, String matricule, String titulaireNom, BigDecimal moyenne,
                             Integer rang, String mention, String decision, String appreciation, BigDecimal totalPoints,
@@ -133,7 +139,15 @@ public class BulletinService {
                             String etablissementNom, String etablissementDevise,
                             EnteteBulletin entete,
                             ModeSession modeSession, String centreExamen, String etablissementOrigine,
-                            String responsableCentre, String titreResponsable) {}
+                            String responsableCentre, String titreResponsable,
+                            ExamenCommun examenCommun) {}
+
+  /**
+   * Session issue d'un transfert : rang, effectif et extrêmes du bulletin sont ceux du groupe de classement complet
+   * de l'examen commun (tous établissements confondus), conservés à l'acceptation ; {@code centre} est l'établissement
+   * émetteur, {@code sessionSource} l'intitulé de sa session. Null pour une session ordinaire.
+   */
+  public record ExamenCommun(String centre, String sessionSource, Integer effectifGroupe) {}
 
   /**
    * Bandeau de titre du bulletin : rien n'y est figé, chaque champ vient de la base et vaut null s'il manque.
@@ -267,6 +281,7 @@ public class BulletinService {
     String titreSurcharge = parametres.findById(user.etablissementId()).map(p -> p.getTitreSignataireJury()).orElse(null);
     Map<Long, EnteteBulletin> enteteParClasse = entetesParClasse(session, user.etablissementId());
 
+    Optional<ExamenCommunService.Contexte> commun = examenCommun.contexte(session);
     List<BulletinVue> vues = new ArrayList<>();
     for (Eleve eleve : roster) {
       List<Ligne> lignes = lignesParEleve.get(eleve.getId());
@@ -317,11 +332,52 @@ public class BulletinService {
           centreExamen,
           premierNonVide(eleve.getEtablissementOrigine(), inter ? etablissementNom : null),
           responsableCentre,
-          TitreChefEtablissement.pour(niveauDe(classeParId.get(eleve.getClasseId())), typeEtablissement, etablissementNom, titreSurcharge)
+          TitreChefEtablissement.pour(niveauDe(classeParId.get(eleve.getClasseId())), typeEtablissement, etablissementNom, titreSurcharge),
+          null
       );
-      vues.add(vue);
+      vues.add(commun.map(contexte -> avecExamenCommun(vue, contexte)).orElse(vue));
     }
     return vues;
+  }
+
+  /**
+   * Session issue d'un transfert : remplace le rang, l'effectif et les extrêmes recalculés sur les seuls élèves de
+   * l'établissement par ceux du groupe de classement de l'examen commun (par élève et par matière). La moyenne, la
+   * mention et la décision restent recalculées (mêmes règles : elles coïncident avec celles du centre).
+   */
+  private static BulletinVue avecExamenCommun(BulletinVue vue, ExamenCommunService.Contexte contexte) {
+    ExamenCommunService.StatEleveVue stat = contexte.parEleve().get(vue.eleveId());
+    ExamenCommun commun = new ExamenCommun(contexte.centre(), contexte.sessionSource(), stat == null ? null : stat.effectifGroupe());
+    if (stat == null) {
+      return new BulletinVue(vue.eleveId(), vue.nomComplet(), vue.matricule(), vue.titulaireNom(), vue.moyenne(), vue.rang(),
+          vue.mention(), vue.decision(), vue.appreciation(), vue.totalPoints(), vue.totalCoef(), vue.totalCoefProgramme(),
+          vue.pointsMax(), vue.moyenneClasse(), vue.moyenneClasseMax(), vue.moyenneClasseMin(), vue.lignes(),
+          vue.etablissementNom(), vue.etablissementDevise(), vue.entete(), vue.modeSession(), vue.centreExamen(),
+          vue.etablissementOrigine(), vue.responsableCentre(), vue.titreResponsable(), commun);
+    }
+    Map<Long, ExamenCommunService.StatMatiereVue> parMatiere = new HashMap<>();
+    for (ExamenCommunService.StatMatiereVue m : stat.matieres()) parMatiere.put(m.matiereId(), m);
+    List<LigneBulletin> lignes = new ArrayList<>();
+    for (LigneBulletin ligne : vue.lignes()) {
+      ExamenCommunService.StatMatiereVue m = parMatiere.get(ligne.matiereId());
+      if (m == null) {
+        lignes.add(ligne);
+        continue;
+      }
+      lignes.add(new LigneBulletin(ligne.matiereId(), ligne.matiere(), ligne.note(), ligne.coefficient(), ligne.total(),
+          m.rang() != null ? m.rang() : ligne.rang(), ligne.absent(),
+          m.noteMax() != null ? m.noteMax() : ligne.noteMaxClasse(), m.noteMin() != null ? m.noteMin() : ligne.noteMinClasse(),
+          ligne.appreciation()));
+    }
+    return new BulletinVue(vue.eleveId(), vue.nomComplet(), vue.matricule(), vue.titulaireNom(), vue.moyenne(),
+        stat.rang() != null ? stat.rang() : vue.rang(),
+        vue.mention(), vue.decision(), vue.appreciation(), vue.totalPoints(), vue.totalCoef(), vue.totalCoefProgramme(),
+        vue.pointsMax(),
+        stat.moyenneGroupe() != null ? stat.moyenneGroupe() : vue.moyenneClasse(),
+        stat.moyenneMaxGroupe() != null ? stat.moyenneMaxGroupe() : vue.moyenneClasseMax(),
+        stat.moyenneMinGroupe() != null ? stat.moyenneMinGroupe() : vue.moyenneClasseMin(),
+        lignes, vue.etablissementNom(), vue.etablissementDevise(), vue.entete(), vue.modeSession(), vue.centreExamen(),
+        vue.etablissementOrigine(), vue.responsableCentre(), vue.titreResponsable(), commun);
   }
 
   /** Niveau d'une classe (« 3e », « Tle ») ; null sans classe ou sans niveau. */
@@ -355,7 +411,13 @@ public class BulletinService {
    * réimport) et ceux sans session. Tant qu'aucun élève n'est rattaché à la session ni à une sœur,
    * tous les élèves de l'établissement sont candidats (données antérieures au rattachement).
    */
-  private List<Eleve> candidatsDe(SessionExamen session, Long etablissementId) {
+  List<Eleve> candidatsDe(SessionExamen session, Long etablissementId) {
+    // Session issue d'un transfert : ses candidats sont exactement les élèves importés, rien d'autre.
+    if (session.estIssueDunTransfert()) {
+      return eleves.findByEtablissementIdAndSessionId(etablissementId, session.getId()).stream()
+          .sorted((a, b) -> a.getNomComplet().compareToIgnoreCase(b.getNomComplet()))
+          .toList();
+    }
     Set<Long> famille = new HashSet<>();
     famille.add(session.getId());
     for (SessionExamen autre : sessions.findByEtablissementIdOrderByNomAsc(etablissementId)) {

@@ -16,6 +16,7 @@ import tg.academiablanc.domain.SessionExamen;
 import tg.academiablanc.domain.TypeExamen;
 import tg.academiablanc.repo.EtablissementRepository;
 import tg.academiablanc.repo.SessionExamenRepository;
+import tg.academiablanc.repo.TransfertExamenRepository;
 import tg.academiablanc.repo.TypeExamenRepository;
 
 /**
@@ -34,11 +35,14 @@ public class TypeExamenService {
   private final TypeExamenRepository types;
   private final SessionExamenRepository sessions;
   private final EtablissementRepository etablissements;
+  private final TransfertExamenRepository transferts;
 
-  public TypeExamenService(TypeExamenRepository types, SessionExamenRepository sessions, EtablissementRepository etablissements) {
+  public TypeExamenService(TypeExamenRepository types, SessionExamenRepository sessions, EtablissementRepository etablissements,
+                           TransfertExamenRepository transferts) {
     this.types = types;
     this.sessions = sessions;
     this.etablissements = etablissements;
+    this.transferts = transferts;
   }
 
   /** Fiche d'un type pour la plateforme, avec le nombre de sessions (tous établissements) qui l'utilisent. */
@@ -79,7 +83,11 @@ public class TypeExamenService {
       String statut,
       Instant archiveeLe,
       ModeSession mode,
-      String centreExamen
+      String centreExamen,
+      /** Transfert dont la session est issue (établissement destinataire) ; null pour une session créée sur place. */
+      Long transfertSourceId,
+      /** Nom du centre émetteur quand la session est issue d'un transfert ; null sinon. */
+      String transfertCentre
   ) {}
 
   /* ------------------------------------------------------------------ */
@@ -210,8 +218,15 @@ public class TypeExamenService {
         session.getStatut(),
         session.getArchiveeLe(),
         ModeSession.ouDefaut(session.getMode()),
-        session.estInterEtablissements() ? nomCentre(session.getEtablissementId()) : null
+        session.estInterEtablissements() ? nomCentre(session.getEtablissementId()) : null,
+        session.getTransfertSourceId(),
+        session.estIssueDunTransfert() ? centreDuTransfert(session.getTransfertSourceId()) : null
     );
+  }
+
+  /** Nom de l'établissement émetteur d'un transfert (centre de l'examen commun). */
+  private String centreDuTransfert(Long transfertId) {
+    return transferts.findById(transfertId).map(t -> nomCentre(t.getEtablissementSourceId())).orElse(null);
   }
 
   /** Nom du centre d'examen d'une session inter-établissements : l'établissement qui l'a créée. */
