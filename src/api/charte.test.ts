@@ -42,6 +42,19 @@ describe('charte de l’établissement : logo, sceau et signatures conservés en
     assert.equal(retire.jurySignerName, DEFAULT_SETTINGS.jurySignerName);
   });
 
+  it('le titre du chef d’établissement est une surcharge facultative : vide ↔ null (automatique)', () => {
+    const base = parametresSansDemonstration(DEFAULT_SETTINGS);
+    assert.equal(versCharte(base).titreSignataireJury, null);
+    assert.equal(versCharte({ ...base, jurySignerTitle: '   ' }).titreSignataireJury, null);
+    assert.equal(versCharte({ ...base, jurySignerTitle: 'La Directrice' }).titreSignataireJury, 'La Directrice');
+
+    const charte = { sceauUrl: null, signatureProviseurUrl: null, signatureTitulaireUrl: null };
+    assert.equal(applyCharte({ ...base, jurySignerTitle: 'Le Proviseur' }, { ...charte, titreSignataireJury: null }).jurySignerTitle, '',
+      'null sur le serveur = automatique : aucune valeur locale ne doit figer « Le Proviseur »');
+    assert.equal(applyCharte(base, { ...charte, titreSignataireJury: 'La Directrice' }).jurySignerTitle, 'La Directrice');
+    assert.equal(charteChanged(base, { ...base, jurySignerTitle: 'La Directrice' }), true);
+  });
+
   it('le changement de logo déclenche l’enregistrement de la charte', () => {
     const base = parametresSansDemonstration(DEFAULT_SETTINGS);
     assert.equal(charteChanged(base, { ...base, logoUrl: LOGO }), true);

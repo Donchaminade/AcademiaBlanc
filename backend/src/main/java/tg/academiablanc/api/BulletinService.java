@@ -36,6 +36,7 @@ import tg.academiablanc.repo.EleveRepository;
 import tg.academiablanc.repo.EtablissementRepository;
 import tg.academiablanc.repo.MatiereRepository;
 import tg.academiablanc.repo.NoteRepository;
+import tg.academiablanc.repo.ParametresBulletinRepository;
 import tg.academiablanc.repo.ProfesseurRepository;
 import tg.academiablanc.repo.SerieRepository;
 import tg.academiablanc.repo.SessionExamenRepository;
@@ -56,6 +57,7 @@ public class BulletinService {
   private final TypeExamenRepository typesExamen;
   private final AnneeScolaireRepository annees;
   private final SerieRepository series;
+  private final ParametresBulletinRepository parametres;
 
   public BulletinService(
       SessionExamenRepository sessions,
@@ -69,7 +71,8 @@ public class BulletinService {
       EtablissementRepository etablissements,
       TypeExamenRepository typesExamen,
       AnneeScolaireRepository annees,
-      SerieRepository series
+      SerieRepository series,
+      ParametresBulletinRepository parametres
   ) {
     this.sessions = sessions;
     this.eleves = eleves;
@@ -83,6 +86,7 @@ public class BulletinService {
     this.typesExamen = typesExamen;
     this.annees = annees;
     this.series = series;
+    this.parametres = parametres;
   }
 
   /**
@@ -116,6 +120,10 @@ public class BulletinService {
    * les extrêmes « de classe » sont calculés sur tous les candidats de la session du même niveau et de la même
    * série, toutes classes confondues. En mode interne ces trois champs valent null (sauf l'origine saisie) et le
    * calcul est inchangé : rang sur toute la session, extrêmes par classe.
+   * {@code titreResponsable} : titre du chef d'établissement qui signe le bulletin en mode interne — « Le Directeur »
+   * pour une classe de collège, « Le Proviseur » au lycée, le type de la fiche de l'établissement tranchant quand il
+   * est connu, sauf titre saisi dans le profil ({@code parametres_bulletin.titre_signataire_jury}) ; voir
+   * {@link TitreChefEtablissement}. Son nom est {@code etablissement.nom_responsable}.
    */
   public record BulletinVue(Long eleveId, String nomComplet, String matricule, String titulaireNom, BigDecimal moyenne,
                             Integer rang, String mention, String decision, String appreciation, BigDecimal totalPoints,
@@ -125,7 +133,7 @@ public class BulletinService {
                             String etablissementNom, String etablissementDevise,
                             EnteteBulletin entete,
                             ModeSession modeSession, String centreExamen, String etablissementOrigine,
-                            String responsableCentre) {}
+                            String responsableCentre, String titreResponsable) {}
 
   /**
    * Bandeau de titre du bulletin : rien n'y est figé, chaque champ vient de la base et vaut null s'il manque.
@@ -255,6 +263,8 @@ public class BulletinService {
     String etablissementDevise = etablissement == null ? null : vide(etablissement.getDevise());
     String centreExamen = inter ? etablissementNom : null;
     String responsableCentre = inter && etablissement != null ? vide(etablissement.getNomResponsable()) : null;
+    String typeEtablissement = etablissement == null ? null : etablissement.getTypeEtablissement();
+    String titreSurcharge = parametres.findById(user.etablissementId()).map(p -> p.getTitreSignataireJury()).orElse(null);
     Map<Long, EnteteBulletin> enteteParClasse = entetesParClasse(session, user.etablissementId());
 
     List<BulletinVue> vues = new ArrayList<>();
@@ -306,11 +316,17 @@ public class BulletinService {
           ModeSession.ouDefaut(session.getMode()),
           centreExamen,
           premierNonVide(eleve.getEtablissementOrigine(), inter ? etablissementNom : null),
-          responsableCentre
+          responsableCentre,
+          TitreChefEtablissement.pour(niveauDe(classeParId.get(eleve.getClasseId())), typeEtablissement, etablissementNom, titreSurcharge)
       );
       vues.add(vue);
     }
     return vues;
+  }
+
+  /** Niveau d'une classe (« 3e », « Tle ») ; null sans classe ou sans niveau. */
+  private static String niveauDe(Classe classe) {
+    return classe == null ? null : vide(classe.getNiveau());
   }
 
   /** Clé du groupe niveau / série d'une classe (« 3e », « Tle|D ») ; une classe inconnue forme son propre groupe. */

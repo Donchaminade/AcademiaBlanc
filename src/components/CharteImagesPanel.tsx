@@ -100,7 +100,7 @@ export const CharteImagesPanel: React.FC<CharteImagesPanelProps> = ({
 
       <CharteAssetUpload
         label="Sceau / cachet de l’établissement"
-        hint="Cachet rond ou rectangulaire affiché dans la carte du proviseur, idéalement PNG détouré (fond transparent)."
+        hint="Cachet rond ou rectangulaire affiché dans la carte du chef d’établissement, idéalement PNG détouré (fond transparent)."
         icon="approval"
         shape="round"
         value={settings.sceauUrl}
@@ -110,8 +110,8 @@ export const CharteImagesPanel: React.FC<CharteImagesPanelProps> = ({
         onError={onError}
       />
       <CharteAssetUpload
-        label={`Signature du ${(settings.jurySignerTitle || 'Proviseur').replace(/^le\s+/i, '')}`}
-        hint="Signature manuscrite scannée, affichée à côté du cachet."
+        label={settings.jurySignerTitle?.trim() ? `Signature — ${settings.jurySignerTitle.trim()}` : 'Signature du chef d’établissement'}
+        hint="Signature manuscrite scannée du Directeur (collège) ou du Proviseur (lycée), affichée à côté du cachet."
         icon="draw"
         value={settings.signatureProviseurUrl}
         status={statut(!sans(settings.signatureProviseurUrl))}

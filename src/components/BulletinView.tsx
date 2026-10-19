@@ -14,6 +14,7 @@ import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
 import { TITRE_TITULAIRE, aUnTitulaire, nomTitulaireAffiche } from '../utils/titulaire';
+import { titreChefDepuisSettings } from '../utils/titreChef';
 import { etablissementOrigineAffiche, groupeDeClassement } from '../utils/sessionMode';
 import { BulletinFooter } from './BulletinFooter';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
@@ -97,6 +98,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   // Inter-établissements : aucun sceau ni filigrane de l'établissement hôte sur le relevé.
   const afficherSceau = !sessionInter && Boolean(settings.sealUrl && settings.sealUrl.trim() !== '');
   const porteeLibelle = sessionInter ? 'du groupe' : 'de la classe';
+  // Chef d'établissement : « Le Directeur » pour une classe de collège, « Le Proviseur » au lycée, sauf titre saisi dans le profil.
+  const titreChef = titreChefDepuisSettings(settings, [selectedCandidate]);
 
   // Bandeau : type d'examen et intitulé de la session, puis série (lycée) ou niveau (collège) et année scolaire.
   const entete = useMemo(() => composerEnteteBulletin({
@@ -636,7 +639,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             </div>
           </div>
 
-          {/* Signatures : président du jury et chef du centre en inter-établissements ; titulaire et proviseur sinon */}
+          {/* Signatures : président du jury et chef du centre en inter-établissements ; titulaire et chef d'établissement sinon */}
           {sessionInter ? <SignaturesInter chefCentre={settings.jurySignerName} /> : (
           <div className="bulletin-signatures relative z-10 pt-1 grid grid-cols-2 gap-2 max-w-2xl mx-auto text-center">
             {/* Signature 1: Le Titulaire — l'enseignant affecté à la classe de l'élève, sinon ligne à compléter */}
@@ -665,11 +668,11 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               </span>
             </div>
 
-            {/* Signature 2: Le Proviseur / Le Directeur / Le Principal (configurable) */}
+            {/* Signature 2 : le chef d'établissement — Le Directeur (collège) / Le Proviseur (lycée), ou le titre saisi dans le profil */}
             <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[52px] bg-[#f2f3ff]/50 px-2 py-1 rounded-xs relative border border-[#eaedff]">
               <div>
-                <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
-                  {settings.jurySignerTitle || 'Le Proviseur'}
+                <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold block leading-tight" data-testid="bulletin-titre-chef">
+                  {titreChef}
                 </span>
                 <span className="text-[13px] text-[#00236f] font-bold mt-0.5 block leading-tight">
                   {selectedCandidate.digitalSignature?.signer || settings.jurySignerName}
@@ -681,7 +684,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 stampUrl={settings.sceauUrl}
                 signatureUrl={settings.signatureProviseurUrl}
                 stampAlt={`Cachet — ${settings.institutionName}`}
-                signatureAlt={`Signature — ${settings.jurySignerTitle || 'Le Proviseur'}`}
+                signatureAlt={`Signature — ${titreChef}`}
                 className="h-12"
               />
               <span className="text-[10px] text-[#444651] italic leading-tight">

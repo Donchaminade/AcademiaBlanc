@@ -58,6 +58,8 @@ export function parametresDepuisServeur({ session, workspace, charte, profil }: 
     examType: workspace.examTypeLong || '',
     // Le signataire officiel est le responsable de la fiche ; le titulaire vient de la classe de l'élève.
     jurySignerName: profil ? profil.nomResponsable : '',
+    // Type de la fiche : tranche le titre du chef d'établissement (Directeur au collège, Proviseur au lycée).
+    typeEtablissement: profil?.typeEtablissement ?? '',
   };
   // République, devise nationale et ministère viennent de l'établissement (préréglage national appliqué, puis ajusté).
   const avecEnTete = appliquerEnTeteAuxSettings(next, profil?.enTete);

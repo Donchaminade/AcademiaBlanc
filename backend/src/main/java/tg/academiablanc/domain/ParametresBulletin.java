@@ -29,6 +29,10 @@ public class ParametresBulletin {
   @Column(name = "sceau_officiel_url", columnDefinition = "TEXT")
   private String sceauOfficielUrl;
 
+  /**
+   * Remplacement manuel du titre du chef d'établissement (« La Directrice », « Le Principal »…) ; null = automatique :
+   * « Le Directeur » au collège, « Le Proviseur » au lycée (V23, {@code TitreChefEtablissement}).
+   */
   @Column(name = "titre_signataire_jury")
   private String titreSignataireJury;
 
