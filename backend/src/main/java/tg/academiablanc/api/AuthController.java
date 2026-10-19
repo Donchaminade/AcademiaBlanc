@@ -7,10 +7,13 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import tg.academiablanc.domain.Etablissement;
@@ -160,6 +163,30 @@ public class AuthController {
         user.getNom(),
         user.isActif(),
         droits.codesDe(user));
+  }
+
+  public record MotDePasseRequest(
+      @NotBlank @Size(max = 80) String ancienMotDePasse,
+      @NotBlank @Size(min = 6, max = 80) String nouveauMotDePasse
+  ) {}
+
+  public static final String MESSAGE_ANCIEN_MOT_DE_PASSE = "L’ancien mot de passe est incorrect.";
+  public static final String MESSAGE_MOT_DE_PASSE_IDENTIQUE = "Le nouveau mot de passe doit différer de l’ancien.";
+
+  /** Changement du mot de passe du compte courant : l'ancien est vérifié, le nouveau est haché en BCrypt. */
+  @PutMapping("/mot-de-passe")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Transactional
+  public void changerMotDePasse(@Valid @RequestBody MotDePasseRequest request) {
+    Utilisateur user = droits.courant();
+    if (!passwordEncoder.matches(request.ancienMotDePasse(), user.getMotDePasseHash())) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, MESSAGE_ANCIEN_MOT_DE_PASSE);
+    }
+    if (request.ancienMotDePasse().equals(request.nouveauMotDePasse())) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, MESSAGE_MOT_DE_PASSE_IDENTIQUE);
+    }
+    user.setMotDePasseHash(passwordEncoder.encode(request.nouveauMotDePasse()));
+    utilisateurs.save(user);
   }
 
   private Etablissement etablissementDe(Utilisateur user) {
