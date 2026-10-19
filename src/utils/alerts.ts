@@ -86,6 +86,66 @@ export async function confirmAction(options: {
   return result.isConfirmed;
 }
 
+/**
+ * Confirmation forte d'une action irréversible : l'utilisateur doit recopier un mot-clé (« ACCEPTER ») ;
+ * le bouton de confirmation n'a jamais le focus par défaut (Entrée seule ne valide pas).
+ * `lignes` : récapitulatif affiché au-dessus du champ (texte brut, échappé).
+ */
+export async function confirmAvecMotCle(options: {
+  title: string;
+  lignes: string[];
+  motCle: string;
+  confirmText?: string;
+  icon?: SweetAlertIcon;
+}): Promise<boolean> {
+  const recap = options.lignes.map((l) => `<li>${escapeHtml(l)}</li>`).join('');
+  const result = await Modal.fire({
+    icon: options.icon ?? 'warning',
+    title: options.title,
+    html: `<ul class="text-left text-[12px] list-disc pl-5 space-y-0.5">${recap}</ul>`
+      + `<p class="mt-3 text-[12px]">Pour confirmer, tapez <strong>${escapeHtml(options.motCle)}</strong> ci-dessous.</p>`,
+    input: 'text',
+    inputPlaceholder: options.motCle,
+    inputAttributes: { autocapitalize: 'characters', autocomplete: 'off', spellcheck: 'false' },
+    inputValidator: (value) => (value.trim().toUpperCase() === options.motCle.toUpperCase() ? null : `Tapez exactement ${options.motCle} pour confirmer.`),
+    showCancelButton: true,
+    confirmButtonText: options.confirmText ?? 'Confirmer',
+    cancelButtonText: 'Annuler',
+    focusConfirm: false,
+    focusCancel: false,
+    customClass: dangerClasses,
+  });
+  return result.isConfirmed;
+}
+
+/**
+ * Saisie d'un texte facultatif (motif de refus…). Résout `null` si l'utilisateur annule,
+ * sinon le texte saisi (éventuellement vide).
+ */
+export async function demanderTexte(options: {
+  title: string;
+  text?: string;
+  placeholder?: string;
+  confirmText?: string;
+  maxLength?: number;
+}): Promise<string | null> {
+  const result = await Modal.fire({
+    icon: 'question',
+    title: options.title,
+    text: options.text,
+    input: 'textarea',
+    inputPlaceholder: options.placeholder,
+    inputAttributes: options.maxLength ? { maxlength: String(options.maxLength) } : undefined,
+    showCancelButton: true,
+    confirmButtonText: options.confirmText ?? 'Valider',
+    cancelButtonText: 'Annuler',
+    focusConfirm: false,
+    customClass: dangerClasses,
+  });
+  if (!result.isConfirmed) return null;
+  return typeof result.value === 'string' ? result.value : '';
+}
+
 /** Toast vert en haut à droite, fermé automatiquement. */
 export function toastSuccess(message: string): void {
   void Toast.fire({ icon: 'success', title: message });

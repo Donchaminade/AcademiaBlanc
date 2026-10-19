@@ -20,6 +20,11 @@ export interface ProfilEtablissement {
   creeLe: string | null;
   /** En-tête officiel du bulletin (république, devise nationale, ministère, sigle…). */
   enTete: EnTeteEtablissement;
+  /**
+   * Code de transfert personnel (« K7F3-9QZT ») : renvoyé uniquement au chef d'établissement (OWNER ou ADMIN) ;
+   * null pour les autres rôles et sur une ancienne API.
+   */
+  codeTransfert?: string | null;
 }
 
 /** Champs modifiables (`PUT /api/etablissement`) : le code, l'état et la date de création sont fixés par la plateforme. */
@@ -48,6 +53,14 @@ export function loadProfil(): Promise<ProfilEtablissement> {
 
 export function saveProfil(modification: ModificationProfil): Promise<ProfilEtablissement> {
   return apiSend<ProfilEtablissement>('/api/etablissement', 'PUT', modification);
+}
+
+/**
+ * Régénère le code de transfert de l'établissement (`POST /api/etablissement/code-transfert/regenerer`) :
+ * l'ancien code est aussitôt invalidé. Réservé au chef d'établissement (403 sinon).
+ */
+export function regenererCodeTransfert(): Promise<ProfilEtablissement> {
+  return apiSend<ProfilEtablissement>('/api/etablissement/code-transfert/regenerer', 'POST', {});
 }
 
 export function loadStatistiques(): Promise<StatistiquesEtablissement> {
