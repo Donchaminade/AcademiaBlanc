@@ -11,6 +11,7 @@ import {
   formatTaux,
   formatVariation,
   hauteurPct,
+  initialeMois,
   libelleMoisCourt,
   libelleMoisLong,
   moisDepuisInstant,
@@ -93,6 +94,8 @@ describe('analytique : génération des libellés de mois', () => {
     assert.equal(libelleMoisCourt('2026-01', true), 'janv. 26');
     assert.equal(libelleMoisCourt('2025-08'), 'août');
     assert.equal(libelleMoisLong('2026-02'), 'février 2026');
+    assert.equal(initialeMois('2026-02'), 'F');
+    assert.equal(initialeMois('2025-08'), 'A');
     assert.equal(formatHorodatageUtc('2026-10-19T12:05:00Z'), '19/10/2026 à 12:05 UTC');
     assert.equal(formatHorodatageUtc('n’importe quoi'), '—');
     assert.equal(formatDateUtc('2026-09-03T23:30:00Z'), '03/09/2026');

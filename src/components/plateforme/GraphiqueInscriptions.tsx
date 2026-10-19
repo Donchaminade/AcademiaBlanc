@@ -3,6 +3,7 @@ import {
   echelleGraphique,
   formatEntier,
   hauteurPct,
+  initialeMois,
   libelleMoisCourt,
   libelleMoisLong,
   type PointInscription,
@@ -142,8 +143,14 @@ export const GraphiqueInscriptions: React.FC<GraphiqueInscriptionsProps> = ({ se
             const nouvelleAnnee = i === 0 || p.mois.slice(0, 4) !== serie[i - 1].mois.slice(0, 4);
             return (
               <div key={p.mois} className="flex-1 min-w-0 text-center leading-tight">
-                <div className="text-[9px] sm:text-[11px] font-semibold text-[#131b2e] truncate">{libelleMoisCourt(p.mois)}</div>
-                <div className={`text-[9px] sm:text-[10px] text-[#444651] truncate ${nouvelleAnnee ? '' : 'invisible'}`}>{p.mois.slice(0, 4)}</div>
+                <div className="text-[10px] sm:text-[11px] font-semibold text-[#131b2e] truncate">
+                  <span className="sm:hidden">{initialeMois(p.mois)}</span>
+                  <span className="hidden sm:inline">{libelleMoisCourt(p.mois)}</span>
+                </div>
+                <div className={`text-[9px] sm:text-[10px] text-[#444651] truncate ${nouvelleAnnee ? '' : 'invisible'}`}>
+                  <span className="sm:hidden">’{p.mois.slice(2, 4)}</span>
+                  <span className="hidden sm:inline">{p.mois.slice(0, 4)}</span>
+                </div>
                 <div className="mt-1 text-[9px] sm:text-[10px] font-bold text-[#b45309] tabular-nums truncate" title="Cumul">{formatEntier(p.cumul)}</div>
               </div>
             );

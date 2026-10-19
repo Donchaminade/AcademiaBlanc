@@ -106,6 +106,12 @@ export function libelleMoisCourt(mois: string, avecAnnee = false): string {
   return avecAnnee ? `${MOIS_COURTS[indice]} ${String(annee).slice(-2)}` : MOIS_COURTS[indice];
 }
 
+/** Initiale du mois pour les écrans étroits : « 2026-10 » → « O » (le libellé complet reste dans le tableau). */
+export function initialeMois(mois: string): string {
+  const { indice } = decouperMois(mois);
+  return MOIS_LONGS[indice].charAt(0).toUpperCase();
+}
+
 /** Libellé complet : « 2026-10 » → « octobre 2026 ». */
 export function libelleMoisLong(mois: string): string {
   const { annee, indice } = decouperMois(mois);

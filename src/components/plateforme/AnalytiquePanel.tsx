@@ -27,9 +27,9 @@ const TEINTES: Record<NonNullable<CarteProps['teinte']>, string> = {
 export const Carte: React.FC<CarteProps> = ({ label, valeur, icon, detail, onClick, teinte = 'bleu' }) => {
   const contenu = (
     <>
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[#444651]">
-        <span className={`material-symbols-outlined text-base rounded p-0.5 ${TEINTES[teinte]}`}>{icon}</span>
-        <span className="truncate">{label}</span>
+      <div className="flex items-start gap-2 text-[11px] font-semibold uppercase tracking-wide text-[#444651] leading-tight">
+        <span className={`material-symbols-outlined text-base rounded p-0.5 shrink-0 ${TEINTES[teinte]}`}>{icon}</span>
+        <span>{label}</span>
       </div>
       <p className="mt-2 text-[22px] font-bold text-[#00236f] leading-none tabular-nums">{formatEntier(valeur)}</p>
       {detail && <p className="mt-1 text-[11px] text-[#444651] leading-tight">{detail}</p>}
