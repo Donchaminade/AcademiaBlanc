@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { composerEnTeteDocument, dateEditionDocument, type SourcesEnTeteDocument } from '../../utils/documentPaysage';
 
 export interface MetaDocument {
@@ -19,12 +19,21 @@ interface EnTeteDocumentProps extends SourcesEnTeteDocument {
 export const EnTeteDocument: React.FC<EnTeteDocumentProps> = ({ meta = [], ...sources }) => {
   const entete = composerEnTeteDocument(sources);
   const lignesMeta: MetaDocument[] = [{ label: 'Édité le', value: dateEditionDocument() }, ...meta];
+  // Logo illisible (ancienne URL distante disparue) : la colonne garde le nom seul plutôt qu'une image cassée.
+  const [logoIllisible, setLogoIllisible] = useState(false);
+  useEffect(() => setLogoIllisible(false), [entete.logoUrl]);
 
   return (
-    <header className="document-paysage-entete" data-testid="entete-document">
+    <div className="document-paysage-entete" data-testid="entete-document">
       <div className="document-paysage-etab">
-        {entete.logoUrl && (
-          <img src={entete.logoUrl} alt="" className="document-paysage-logo" data-testid="entete-document-logo" />
+        {entete.logoUrl && !logoIllisible && (
+          <img
+            src={entete.logoUrl}
+            alt=""
+            className="document-paysage-logo"
+            data-testid="entete-document-logo"
+            onError={() => setLogoIllisible(true)}
+          />
         )}
         <div className="document-paysage-etab-texte">
           {entete.nomEtablissement && <div className="document-paysage-etab-nom">{entete.nomEtablissement}</div>}
@@ -64,7 +73,7 @@ export const EnTeteDocument: React.FC<EnTeteDocumentProps> = ({ meta = [], ...so
           </div>
         ))}
       </dl>
-    </header>
+    </div>
   );
 };
 

@@ -909,9 +909,9 @@
   border-top: 1px solid var(--color-primary);
 }
 
-/* Liste des candidats : ~29 lignes par page A4 paysage. */
+/* Liste des candidats : ~30 lignes par page A4 paysage. */
 .candidats-table td {
-  height: 5.3mm;
+  height: 5.8mm;
 }
 
 /* Feuille d'émargement : lignes hautes pour signer (≥ 9 mm), cases de signature blanches. */

@@ -37,6 +37,7 @@ export const BilanArchivesSheet: React.FC<BilanArchivesSheetProps> = ({ sessions
     titre: TITRE_BILAN_ARCHIVES,
     settings,
     sessionNom: demonstration ? 'Données de démonstration' : 'Comparatif interannuel',
+    sansAnneeScolaire: true,
   };
   const annees = lignes.map((l) => l.anneeScolaire).filter((a) => a !== VALEUR_ABSENTE);
   const periode = annees.length === 0
@@ -47,7 +48,6 @@ export const BilanArchivesSheet: React.FC<BilanArchivesSheetProps> = ({ sessions
     <div className="document-paysage archives-sheet" data-testid="bilan-archives-sheet">
       <EnTeteDocument
         {...sources}
-        anneeScolaire=""
         meta={[
           { label: 'Sessions archivées', value: lignes.length },
           { label: 'Période', value: periode },

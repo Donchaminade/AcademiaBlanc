@@ -25,6 +25,8 @@ export interface SourcesEnTeteDocument {
   sessionNom?: string | null;
   /** Année scolaire ; à défaut `settings.academicYear`. */
   anneeScolaire?: string | null;
+  /** Vrai pour un document pluriannuel (bilan des archives) : aucune année scolaire dans le sous-titre. */
+  sansAnneeScolaire?: boolean;
 }
 
 export interface EnTeteDocumentCompose {
@@ -77,7 +79,7 @@ export function composerEnTeteDocument(sources: SourcesEnTeteDocument): EnTeteDo
     autoriteRegionale: propre(settings.regionalAuthority),
     titre,
     sousTitre: ligneTitreBulletin({ typeExamenLibelle: sources.typeExamen, sessionNom: sources.sessionNom }),
-    anneeScolaire: propre(sources.anneeScolaire) || propre(settings.academicYear),
+    anneeScolaire: sources.sansAnneeScolaire ? '' : (propre(sources.anneeScolaire) || propre(settings.academicYear)),
     piedDePage: [piedNom, titre].filter(Boolean).join(' • '),
   };
 }

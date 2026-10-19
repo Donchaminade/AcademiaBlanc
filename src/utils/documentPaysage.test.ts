@@ -71,6 +71,11 @@ describe('composerEnTeteDocument', () => {
     assert.equal(entete.anneeScolaire, '');
   });
 
+  it('un document pluriannuel n’affiche pas l’année scolaire courante', () => {
+    const entete = composerEnTeteDocument({ titre: 'Bilan', settings, sansAnneeScolaire: true });
+    assert.equal(entete.anneeScolaire, '');
+  });
+
   it('sans ministère, aucun sigle n’est déduit', () => {
     const entete = composerEnTeteDocument({ titre: 'X', settings: { ...settings, ministryName: '' } });
     assert.equal(entete.ministere, '');
