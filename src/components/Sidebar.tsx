@@ -1,5 +1,6 @@
 import React from 'react';
 import { ViewMode, AppSettings } from '../types';
+import { DEMO_EXAM_LABEL } from '../utils/bulletinHeader';
 
 interface SidebarProps {
   currentView: ViewMode;
@@ -19,6 +20,8 @@ interface SidebarProps {
   onConnexion?: () => void;
   onOpenSearch?: () => void;
   sessionOptions?: string[];
+  /** Libellé court du type d'examen de la session active (référentiel de la plateforme) ; absent en démonstration. */
+  examType?: string;
   centerOptions?: string[];
   /** Compte de niveau plateforme (propriétaire du logiciel ou gestionnaire) : affiche l’entrée « Plateforme ». */
   platformOwner?: boolean;
@@ -75,6 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onConnexion,
   onOpenSearch,
   sessionOptions,
+  examType,
   centerOptions,
   platformOwner = false,
   platformOnly = false,
@@ -256,6 +260,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   expand_more
                 </span>
               </div>
+            )}
+            {(usingApi ? examType : sessionChoices.length > 0) && (
+              <p className="flex items-center gap-1 text-[11px] text-[#444651]" title="Type d'examen de la session active">
+                <span className="material-symbols-outlined text-[14px] text-[#0051d5]">workspace_premium</span>
+                <span className="font-semibold text-[#00236f]">{usingApi ? examType : DEMO_EXAM_LABEL}</span>
+              </p>
             )}
           </div>
 

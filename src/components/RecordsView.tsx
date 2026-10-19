@@ -10,6 +10,8 @@ interface RecordsViewProps {
   onNavigateToBulletin: (candidate: Candidate) => void;
   selectedSession: string;
   selectedCenter: string;
+  /** Libellé court du type d'examen de la session active (« BEPC », « BAC II ») ; absent en démonstration. */
+  examType?: string;
   juryLocked: boolean;
   onToggleJuryLock: () => void;
 }
@@ -20,6 +22,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   onNavigateToBulletin,
   selectedSession,
   selectedCenter,
+  examType,
   juryLocked,
   onToggleJuryLock,
 }) => {
@@ -86,7 +89,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
             Palmarès Général &amp; Registre des Épreuves
           </h2>
           <p className="text-[13px] text-[#444651] mt-0.5">
-            {selectedSession} • {selectedCenter}
+            {examType ? `${examType} • ` : ''}{selectedSession} • {selectedCenter}
           </p>
         </div>
 
