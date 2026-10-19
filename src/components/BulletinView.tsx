@@ -13,6 +13,7 @@ import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
 import { TITRE_TITULAIRE, aUnTitulaire, nomTitulaireAffiche } from '../utils/titulaire';
+import { BulletinFooter } from './BulletinFooter';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
 
 interface BulletinViewProps {
@@ -623,6 +624,9 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               <span className="bulletin-visa-field">Signature :</span>
             </div>
           </div>
+
+          {/* Dernier élément de la page : filet doré puis « NOM DE L'ÉTABLISSEMENT • Devise » */}
+          <BulletinFooter institutionName={settings.institutionName} institutionMotto={settings.institutionMotto} />
         </div>
       </div>
     </div>

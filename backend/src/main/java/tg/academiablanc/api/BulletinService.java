@@ -16,6 +16,7 @@ import tg.academiablanc.domain.Bulletin;
 import tg.academiablanc.domain.Classe;
 import tg.academiablanc.domain.Coefficient;
 import tg.academiablanc.domain.Eleve;
+import tg.academiablanc.domain.Etablissement;
 import tg.academiablanc.domain.Matiere;
 import tg.academiablanc.domain.Note;
 import tg.academiablanc.domain.Professeur;
@@ -23,6 +24,7 @@ import tg.academiablanc.repo.BulletinRepository;
 import tg.academiablanc.repo.ClasseRepository;
 import tg.academiablanc.repo.CoefficientRepository;
 import tg.academiablanc.repo.EleveRepository;
+import tg.academiablanc.repo.EtablissementRepository;
 import tg.academiablanc.repo.MatiereRepository;
 import tg.academiablanc.repo.NoteRepository;
 import tg.academiablanc.repo.ProfesseurRepository;
@@ -39,6 +41,7 @@ public class BulletinService {
   private final BulletinRepository bulletins;
   private final ClasseRepository classes;
   private final ProfesseurRepository professeurs;
+  private final EtablissementRepository etablissements;
 
   public BulletinService(
       SessionExamenRepository sessions,
@@ -48,7 +51,8 @@ public class BulletinService {
       NoteRepository notes,
       BulletinRepository bulletins,
       ClasseRepository classes,
-      ProfesseurRepository professeurs
+      ProfesseurRepository professeurs,
+      EtablissementRepository etablissements
   ) {
     this.sessions = sessions;
     this.eleves = eleves;
@@ -58,6 +62,7 @@ public class BulletinService {
     this.bulletins = bulletins;
     this.classes = classes;
     this.professeurs = professeurs;
+    this.etablissements = etablissements;
   }
 
   /**
@@ -77,12 +82,16 @@ public class BulletinService {
    * {@code titulaireNom} : nom de l'enseignant affecté comme titulaire à la classe de l'élève
    * ({@code classe.titulaire_id}), tel que saisi dans Administration › Enseignants (civilité comprise) ;
    * null si la classe n'a pas de titulaire — le bulletin laisse alors la ligne du visa à compléter à la main.
+   * {@code etablissementNom} et {@code etablissementDevise} alimentent le pied de page du relevé
+   * (« NOM DE L'ÉTABLISSEMENT • Devise ») ; la devise est celle propre à l'établissement
+   * ({@code etablissement.devise}), pas la devise nationale de l'en-tête, et vaut null si aucune n'est saisie.
    */
   public record BulletinVue(Long eleveId, String nomComplet, String matricule, String titulaireNom, BigDecimal moyenne,
                             Integer rang, String mention, String appreciation, BigDecimal totalPoints,
                             BigDecimal totalCoef, BigDecimal totalCoefProgramme, BigDecimal pointsMax,
                             BigDecimal moyenneClasse, BigDecimal moyenneClasseMax, BigDecimal moyenneClasseMin,
-                            List<LigneBulletin> lignes) {}
+                            List<LigneBulletin> lignes,
+                            String etablissementNom, String etablissementDevise) {}
 
   /** Calcule les bulletins de la session et les enregistre (table {@code bulletin}). */
   @Transactional
@@ -182,6 +191,10 @@ public class BulletinService {
       rangsMatieres.put(matiere.getId(), GradeCalculator.rangsCompetition(valeurs));
     }
 
+    Etablissement etablissement = etablissements.findById(user.etablissementId()).orElse(null);
+    String etablissementNom = etablissement == null ? null : etablissement.getNom();
+    String etablissementDevise = etablissement == null ? null : vide(etablissement.getDevise());
+
     List<BulletinVue> vues = new ArrayList<>();
     for (Eleve eleve : roster) {
       List<Ligne> lignes = lignesParEleve.get(eleve.getId());
@@ -221,7 +234,9 @@ public class BulletinService {
           GradeCalculator.moyenneDe(moyennesDeLaClasse),
           GradeCalculator.max(moyennesDeLaClasse),
           GradeCalculator.min(moyennesDeLaClasse),
-          detail
+          detail,
+          etablissementNom,
+          etablissementDevise
       );
       vues.add(vue);
     }
@@ -269,6 +284,13 @@ public class BulletinService {
       if (programme.containsKey(matiere.getId())) retenues.add(matiere);
     }
     return retenues;
+  }
+
+  /** Devise facultative : une chaîne vide ou faite d'espaces vaut « aucune devise ». */
+  private static String vide(String valeur) {
+    if (valeur == null) return null;
+    String nettoyee = valeur.trim();
+    return nettoyee.isEmpty() ? null : nettoyee;
   }
 
   private static BigDecimal coefDe(List<Coefficient> coefs, Map<Long, Map<Long, BigDecimal>> programmes, Long matiereId, Long classeId) {

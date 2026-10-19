@@ -237,6 +237,8 @@ export default function App() {
       const next: AppSettings = {
         ...base,
         institutionName: session?.nomEtablissement || prev.institutionName,
+        // Devise propre de la fiche (pied de page) : jamais la valeur de démonstration en session connectée.
+        institutionMotto: profil?.devise ?? '',
         academicYear: workspace.academicYear || prev.academicYear,
         sessionName: workspace.sessionName || prev.sessionName,
         // Libellé long du référentiel de la plateforme ; vide tant qu'aucune session n'existe (jamais la valeur de démo).
@@ -750,9 +752,10 @@ export default function App() {
     navigate('connexion');
   };
 
-  // Fiche enregistrée depuis le profil : le nom et le signataire officiel suivent dans la barre latérale, les bulletins et la session.
+  // Fiche enregistrée depuis le profil : le nom et le signataire officiel suivent dans la barre latérale, les bulletins
+  // et la session ; la devise propre alimente le pied de page du bulletin.
   const handleProfilChanged = (profil: ProfilEtablissement) => {
-    setSettings((prev) => ({ ...prev, institutionName: profil.nom, jurySignerName: profil.nomResponsable }));
+    setSettings((prev) => ({ ...prev, institutionName: profil.nom, jurySignerName: profil.nomResponsable, institutionMotto: profil.devise ?? '' }));
     const session = getSession();
     if (session) setSession({ ...session, nomEtablissement: profil.nom });
   };
