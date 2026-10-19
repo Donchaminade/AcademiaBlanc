@@ -25,7 +25,8 @@ interface EtablissementProfilViewProps {
   usingApi: boolean;
   settings: AppSettings;
   /** Enregistre les paramètres (cachet et signatures : la charte est propagée à l'API par l'application). */
-  onUpdateSettings: (settings: AppSettings) => void;
+  /** Enregistre les paramètres ; résout `false` si le serveur a refusé. */
+  onUpdateSettings: (settings: AppSettings) => void | boolean | Promise<boolean>;
   /** Établissement de démonstration affiché hors connexion. */
   demoSchool?: SchoolAccount | null;
   /** Compteurs locaux de l'espace de démonstration (étiquetés comme tels). */
@@ -251,8 +252,10 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
     }
   };
 
-  const applyCharteAsset = (champ: CharteField, dataUrl: string) => {
-    onUpdateSettings({ ...settings, [champ]: dataUrl });
+  const applyCharteAsset = async (champ: CharteField, dataUrl: string) => {
+    // La confirmation n'apparaît qu'après l'enregistrement (sur le serveur en session connectée).
+    const ok = await onUpdateSettings({ ...settings, [champ]: dataUrl });
+    if (ok === false) return;
     toastSuccess(dataUrl
       ? 'Image enregistrée : elle apparaît désormais sur le bulletin.'
       : 'Image retirée : l’emplacement reste vide pour une apposition à la main.');
@@ -564,7 +567,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
                 icon="approval"
                 shape="round"
                 value={settings.sceauUrl}
-                onChange={(dataUrl) => applyCharteAsset('sceauUrl', dataUrl)}
+                onChange={(dataUrl) => void applyCharteAsset('sceauUrl', dataUrl)}
                 onError={(message) => void showError('Image refusée', message)}
               />
               <CharteAssetUpload
@@ -572,7 +575,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
                 hint="Signature manuscrite scannée, affichée à côté du cachet."
                 icon="draw"
                 value={settings.signatureProviseurUrl}
-                onChange={(dataUrl) => applyCharteAsset('signatureProviseurUrl', dataUrl)}
+                onChange={(dataUrl) => void applyCharteAsset('signatureProviseurUrl', dataUrl)}
                 onError={(message) => void showError('Image refusée', message)}
               />
               <CharteAssetUpload
@@ -580,7 +583,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
                 hint="Optionnelle : signature scannée du titulaire de la classe."
                 icon="draw"
                 value={settings.signatureTitulaireUrl}
-                onChange={(dataUrl) => applyCharteAsset('signatureTitulaireUrl', dataUrl)}
+                onChange={(dataUrl) => void applyCharteAsset('signatureTitulaireUrl', dataUrl)}
                 onError={(message) => void showError('Image refusée', message)}
               />
             </div>

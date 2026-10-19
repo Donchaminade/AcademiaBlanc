@@ -2,6 +2,8 @@ import { apiGet, isForbidden } from './client';
 import { Candidate, Subject } from '../types';
 import { estCollege } from '../utils/niveaux';
 import { coefficientEffectif } from '../utils/coefficients';
+import { appliquerDeliberation } from './ecritures';
+import type { DeliberationApi } from './ecritures';
 import { SessionTypeExamen, libelleCourtSession, libelleLongSession } from './typesExamen';
 
 /** Une liste refusée (droit VOIR absent) est traitée comme vide : l’écran reste utilisable avec les droits détenus. */
@@ -100,7 +102,13 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
   ]);
 
   const session = sessions.find((item) => item.id === preferredSessionId) || sessions[0] || null;
-  const notes = session ? await lire<NoteApi>(`/api/notes?sessionId=${session.id}`) : [];
+  const [notes, deliberations]: [NoteApi[], DeliberationApi[]] = session
+    ? await Promise.all([
+      lire<NoteApi>(`/api/notes?sessionId=${session.id}`),
+      // Délibérations du jury (repêchage, observation, signature) : absentes sur une ancienne API.
+      lire<DeliberationApi>(`/api/deliberations?sessionId=${session.id}`).catch(() => [] as DeliberationApi[]),
+    ])
+    : [[], []];
   const annee = annees.find((item) => item.courante) || annees[0];
   const centre = centres.find((item) => item.id === session?.centreId) || centres[0];
   const teacherName = (matiereId: number, classeId?: number) => {
@@ -138,7 +146,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
     notes.filter((note) => note.eleveId === eleve.id && !note.absent && note.valeur != null).forEach((note) => {
       grades[String(note.matiereId)] = { score: Number(note.valeur), appreciation: '' };
     });
-    return {
+    const candidate: Candidate = {
       id: String(eleve.id),
       tableNumber: eleve.numeroTable || 0,
       matricule: eleve.matricule,
@@ -151,6 +159,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
       // Au collège (6e–3e) il n'y a pas de série, même si la session en porte une.
       serie: classe?.serie ? `Série ${classe.serie}` : (classe && estCollege(classe.niveau) ? '' : session?.serie || ''),
       classeId: String(eleve.classeId),
+      sessionId: eleve.sessionId ?? null,
       examCenter: centre?.code || '',
       examCenterName: centre ? `${centre.nom}${centre.ville ? ` (${centre.ville})` : ''}` : '',
       parentPhone: '',
@@ -159,6 +168,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
       coefs: coefsPourClasse(eleve.classeId),
       generalObservation: '',
     };
+    return appliquerDeliberation(candidate, deliberations.find((item) => item.eleveId === eleve.id));
   });
 
   return {

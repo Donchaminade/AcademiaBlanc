@@ -1,0 +1,52 @@
+package tg.academiablanc.domain;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.time.Instant;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+/**
+ * Paramètres d'affichage du bulletin propres à l'établissement (écran Paramètres).
+ * Une valeur nulle signifie « valeur par défaut du logiciel » : le client applique alors son préréglage.
+ */
+@Entity
+@Table(name = "parametres_bulletin")
+@Getter
+@Setter
+@NoArgsConstructor
+public class ParametresBulletin {
+  @Id
+  @Column(name = "etablissement_id")
+  private Long etablissementId;
+
+  @Column(name = "logo_url", columnDefinition = "TEXT")
+  private String logoUrl;
+
+  @Column(name = "sceau_officiel_url", columnDefinition = "TEXT")
+  private String sceauOfficielUrl;
+
+  @Column(name = "titre_signataire_jury")
+  private String titreSignataireJury;
+
+  @Column(name = "nom_signataire_jury")
+  private String nomSignataireJury;
+
+  @Column(name = "titre_titulaire")
+  private String titreTitulaire;
+
+  @Column(name = "nom_titulaire")
+  private String nomTitulaire;
+
+  @Column(name = "premier_numero_table")
+  private Integer premierNumeroTable;
+
+  @Column(name = "numerotation_automatique")
+  private Boolean numerotationAutomatique;
+
+  @Column(name = "modifie_le", nullable = false)
+  private Instant modifieLe;
+}

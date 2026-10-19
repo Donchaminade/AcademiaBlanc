@@ -14,11 +14,13 @@ import tg.academiablanc.calc.GradeCalculator;
 import tg.academiablanc.calc.GradeCalculator.Ligne;
 import tg.academiablanc.domain.Bulletin;
 import tg.academiablanc.domain.Coefficient;
+import tg.academiablanc.domain.DeliberationJury;
 import tg.academiablanc.domain.Eleve;
 import tg.academiablanc.domain.Matiere;
 import tg.academiablanc.domain.Note;
 import tg.academiablanc.repo.BulletinRepository;
 import tg.academiablanc.repo.CoefficientRepository;
+import tg.academiablanc.repo.DeliberationJuryRepository;
 import tg.academiablanc.repo.EleveRepository;
 import tg.academiablanc.repo.MatiereRepository;
 import tg.academiablanc.repo.NoteRepository;
@@ -33,6 +35,7 @@ public class BulletinService {
   private final CoefficientRepository coefficients;
   private final NoteRepository notes;
   private final BulletinRepository bulletins;
+  private final DeliberationJuryRepository deliberations;
 
   public BulletinService(
       SessionExamenRepository sessions,
@@ -40,7 +43,8 @@ public class BulletinService {
       MatiereRepository matieres,
       CoefficientRepository coefficients,
       NoteRepository notes,
-      BulletinRepository bulletins
+      BulletinRepository bulletins,
+      DeliberationJuryRepository deliberations
   ) {
     this.sessions = sessions;
     this.eleves = eleves;
@@ -48,6 +52,7 @@ public class BulletinService {
     this.coefficients = coefficients;
     this.notes = notes;
     this.bulletins = bulletins;
+    this.deliberations = deliberations;
   }
 
   public record LigneBulletin(Long matiereId, String matiere, BigDecimal note, BigDecimal coefficient,
@@ -103,6 +108,14 @@ public class BulletinService {
       notesByEleve.computeIfAbsent(note.getEleveId(), ignored -> new HashMap<>()).put(note.getMatiereId(), note);
     }
 
+    // Bonus de repêchage accordé par le jury : ajouté à la moyenne, comme dans l'application cliente.
+    Map<Long, BigDecimal> bonusJury = new HashMap<>();
+    for (DeliberationJury deliberation : deliberations.findByEtablissementIdAndSessionId(user.etablissementId(), sessionId)) {
+      if (deliberation.getBonusJury() != null && deliberation.getBonusJury().signum() > 0) {
+        bonusJury.put(deliberation.getEleveId(), deliberation.getBonusJury());
+      }
+    }
+
     Map<Long, BigDecimal> moyennes = new HashMap<>();
     Map<Long, List<Ligne>> lignesParEleve = new HashMap<>();
     for (Eleve eleve : roster) {
@@ -114,7 +127,9 @@ public class BulletinService {
         lignes.add(new Ligne(eleve.getId(), matiere.getId(), valeur, coefDe(coefs, programmes, matiere.getId(), eleve.getClasseId()), absent));
       }
       lignesParEleve.put(eleve.getId(), lignes);
-      moyennes.put(eleve.getId(), GradeCalculator.moyenne(lignes));
+      BigDecimal moyenne = GradeCalculator.moyenne(lignes);
+      BigDecimal bonus = bonusJury.get(eleve.getId());
+      moyennes.put(eleve.getId(), moyenne == null || bonus == null ? moyenne : moyenne.add(bonus));
     }
     Map<Long, Integer> rangsGeneraux = GradeCalculator.rangsCompetition(moyennes);
 

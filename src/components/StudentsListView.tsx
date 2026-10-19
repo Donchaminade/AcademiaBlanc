@@ -32,7 +32,8 @@ interface StudentsListViewProps {
   candidates: Candidate[];
   subjects: Subject[];
   onAddNewCandidate: (candidate: Candidate) => void;
-  onUpdateCandidate: (candidate: Candidate) => void;
+  /** Enregistre la fiche ; résout `false` si le serveur a refusé (la fenêtre reste ouverte). */
+  onUpdateCandidate: (candidate: Candidate) => void | boolean | Promise<boolean>;
   onDeleteCandidate: (candidateId: string) => void;
   onSelectCandidate: (candidate: Candidate) => void;
   onNavigateToGrading: (candidate?: Candidate) => void;
@@ -40,7 +41,7 @@ interface StudentsListViewProps {
   selectedSession: string;
   selectedCenter: string;
   settings?: AppSettings;
-  onRenumberAlphabetically?: (startNumber?: number) => void;
+  onRenumberAlphabetically?: (startNumber?: number) => void | Promise<void>;
   onBatchAddCandidates?: (candidates: Candidate[]) => void;
   onOpenBatchPrint?: () => void;
   /** Présent en session API : l'import passe par le serveur. Absent : mode démonstration local. */
@@ -77,6 +78,7 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // New Student Form State
   const [newStudent, setNewStudent] = useState({
@@ -167,11 +169,16 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
     });
   };
 
-  const handleSaveEdit = (e: React.FormEvent) => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingCandidate) return;
-    onUpdateCandidate(editingCandidate);
-    setEditingCandidate(null);
+    if (!editingCandidate || savingEdit) return;
+    setSavingEdit(true);
+    try {
+      const ok = await onUpdateCandidate(editingCandidate);
+      if (ok !== false) setEditingCandidate(null);
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const handleBatchImport = () => {
@@ -730,7 +737,7 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
       {editingCandidate && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
           <form
-            onSubmit={handleSaveEdit}
+            onSubmit={(e) => void handleSaveEdit(e)}
             className="bg-white rounded-lg shadow-2xl max-w-lg w-full p-6 border border-[#eaedff] space-y-4"
           >
             <div className="flex items-center justify-between pb-2 border-b border-[#eaedff]">
@@ -844,9 +851,10 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded text-[12px] bg-[#0051d5] text-white font-bold hover:bg-[#003ea8] shadow-xs"
+                disabled={savingEdit}
+                className="px-5 py-2 rounded text-[12px] bg-[#0051d5] text-white font-bold hover:bg-[#003ea8] shadow-xs disabled:opacity-60 disabled:cursor-wait"
               >
-                Enregistrer les Modifications
+                {savingEdit ? 'Enregistrement…' : 'Enregistrer les Modifications'}
               </button>
             </div>
           </form>
