@@ -337,8 +337,8 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-7 space-y-6">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <div className="xl:col-span-7 space-y-6">
           {/* Informations */}
           <Carte
             titre="Informations"
@@ -444,7 +444,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
                   <span className="material-symbols-outlined text-xl text-[#0051d5] shrink-0">{item.icon}</span>
                   <div className="min-w-0">
                     <p className="text-[18px] font-bold text-[#00236f] leading-tight font-mono">{nombre(item.value)}</p>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#444651] truncate">{item.label}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#444651] leading-tight">{item.label}</p>
                   </div>
                 </div>
               ))}
@@ -457,7 +457,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
           </Carte>
         </div>
 
-        <div className="lg:col-span-5 space-y-6">
+        <div className="xl:col-span-5 space-y-6">
           {/* Mon compte */}
           <Carte titre="Mon compte" icon="account_circle">
             {usingApi ? (
