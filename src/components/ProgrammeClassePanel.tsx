@@ -299,7 +299,7 @@ export const ProgrammeClassePanel: React.FC<ProgrammeClassePanelProps> = ({ clas
           {/* Matières par groupe */}
           <div className={`grid grid-cols-1 ${COLONNES[Math.min(groupes.length, 3)]} gap-3 ${chargement ? 'opacity-60 pointer-events-none' : ''}`}>
             {groupes.map((g) => (
-              <fieldset key={g.code || 'autres'} className="rounded border border-[#eaedff] bg-white">
+              <fieldset key={g.code || 'autres'} className="min-w-0 rounded border border-[#eaedff] bg-white">
                 <legend className="sr-only">{g.libelle}</legend>
                 <div className="flex items-center justify-between gap-2 border-b border-[#eaedff] bg-[#f8f9ff] px-3 py-2">
                   <span className={`inline-flex items-center text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${g.tone}`}>{g.libelle}</span>
@@ -321,7 +321,7 @@ export const ProgrammeClassePanel: React.FC<ProgrammeClassePanelProps> = ({ clas
                             onChange={(e) => cocher(m.id, e.target.checked)}
                             aria-label={`${m.nom} au programme`}
                           />
-                          <span className="min-w-0">
+                          <span className="block min-w-0 flex-1">
                             <span className={`block text-[13px] font-semibold truncate ${ligne.coche ? 'text-[#131b2e]' : 'text-[#757682]'}`}>{m.nom}</span>
                             <span className="block text-[10px] font-mono uppercase text-[#757682]">{m.code}</span>
                           </span>
