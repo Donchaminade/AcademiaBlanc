@@ -2,6 +2,8 @@ import React from 'react';
 import { ViewMode, AppSettings } from '../types';
 import { DEMO_EXAM_LABEL } from '../utils/bulletinHeader';
 import { LogoEtablissement } from './LogoEtablissement';
+import { estSessionInter, libelleModeSession } from '../utils/sessionMode';
+import type { ModeSession } from '../utils/sessionMode';
 
 interface SidebarProps {
   currentView: ViewMode;
@@ -23,6 +25,10 @@ interface SidebarProps {
   sessionOptions?: string[];
   /** Libellé court du type d'examen de la session active (référentiel de la plateforme) ; absent en démonstration. */
   examType?: string;
+  /** Mode de la session active (badge « Inter-établissements » sous le sélecteur) ; absent en démonstration. */
+  sessionMode?: ModeSession;
+  /** Nom du centre d'examen en session inter-établissements (l'établissement hôte). */
+  centreExamen?: string;
   centerOptions?: string[];
   /** Compte de niveau plateforme (propriétaire du logiciel ou gestionnaire) : affiche l’entrée « Plateforme ». */
   platformOwner?: boolean;
@@ -80,6 +86,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSearch,
   sessionOptions,
   examType,
+  sessionMode,
+  centreExamen,
   centerOptions,
   platformOwner = false,
   platformOnly = false,
@@ -268,6 +276,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <p className="flex items-center gap-1 text-[11px] text-[#444651]" title="Type d'examen de la session active">
                 <span className="material-symbols-outlined text-[14px] text-[#0051d5]">workspace_premium</span>
                 <span className="font-semibold text-[#00236f]">{usingApi ? examType : DEMO_EXAM_LABEL}</span>
+              </p>
+            )}
+            {usingApi && estSessionInter(sessionMode) && (
+              <p
+                className="inline-flex items-center gap-1 rounded bg-[#fff3e0] border border-[#ffcc80] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#8a4b00]"
+                title={centreExamen ? `Session inter-établissements — centre d'examen : ${centreExamen}` : 'Session inter-établissements'}
+                data-testid="badge-session-inter"
+              >
+                <span className="material-symbols-outlined text-[13px]">hub</span>
+                <span>{libelleModeSession(sessionMode)}</span>
               </p>
             )}
           </div>

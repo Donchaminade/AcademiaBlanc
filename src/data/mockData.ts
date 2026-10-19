@@ -1,5 +1,6 @@
 import { Subject, Candidate, CandidateComputedStats, MentionType, DecisionType, AppSettings } from '../types';
 import { camaradesDeClasse, extremesDesMoyennes, moyenneReelle } from '../utils/bulletinMetrics';
+import { groupeDeClassement } from '../utils/sessionMode';
 import { PREREGLAGES_DEMONSTRATION } from './prereglagesDemo';
 
 /** Libellés d'en-tête d'un préréglage de démonstration (hors connexion uniquement). */
@@ -260,18 +261,31 @@ export const INITIAL_CANDIDATES: Candidate[] = [
 export const PROMO_OVERALL_AVERAGE = 11.42;
 export const TOTAL_CANDIDATES_COUNT = 138;
 
+export interface OptionsStats {
+  /**
+   * Session inter-établissements : le candidat est classé parmi les candidats du même niveau / de la même
+   * série de la session, toutes classes du centre confondues (rang, effectif, extrêmes). Sinon : rang sur
+   * toute la session et extrêmes de sa classe, comme auparavant.
+   */
+  inter?: boolean;
+}
+
 export function computeCandidateStats(
   candidate: Candidate,
   subjects: Subject[],
-  allCandidates: Candidate[]
+  allCandidates: Candidate[],
+  options: OptionsStats = {}
 ): CandidateComputedStats {
   // Même règle que l’API (`GradeCalculator`) : seules les matières du programme de la classe du
   // candidat comptent, avec le coefficient de cette classe ; une matière sans note est exclue du
   // numérateur et du dénominateur ; moyenne = Σ(note × coef) / Σ coef, jamais majorée.
   const { totalCoef, totalPoints, totalCoefProgramme, pointsMax, average, evaluated } = moyenneReelle(candidate, subjects);
 
+  // Cohorte de classement : toute la session, ou le niveau / la série en inter-établissements.
+  const cohorte = groupeDeClassement(candidate, allCandidates, options.inter === true);
+
   // Compute rank dynamically against all candidates sorted by descending average
-  const allAverages = allCandidates.map(c => ({ id: c.id, avg: moyenneReelle(c, subjects).average }));
+  const allAverages = cohorte.map(c => ({ id: c.id, avg: moyenneReelle(c, subjects).average }));
 
   // Sort candidates by average descending: highest average is 1st
   allAverages.sort((a, b) => b.avg - a.avg);
@@ -313,10 +327,10 @@ export function computeCandidateStats(
     ? Math.round((allAverages.reduce((acc, curr) => acc + curr.avg, 0) / allAverages.length) * 100) / 100 
     : 10;
   const differenceToPromo = Math.round((average - promoAvg) * 100) / 100;
-  const totalCandidates = allCandidates.length > 0 ? allCandidates.length : 1;
+  const totalCandidates = cohorte.length > 0 ? cohorte.length : 1;
 
   // Extrêmes de la classe de l’élève (même session) : moyenne la plus forte, la plus faible, moyenne de classe.
-  const classe = extremesDesMoyennes(camaradesDeClasse(candidate, allCandidates), subjects);
+  const classe = extremesDesMoyennes(options.inter ? cohorte : camaradesDeClasse(candidate, allCandidates), subjects);
 
   return {
     totalCoef,

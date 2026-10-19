@@ -11,10 +11,13 @@ import { AdminSection } from '../types';
 import { CoefPill, ProgrammeClassePanel, matieresParClasse } from './ProgrammeClassePanel';
 import { Cycle, NIVEAUX, ORDRE_NIVEAUX, cycleDeNiveau, niveauCanonique, nomClasseSuggere, rangNiveau } from '../utils/niveaux';
 import { NOTE_MAX, formatCoefficient, formatPointsMax, formatValeur, lireCoefficientSaisi, pointsMax } from '../utils/coefficients';
+import { MODE_SESSION_DEFAUT, estSessionInter, libelleModeSession } from '../utils/sessionMode';
+import type { ModeSession } from '../utils/sessionMode';
+import { estSessionArchivee } from '../api/workspace';
 
 interface Annee { id: number; libelle: string; courante: boolean; dateDebut?: string; dateFin?: string; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
-interface Session extends SessionTypeExamen { id: number; nom: string; statut: string; serie?: string; anneeScolaireId: number; centreId: number; }
+interface Session extends SessionTypeExamen { id: number; nom: string; statut: string; serie?: string; anneeScolaireId: number; centreId: number; mode?: ModeSession | null; centreExamen?: string | null; }
 interface Matiere { id: number; nom: string; code: string; groupeCode?: string | null; groupeLibelle?: string | null; }
 /** Compte rendu du chargement des matières de base (POST /api/matieres/referentiel) : matières seulement, aucun coefficient. */
 interface ReferentielResultat { matieresCreees: number; matieresExistantes: number; }
@@ -103,7 +106,7 @@ const MATIERES_PRINCIPALES = 'Français, Anglais, Histoire-Géographie, ECM, Sci
 const EMPTY = {
   centre: { nom: '', code: '', ville: 'Lomé' },
   // Pas de série sur la session : la série est portée par la classe (lycée uniquement).
-  session: { nom: '', typeExamenId: '', statut: 'OUVERTE', serie: '', anneeScolaireId: '', centreId: '' },
+  session: { nom: '', typeExamenId: '', statut: 'OUVERTE', serie: '', anneeScolaireId: '', centreId: '', mode: MODE_SESSION_DEFAUT as ModeSession },
   matiere: { nom: '', code: '', groupeCode: '' },
   prof: { nom: '', email: '' },
   classe: { nom: '', cycle: 'LYCEE' as Cycle, niveau: 'Tle', serie: '', titulaireId: '', anneeScolaireId: '' },
@@ -849,12 +852,18 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 },
                 { header: 'Année', render: (r) => nom(annees, r.anneeScolaireId) },
                 { header: 'Centre', render: (r) => nom(centres, r.centreId) },
+                {
+                  header: 'Mode',
+                  render: (r) => estSessionInter(r.mode)
+                    ? <Badge tone="blue"><span title={r.centreExamen ? `Centre d’examen : ${r.centreExamen}` : undefined}>{libelleModeSession(r.mode)}</span></Badge>
+                    : <span className="text-[#6b6f80]">{libelleModeSession(r.mode)}</span>,
+                },
                 { header: 'Statut', render: (r) => <Badge tone={r.statut === 'OUVERTE' ? 'green' : 'grey'}>{r.statut}</Badge> },
               ]}
               onEdit={(r) => void open<Session>(`/api/sessions/${r.id}`, (detail) => {
                 setSessionEdit(detail);
                 nomSessionProposeRef.current = '';
-                setSession({ nom: detail.nom, typeExamenId: detail.typeExamenId ? String(detail.typeExamenId) : '', statut: detail.statut, serie: detail.serie || '', anneeScolaireId: String(detail.anneeScolaireId), centreId: String(detail.centreId) });
+                setSession({ nom: detail.nom, typeExamenId: detail.typeExamenId ? String(detail.typeExamenId) : '', statut: detail.statut, serie: detail.serie || '', anneeScolaireId: String(detail.anneeScolaireId), centreId: String(detail.centreId), mode: detail.mode || MODE_SESSION_DEFAUT });
               })}
               onDelete={(r) => void remove(`/api/sessions/${r.id}`, r.nom, reset.session)}
             />
@@ -876,6 +885,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 centreId,
                 typeExamenId,
                 typeExamen: typeExamenId ? null : sessionEdit?.typeExamen ?? null,
+                mode: session.mode || MODE_SESSION_DEFAUT,
               };
               void run(() => sessionEdit
                 ? apiSend(`/api/sessions/${sessionEdit.id}`, 'PUT', body).then(() => undefined)
@@ -920,6 +930,32 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                   {centres.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}
                 </select>
               </Field>
+              <fieldset className="col-span-full rounded border border-[#eaedff] bg-[#f8f9ff] px-3 py-2.5" data-testid="session-mode">
+                <legend className="px-1 text-[11px] font-bold uppercase tracking-wider text-[#444651]">Candidats de la session</legend>
+                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-x-6 gap-y-2 text-[13px] text-[#1b1b1f]">
+                  {([
+                    { valeur: 'INTERNE', libelle: 'Interne (élèves de l’établissement)' },
+                    { valeur: 'INTER_ETABLISSEMENTS', libelle: `Inter-établissements (centre d’examen : ${etablissement || 'cet établissement'})` },
+                  ] as { valeur: ModeSession; libelle: string }[]).map((choix) => (
+                    <label key={choix.valeur} className="inline-flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="session-mode"
+                        value={choix.valeur}
+                        checked={(session.mode || MODE_SESSION_DEFAUT) === choix.valeur}
+                        disabled={!!sessionEdit && estSessionArchivee(sessionEdit.statut)}
+                        onChange={() => setSession({ ...session, mode: choix.valeur })}
+                        className="accent-[#00236f]"
+                      />
+                      <span>{choix.libelle}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[11.5px] text-[#6b6f80]">
+                  En inter-établissements, votre établissement est le centre d’examen : vous inscrivez des candidats venus d’autres écoles (avec leur établissement d’origine), un numéro de table leur est attribué, et les relevés portent la mention « Centre d’examen » sans logo ni cachet d’établissement.
+                  {sessionEdit && estSessionArchivee(sessionEdit.statut) ? ' Le mode d’une session archivée ne se modifie plus : rouvrez-la d’abord.' : ''}
+                </p>
+              </fieldset>
               {alerteCycleSession && (
                 <p id="session-alerte-cycle" role="status" className="col-span-full flex items-start gap-2 rounded border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-[12px] text-[#92400e]">
                   <span className="material-symbols-outlined text-base shrink-0">warning</span>
