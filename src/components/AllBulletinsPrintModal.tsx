@@ -290,8 +290,8 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                   <colgroup>
                     <col className="col-subject" />
                     <col className="col-teacher" />
-                    <col className="col-coef" />
                     <col className="col-note" />
+                    <col className="col-coef" />
                     <col className="col-total" />
                     <col className="col-rank" />
                     <col className="col-minmax" />
@@ -301,8 +301,8 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                     <tr className="bg-[#00236f] text-white text-[11px]">
                       <th className="py-1.5 px-3 font-semibold text-left">Matières &amp; Disciplines</th>
                       <th className="py-1.5 px-2 font-semibold text-left">Enseignant Exam.</th>
-                      <th className="py-1.5 px-2 font-semibold text-center">Coef</th>
                       <th className="py-1.5 px-2 font-semibold text-right">Note /20</th>
+                      <th className="py-1.5 px-2 font-semibold text-center">Coef</th>
                       <th className="py-1.5 px-2 font-semibold text-right">Total Coef</th>
                       <th className="py-1.5 px-2 font-semibold text-center">Rang</th>
                       <th className="py-1.5 px-2 font-semibold text-center">Min / Max classe</th>
@@ -329,11 +329,11 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                           <td className="py-1 px-2 text-[#444651]">
                             {subj.teacher}
                           </td>
-                          <td className="py-1 px-2 font-mono text-center font-bold">
-                            {coef}
-                          </td>
                           <td className="py-1 px-2 font-mono text-right font-bold text-[#00236f]">
                             {gradeData ? gradeData.score.toFixed(2) : '—'}
+                          </td>
+                          <td className="py-1 px-2 font-mono text-center font-bold">
+                            {coef}
                           </td>
                           <td className="py-1 px-2 font-mono text-right font-bold text-[#131b2e]">
                             {scoreTotal}
@@ -356,11 +356,11 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       <td className="py-1.5 px-3 uppercase tracking-wide" colSpan={2}>
                         TOTAL DES PONDÉRATIONS
                       </td>
-                      <td className="py-1.5 px-2 font-mono text-[13px] text-center font-bold text-[#00236f]">
-                        {stats?.totalCoef ?? 0}
-                      </td>
                       <td className="py-1.5 px-2 text-right italic text-[#444651]">
                         Total :
+                      </td>
+                      <td className="py-1.5 px-2 font-mono text-[13px] text-center font-bold text-[#00236f]">
+                        {stats?.totalCoef ?? 0}
                       </td>
                       <td className="py-1.5 px-0 font-mono text-[13px] font-bold text-[#0051d5]" colSpan={4}>
                         <span className="bulletin-weighted-total">

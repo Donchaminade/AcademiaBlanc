@@ -373,8 +373,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                   <thead>
                     <tr className="text-left text-[10px] uppercase tracking-wider text-[#757682]">
                       <th className="py-1 font-semibold">Matière</th>
-                      <th className="py-1 text-center font-semibold">Coef.</th>
                       <th className="py-1 text-right font-semibold">Note</th>
+                      <th className="py-1 text-center font-semibold">Coef.</th>
                     </tr>
                   </thead>
                   <tbody className="font-medium">
@@ -387,8 +387,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                     ].map(([matiere, coef, note]) => (
                       <tr key={matiere} data-row className="border-t border-[#f2f3ff]">
                         <td className="py-1.5">{matiere}</td>
-                        <td className="py-1.5 text-center font-mono text-[#444651]">{coef}</td>
                         <td className="py-1.5 text-right font-mono font-bold text-[#00236f]">{note}</td>
+                        <td className="py-1.5 text-center font-mono text-[#444651]">{coef}</td>
                       </tr>
                     ))}
                   </tbody>
