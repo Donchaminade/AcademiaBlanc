@@ -33,7 +33,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-start justify-center p-4 pt-20 z-50 animate-in fade-in">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-start justify-center p-2 pt-[calc(0.5rem+env(safe-area-inset-top))] sm:p-4 sm:pt-20 z-50 animate-in fade-in">
       <div className="bg-white rounded-lg shadow-2xl max-w-xl w-full border border-[#eaedff] overflow-hidden">
         {/* Search Input */}
         <div className="p-3 bg-[#f2f3ff] border-b border-[#eaedff] flex items-center gap-2">
@@ -56,7 +56,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         </div>
 
         {/* Results List */}
-        <div className="max-h-80 overflow-y-auto divide-y divide-[#eaedff]">
+        <div className="max-h-[60dvh] sm:max-h-80 overflow-y-auto divide-y divide-[#eaedff]">
           {matches.length === 0 ? (
             <div className="p-8 text-center text-[#444651] text-[13px]">
               Aucun candidat trouvé pour "{query}".

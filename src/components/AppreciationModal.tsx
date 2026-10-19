@@ -46,9 +46,9 @@ export const AppreciationModal: React.FC<AppreciationModalProps> = ({ candidate,
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="appreciation-titre">
+    <div className="modal-overlay fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="appreciation-titre">
       <form
-        className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border border-[#eaedff] space-y-4"
+        className="modal-panel bg-white rounded-lg shadow-xl max-w-md w-full p-6 border border-[#eaedff] space-y-4"
         onSubmit={(e) => { e.preventDefault(); if (valide && !envoi) void enregistrer(normalise); }}
       >
         <div className="flex items-center justify-between pb-2 border-b border-[#eaedff]">
