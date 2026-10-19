@@ -45,6 +45,13 @@ interface SidebarProps {
   onOpenAdmin?: () => void;
   /** Ferme la session API et revient à l'écran de connexion. */
   onLogout?: () => void;
+  /**
+   * `fixed` (défaut) : barre latérale de bureau, visible à partir de `lg`.
+   * `drawer` : contenu du tiroir mobile (menu burger), en flux, pleine largeur du tiroir, avec bouton de fermeture.
+   */
+  variant?: 'fixed' | 'drawer';
+  /** Tiroir mobile : ferme le tiroir (croix en haut à droite). */
+  onClose?: () => void;
 }
 
 const DEMO_SESSIONS = [
@@ -95,11 +102,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
   apiUser,
   onOpenAdmin,
   onLogout,
+  variant = 'fixed',
+  onClose,
 }) => {
   const sessionChoices = usingApi ? (sessionOptions || []) : (sessionOptions && sessionOptions.length > 0 ? sessionOptions : DEMO_SESSIONS);
   const centerChoices = usingApi ? (centerOptions || []) : (centerOptions && centerOptions.length > 0 ? centerOptions : DEMO_CENTERS);
   const footerName = apiUser?.name || settings.jurySignerName;
   const footerRole = apiUser ? apiUser.role : 'Proviseure & Jury';
+  const drawer = variant === 'drawer';
+  // Bureau : barre fixe à partir de `lg` (masquée en dessous, remplacée par le tiroir et la barre du bas).
+  // Tiroir : en flux dans le panneau mobile, défilement interne, pied de panneau au-dessus de la zone sûre iOS.
+  const asideClass = drawer
+    ? 'relative h-full w-full bg-[#ffffff] flex flex-col justify-between overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]'
+    : 'hidden lg:flex fixed left-0 top-0 h-full w-80 bg-[#ffffff] z-50 flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-[#eaedff]';
+
+  const closeButton = drawer && onClose && (
+    <button
+      type="button"
+      onClick={onClose}
+      aria-label="Fermer le menu"
+      className="shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-lg text-[#00236f] hover:bg-[#eaedff] transition-colors"
+      data-testid="fermer-tiroir"
+    >
+      <span className="material-symbols-outlined text-2xl">close</span>
+    </button>
+  );
 
   const platformEntry = (
     <button
@@ -159,7 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // ni bloc « Base de l'établissement » — rien qui renvoie à des données d'établissement ou de démonstration.
   if (platformOnly) {
     return (
-      <aside className="fixed left-0 top-0 h-full w-80 bg-[#ffffff] z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-[#eaedff]">
+      <aside className={asideClass}>
         <div className="flex flex-col">
           <div className="px-6 pt-6 pb-5 bg-[#f2f3ff] border-b border-[#eaedff]">
             <div className="flex items-center gap-3">
@@ -169,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 alt="Logo AcademiaBlanc"
                 className="h-9 w-9 shrink-0 rounded-xs"
               />
-              <div className="flex flex-col min-w-0">
+              <div className="flex flex-col min-w-0 flex-1">
                 <span className="font-bold text-[#00236f] tracking-tight truncate text-[16px] leading-[22px]">
                   {settings.institutionName}
                 </span>
@@ -177,6 +204,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Administration du logiciel
                 </span>
               </div>
+              {closeButton}
             </div>
           </div>
 
@@ -212,7 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-80 bg-[#ffffff] z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-[#eaedff]">
+    <aside className={asideClass}>
       <div className="flex flex-col">
         {/* Brand & PWA badge */}
         <div className="px-6 pt-6 pb-4 bg-[#f2f3ff]">
@@ -223,7 +251,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               alt={`Logo de ${settings.institutionName}`}
               className="h-9 w-9 shrink-0 rounded-xs"
             />
-            <div className="flex flex-col min-w-0">
+            <div className="flex flex-col min-w-0 flex-1">
               <span className="font-bold text-[#00236f] tracking-tight truncate text-[16px] leading-[22px]">
                 {settings.institutionName}
               </span>
@@ -231,6 +259,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 Examens d'État PWA
               </span>
             </div>
+            {closeButton}
           </div>
           <button
             type="button"

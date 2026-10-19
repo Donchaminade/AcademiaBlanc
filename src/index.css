@@ -59,6 +59,123 @@
     color: var(--color-on-surface);
     -webkit-font-smoothing: antialiased;
   }
+
+  html {
+    /* Mobile : pas de grossissement automatique du texte en paysage, ni de halo gris au toucher. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button, a, input, select, textarea, label, summary {
+    /* Supprime le délai de double-tap et le zoom par double-tap sur les commandes. */
+    touch-action: manipulation;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Mobile first : écrans étroits et tactiles (< lg = 1024 px)          */
+/* Règles hors @layer : elles priment sur les utilitaires Tailwind.    */
+/* ------------------------------------------------------------------ */
+@media (max-width: 1023px) {
+  /* iOS zoome sur tout champ dont la police est < 16 px : taille minimale uniforme sur mobile et tablette. */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Tiroir de navigation : zones tactiles ≥ 44 px pour chaque entrée du menu. */
+  .tiroir-mobile nav button,
+  .tiroir-mobile nav a {
+    min-height: 44px;
+  }
+
+  /* Boutons d'action des barres d'outils : hauteur tactile confortable. */
+  .toolbar-actions > button,
+  .toolbar-actions > a,
+  .toolbar-actions > span {
+    min-height: 40px;
+  }
+}
+
+/* Fenêtres modales : au centre sur grand écran ; feuille ancrée en bas (« bottom sheet ») sur mobile,
+   hauteur bornée à l'écran, contenu défilable, bouton de fermeture toujours atteignable. */
+.modal-overlay {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 639px) {
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-panel {
+    max-width: none;
+    max-height: calc(100dvh - 0.75rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 1rem 1rem 0 0;
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  }
+
+  /* Grilles de formulaire à deux colonnes : une seule colonne sur mobile. */
+  .modal-panel .grid-cols-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .modal-panel .col-span-2 {
+    grid-column: auto;
+  }
+}
+
+/* Tableaux : première colonne collante pendant le défilement horizontal (mobile et tablette). */
+.table-sticky-first th:first-child,
+.table-sticky-first td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: inherit;
+}
+
+.table-sticky-first thead th:first-child {
+  z-index: 3;
+}
+
+.table-sticky-first td:first-child::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -1px;
+  bottom: 0;
+  width: 1px;
+  background: #eaedff;
+}
+
+/* Grille de saisie des notes : panneau à double défilement avec en-tête collant et colonne élève collante. */
+.grille-notes-wrap {
+  overflow: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.grille-notes-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.grille-notes-wrap thead th.col-eleve,
+.grille-notes-wrap thead th.col-table {
+  z-index: 4;
+}
+
+@media (max-width: 1023px) {
+  .grille-notes-wrap {
+    max-height: calc(100dvh - 12rem);
+  }
 }
 
 /* Material Symbols alignment */
@@ -312,7 +429,8 @@
 
   html,
   body,
-  .min-h-screen {
+  .min-h-screen,
+  .min-h-dvh {
     height: auto !important;
     min-height: 0 !important;
     background: #ffffff !important;
@@ -324,13 +442,33 @@
 
   aside,
   header,
-  .no-print {
+  .no-print,
+  .mobile-header,
+  .bottom-nav,
+  .tiroir-mobile {
     display: none !important;
   }
 
   .pl-80,
   .app-chrome {
     padding-left: 0 !important;
+  }
+
+  /* Coquille mobile : aucun décalage pour l'en-tête ou la barre du bas (masqués) à l'impression. */
+  .app-chrome {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* Aperçu du bulletin mis à l'échelle à l'écran : la feuille reprend sa taille réelle à l'impression. */
+  .bulletin-scale-wrap {
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .grille-notes-wrap {
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   main {
