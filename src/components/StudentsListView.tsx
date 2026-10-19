@@ -65,6 +65,12 @@ interface StudentsListViewProps {
   centreExamen?: string;
   /** Libellé court du type d'examen de la session active (en-tête de la liste imprimée). */
   examType?: string;
+  /**
+   * Session inter-établissements, droit TRANSFERTS : ouvre l'écran « Transferts » pour envoyer les résultats
+   * aux établissements d'origine ; `originesCount` : nombre d'établissements d'origine distincts (hors centre).
+   */
+  onOpenTransferts?: () => void;
+  originesCount?: number;
 }
 
 export const StudentsListView: React.FC<StudentsListViewProps> = ({
@@ -88,6 +94,8 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
   sessionInter = false,
   centreExamen = '',
   examType,
+  onOpenTransferts,
+  originesCount = 0,
 }) => {
   const [startTableNum, setStartTableNum] = useState<number>(settings?.startTableNumber || 138);
   // Abonnement expiré ou suspendu : impression et export CSV grisés avec explication.
@@ -515,6 +523,19 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
             >
               <span className="material-symbols-outlined text-base">print_connect</span>
               <span className="truncate"><span className="hidden sm:inline">Télécharger tous les bulletins</span><span className="sm:hidden">Tous les bulletins</span> ({candidates.length})</span>
+            </button>
+          )}
+
+          {sessionInter && onOpenTransferts && (
+            <button
+              type="button"
+              onClick={onOpenTransferts}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#fff3e0] text-[#8a4b00] border border-[#ffcc80] text-[12px] font-semibold hover:bg-[#ffe6c2] transition-colors"
+              title="Envoyer les notes et le classement des candidats à leur établissement d'origine (code de transfert du destinataire)"
+              data-testid="bouton-transferts"
+            >
+              <span className="material-symbols-outlined text-base">swap_horiz</span>
+              <span className="truncate">Transferts{originesCount > 0 ? ` (${originesCount} établissement${originesCount > 1 ? 's' : ''})` : ''}</span>
             </button>
           )}
 

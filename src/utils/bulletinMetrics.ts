@@ -144,6 +144,28 @@ export function computeSubjectRank(
   return first + 1;
 }
 
+/**
+ * Rang par matière à afficher : celui de l'examen commun (session issue d'un transfert, figé par le
+ * centre) s'il existe, sinon le rang recalculé sur la cohorte locale.
+ */
+export function rangMatiereAffiche(candidate: Candidate, subjectId: string, cohorte: Candidate[]): number | null {
+  const commun = candidate.examenCommun?.matieres[subjectId];
+  if (commun && commun.rang != null) return commun.rang;
+  return computeSubjectRank(candidate.id, subjectId, cohorte);
+}
+
+/**
+ * Extrêmes par matière à afficher : ceux du groupe de l'examen commun s'ils existent, sinon ceux de la
+ * cohorte locale. `count` vaut 0 quand la matière n'a aucune note (ni commune, ni locale).
+ */
+export function extremesMatiereAffiches(candidate: Candidate, subjectId: string, cohorte: Candidate[]): ExtremesMatiere {
+  const commun = candidate.examenCommun?.matieres[subjectId];
+  if (commun && commun.noteMax != null && commun.noteMin != null) {
+    return { highest: commun.noteMax, lowest: commun.noteMin, count: candidate.examenCommun?.effectif ?? 1 };
+  }
+  return extremesDeMatiere(subjectId, cohorte);
+}
+
 /** Seuil d'admission : moyenne générale affichée ≥ 10/20 (même constante que `GradeCalculator.SEUIL_ADMISSION`). */
 export const SEUIL_ADMISSION = 10;
 

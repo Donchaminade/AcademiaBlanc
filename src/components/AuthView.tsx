@@ -16,6 +16,9 @@ import { bandeauNational, drapeau } from '../utils/prereglages';
 import { chargerOffre } from '../api/abonnement';
 import type { Forfait, OffrePublique } from '../utils/abonnement';
 import { ForfaitCards } from './abonnement/ForfaitCards';
+import { AcceptationConditions } from './legal/AcceptationConditions';
+import { MESSAGE_ACCEPTATION_REQUISE, boutonInscriptionDesactive } from '../legal/acceptation';
+import { VERSION_CONDITIONS } from '../legal/versions';
 
 /** Offre affichée tant que `/api/public/offre` n'a pas répondu : aucun tarif inventé (« Tarif à confirmer »). */
 const OFFRE_INCONNUE: OffrePublique = {
@@ -143,6 +146,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [regError, setRegError] = useState('');
+  // Case « J’ai lu et j’accepte… » : non cochée par défaut, obligatoire (vérifiée aussi par le serveur).
+  const [acceptationConditions, setAcceptationConditions] = useState(false);
   const connexion = useAppelServeur();
   const inscription = useAppelServeur();
 
@@ -170,7 +175,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
   const passerAuForfait = (e: React.FormEvent) => {
     e.preventDefault();
-    const erreur = erreurInfos();
+    const erreur = erreurInfos() ?? (acceptationConditions ? null : MESSAGE_ACCEPTATION_REQUISE);
     setRegError(erreur ?? '');
     if (!erreur) setEtapeInscription('forfait');
   };
@@ -186,6 +191,10 @@ export const AuthView: React.FC<AuthViewProps> = ({
       setEtapeInscription('infos');
       return;
     }
+    if (!acceptationConditions) {
+      setRegError(MESSAGE_ACCEPTATION_REQUISE);
+      return;
+    }
 
     try {
       const session = await inscription.executer(() => apiSignup({
@@ -198,6 +207,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
         region: formData.region.trim(),
         typeEtablissement: formData.type.trim(),
         forfait,
+        acceptationConditions,
+        versionConditions: VERSION_CONDITIONS,
       }));
       // Le compte vit sur le serveur : aucun double local (et surtout pas le mot de passe) n'est écrit dans le
       // navigateur, sinon il serait relu plus tard comme un espace de démonstration ou par un autre compte.
@@ -556,11 +567,17 @@ export const AuthView: React.FC<AuthViewProps> = ({
               </div>
             </div>
 
+            {/* Acceptation des documents légaux : obligatoire, le bouton reste désactivé tant qu’elle n’est pas cochée */}
+            <AcceptationConditions checked={acceptationConditions} onChange={setAcceptationConditions} disabled={inscription.enCours} />
+
             <div className="pt-1 flex justify-end">
               <button
                 type="submit"
                 data-testid="bouton-continuer-forfait"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#00236f] text-white text-[13px] font-bold hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95"
+                disabled={boutonInscriptionDesactive({ accepte: acceptationConditions, enCours: inscription.enCours })}
+                aria-disabled={!acceptationConditions || undefined}
+                title={acceptationConditions ? undefined : 'Cochez la case d’acceptation des conditions pour continuer'}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#00236f] text-white text-[13px] font-bold hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 aria-busy:cursor-wait"
               >
                 <span>Continuer : choisir le forfait</span>
                 <span className="material-symbols-outlined text-lg" aria-hidden="true">arrow_forward</span>

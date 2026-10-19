@@ -240,8 +240,8 @@ class TypesExamenTest {
       mvc.perform(post("/api/auth/signup")
               .contentType(MediaType.APPLICATION_JSON)
               .content("{\"nom\":\"Compte Proprio Types\",\"ville\":\"Lome\",\"email\":\"" + email
-                  + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proprietaire\"}"))
-          .andExpect(status().isOk());
+                  + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proprietaire\",\"acceptationConditions\":true}"))
+          .andExpect(status().isCreated());
     }
     return connecter(email, "secret1");
   }
@@ -250,8 +250,8 @@ class TypesExamenTest {
     return json.readTree(mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"" + nom + "\",\"ville\":\"Lome\",\"email\":\"" + email
-                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\"}"))
-        .andExpect(status().isOk())
+                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\",\"acceptationConditions\":true}"))
+        .andExpect(status().isCreated())
         .andReturn().getResponse().getContentAsString()).get("token").asText();
   }
 

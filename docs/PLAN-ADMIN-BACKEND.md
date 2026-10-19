@@ -35,7 +35,7 @@ Rôles : `OWNER` (créateur du compte), `ADMIN` (même droits de paramétrage), 
 
 ## 3. Authentification
 
-- `POST /api/auth/signup` crée l’établissement, l’utilisateur `OWNER` et une année courante. Mot de passe BCrypt, jamais renvoyé. Cette route ne peut pas créer un `SUPER_ADMIN`.
+- `POST /api/auth/signup` crée l’établissement, l’utilisateur `OWNER` et une année courante (réponse `201`). Mot de passe BCrypt, jamais renvoyé. Cette route ne peut pas créer un `SUPER_ADMIN`. Elle exige `acceptationConditions: true` (400 sinon) et écrit, dans la même transaction, une ligne `acceptation_conditions` (version envoyée dans `versionConditions` ou repli `app.conditions.version`, horodatage UTC du serveur, IP, agent utilisateur tronqué à 255). `GET /api/etablissement/acceptations` (OWNER/ADMIN), `GET …/derniere` (tout utilisateur de l’établissement, 204 si aucune) et `POST …` (ré-acceptation OWNER/ADMIN) exposent cette preuve ; le front compare la dernière version à `VERSION_CONDITIONS` (`src/legal/versions.ts`).
 - `POST /api/auth/login` renvoie un JWT (12 h). Si l’email est celui de `SUPER_ADMIN_EMAIL`, le jeton porte le rôle `SUPER_ADMIN`. Le compte du propriétaire est créé automatiquement au démarrage à partir de `SUPER_ADMIN_EMAIL` et `SUPER_ADMIN_PASSWORD` (sans établissement) ; voir `docs/DEPLOIEMENT.md`.
 - `GET /api/plateforme/etablissements` est réservé à `SUPER_ADMIN`. Les autres routes restent filtrées par `etablissement_id`.
 - Le front envoie `Authorization: Bearer`. Le jeton reste en `sessionStorage`, pas dans l’URL.

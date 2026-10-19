@@ -14,6 +14,8 @@ import { AuthPage } from './components/AuthPage';
 import { EtablissementProfilView } from './components/EtablissementProfilView';
 import { AdminLoginPage } from './components/AdminLoginPage';
 import { PlateformeView } from './components/PlateformeView';
+import { TransfertsView } from './components/TransfertsView';
+import type { OngletTransferts } from './components/TransfertsView';
 import { AllBulletinsPrintModal } from './components/AllBulletinsPrintModal';
 import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
@@ -36,6 +38,7 @@ import {
 } from './api/ecritures';
 import type { AuthSession } from './api/client';
 import { loadProfil } from './api/etablissement';
+import { compterRecusEnAttente, regrouperParOrigine } from './api/transferts';
 import type { ProfilEtablissement } from './api/etablissement';
 import { appliquerEnTeteAuxSettings, enTeteChanged, enTeteDepuisSettings } from './utils/prereglages';
 import { usePermissions } from './api/permissions';
@@ -54,7 +57,8 @@ import {
 } from './data/schoolsData';
 import { Candidate, Subject, ViewMode, AppSettings, SchoolAccount, AdminSection } from './types';
 import { printDocument } from './utils/printDocument';
-import { usePublicRoute } from './utils/router';
+import { isLegalRoute, usePublicRoute } from './utils/router';
+import { ReacceptationConditions } from './components/legal/ReacceptationConditions';
 import { MODE_SESSION_DEFAUT, estSessionInter } from './utils/sessionMode';
 import type { ModeSession } from './utils/sessionMode';
 import { TIROIR_FERME, fermerTiroir, ouvrirTiroir, tiroirApresChangementDeVue } from './utils/mobileNav';
@@ -70,6 +74,8 @@ import { AbonnementsPlateformeView } from './components/plateforme/AbonnementsPl
 
 // Site vitrine (GSAP, Three.js) chargé à la demande : l’application connectée n’embarque pas ces bibliothèques.
 const LandingPage = lazy(() => import('./components/landing/LandingPage'));
+// Documents légaux (`/cgu`, `/confidentialite`, `/conditions`) : publics, chargés à la demande.
+const PagesLegales = lazy(() => import('./components/legal/PagesLegales'));
 
 /** Nouvelles tentatives de chargement de l'espace quand le serveur est injoignable ou en cours de réveil. */
 const REPRISES_SERVEUR = 3;
@@ -119,7 +125,13 @@ export default function App() {
   // Mode de la session active (interne / inter-établissements) et nom du centre d'examen en inter.
   const [activeSessionMode, setActiveSessionMode] = useState<ModeSession>(MODE_SESSION_DEFAUT);
   const [activeCentreExamen, setActiveCentreExamen] = useState<string>('');
+  // Session issue d'un transfert reçu : nom du centre émetteur (bandeau, verrou de la saisie des notes) ; vide sinon.
+  const [activeTransfertCentre, setActiveTransfertCentre] = useState<string>('');
   const sessionInter = usingApiInter(activeSessionMode);
+  const sessionTransferee = Boolean(getToken()) && activeTransfertCentre !== '';
+  // Transferts reçus en attente (badge de la barre latérale) et onglet demandé à l'ouverture de l'écran Transferts.
+  const [transfertsEnAttente, setTransfertsEnAttente] = useState(0);
+  const [ongletTransferts, setOngletTransferts] = useState<OngletTransferts | undefined>(undefined);
   const [usingApi, setUsingApi] = useState<boolean>(() => Boolean(getToken()));
   // Jeton présent au chargement : rien n'est affiché (surtout pas de données de démonstration)
   // tant que la session n'est pas relue et l'espace de l'établissement chargé depuis l'API.
@@ -290,6 +302,7 @@ export default function App() {
     setActiveExamTypeLong(workspace.examTypeLong);
     setActiveSessionMode(workspace.sessionMode);
     setActiveCentreExamen(workspace.centreExamen);
+    setActiveTransfertCentre(workspace.transfertCentre);
     setCharteModifieeLe(charte?.modifieLe ?? null);
     // Paramètres reconstruits intégralement depuis le serveur (session, espace, charte, fiche) : l'état
     // précédent — démonstration ou compte connecté juste avant sur ce navigateur — n'est jamais fusionné,
@@ -327,6 +340,8 @@ export default function App() {
     setActiveExamType('');
     setActiveSessionMode(MODE_SESSION_DEFAUT);
     setActiveCentreExamen('');
+    setActiveTransfertCentre('');
+    setTransfertsEnAttente(0);
     setSelectedCandidateId('');
     setSelectedSession('');
     setSelectedCenter('');
@@ -401,6 +416,32 @@ export default function App() {
     setCurrentView('admin');
   };
 
+  const peutVoirTransferts = usingApi && !sessionPlateformeSeule && can('TRANSFERTS', 'VOIR');
+
+  /** Compteur des transferts reçus en attente (badge) ; silencieux si le droit manque ou l'API est ancienne. */
+  const rafraichirTransfertsEnAttente = useCallback(() => {
+    if (!getToken() || !peutVoirTransferts) {
+      setTransfertsEnAttente(0);
+      return;
+    }
+    compterRecusEnAttente().then(setTransfertsEnAttente).catch(() => setTransfertsEnAttente(0));
+  }, [peutVoirTransferts]);
+
+  useEffect(() => {
+    rafraichirTransfertsEnAttente();
+  }, [rafraichirTransfertsEnAttente, activeSessionId]);
+
+  const openTransferts = (onglet?: OngletTransferts) => {
+    setOngletTransferts(onglet);
+    setCurrentView('transferts');
+  };
+
+  // Nombre d'établissements d'origine distincts (hors centre) dans la session inter active : libellé du bouton « Transferts ».
+  const originesCount = useMemo(
+    () => (sessionInter ? regrouperParOrigine(candidates, activeCentreExamen).length : 0),
+    [sessionInter, candidates, activeCentreExamen],
+  );
+
   // « Consulter » une archive : charge la session réelle correspondante et ouvre son procès-verbal.
   const openArchivedSession = (sessionId: number) => {
     if (!getToken()) return;
@@ -440,6 +481,8 @@ export default function App() {
     setActiveExamType('');
     setActiveSessionMode(MODE_SESSION_DEFAUT);
     setActiveCentreExamen('');
+    setActiveTransfertCentre('');
+    setTransfertsEnAttente(0);
     setSelectedCandidateId('');
     setSelectedSession('');
     setSelectedCenter('');
@@ -495,8 +538,9 @@ export default function App() {
 
   // Une fois dans l’application, `/connexion`, `/inscription` et `/admin` n’ont plus de sens : l’URL revient
   // sur `/` (une session plateforme déjà active ouvre donc directement la vue Plateforme depuis `/admin`).
+  // Les documents légaux restent consultables à tout moment, connecté ou non.
   useEffect(() => {
-    if (currentView !== 'auth' && route !== 'vitrine') navigate('vitrine', { replace: true });
+    if (currentView !== 'auth' && route !== 'vitrine' && !isLegalRoute(route)) navigate('vitrine', { replace: true });
   }, [currentView, route, navigate]);
 
   // Un compte plateforme sans établissement n'a aucune vue d'établissement : tout écart revient sur la vue Plateforme.
@@ -880,6 +924,15 @@ export default function App() {
     if (session) setSession({ ...session, nomEtablissement: profil.nom });
   };
 
+  // Pages légales publiques : rendues avant tout le reste, sans authentification ni espace chargé.
+  if (isLegalRoute(route)) {
+    return (
+      <Suspense fallback={<div className="min-h-dvh bg-[#faf8ff]" aria-busy="true" />}>
+        <PagesLegales route={route} onRetour={() => navigate('vitrine')} />
+      </Suspense>
+    );
+  }
+
   // Jeton présent : état de chargement jusqu'à la réponse de l'API, sans aucune donnée de démonstration à l'écran.
   if (workspaceLoading && currentView !== 'auth') {
     return (
@@ -982,6 +1035,8 @@ export default function App() {
     usingApi,
     apiUser: usingApi ? apiUser : null,
     onOpenAdmin: usingApi && adminAccess && !sessionPlateformeSeule ? () => openAdmin() : undefined,
+    onOpenTransferts: peutVoirTransferts ? () => openTransferts(sessionInter ? undefined : 'recus') : undefined,
+    transfertsEnAttente,
     onLogout: usingApi ? handleLogout : undefined,
     onOpenAbonnement: abonnementVisible ? ouvrirAbonnement : undefined,
     abonnementBadge: abonnementVisible ? <AbonnementBadge etat={etatAbonnement} onClick={ouvrirAbonnement} /> : undefined,
@@ -1016,6 +1071,7 @@ export default function App() {
           onToggleOffline={handleToggleOffline}
           onLogout={depuisTiroir(sidebarProps.onLogout)}
           onConnexion={depuisTiroir(sidebarProps.onConnexion)}
+          onOpenTransferts={depuisTiroir(sidebarProps.onOpenTransferts)}
         />
       </MobileDrawer>
 
@@ -1103,6 +1159,7 @@ export default function App() {
               examTypeLong={usingApi ? activeExamTypeLong : undefined}
               sessionInter={sessionInter}
               centreExamen={activeCentreExamen}
+              transfertCentre={sessionTransferee ? activeTransfertCentre : undefined}
             />
           )}
 
@@ -1128,6 +1185,8 @@ export default function App() {
               sessionInter={sessionInter}
               centreExamen={activeCentreExamen}
               examType={usingApi ? activeExamType : undefined}
+              onOpenTransferts={peutVoirTransferts && sessionInter ? () => openTransferts('envois') : undefined}
+              originesCount={originesCount}
               onRenumberAlphabetically={handleRenumberAlphabetically}
               onAssignMissingTableNumbers={handleAssignMissingTableNumbers}
               onBatchAddCandidates={handleBatchAddCandidates}
@@ -1149,6 +1208,23 @@ export default function App() {
           )}
 
           {currentView === 'plateforme' && <PlateformeView />}
+
+          {currentView === 'transferts' && peutVoirTransferts && (
+            <TransfertsView
+              sessionId={activeSessionId}
+              sessionName={selectedSession}
+              sessionInter={sessionInter}
+              centreExamen={activeCentreExamen}
+              ongletInitial={ongletTransferts}
+              aUnLogo={Boolean(settings.logoUrl && settings.logoUrl.trim() !== '')}
+              onRecusChanged={() => {
+                rafraichirTransfertsEnAttente();
+                reloadWorkspace();
+              }}
+              onOpenSession={openArchivedSession}
+              onOpenProfil={() => setCurrentView('profil')}
+            />
+          )}
 
           {currentView === 'profil' && !sessionPlateformeSeule && (
             <EtablissementProfilView
@@ -1191,7 +1267,7 @@ export default function App() {
               allStats={allStats}
               onUpdateGrade={handleUpdateGrade}
               onUpdateAppreciation={handleUpdateAppreciation}
-              peutAnnoter={!usingApi || can('NOTES', 'CREER') || can('NOTES', 'MODIFIER')}
+              peutAnnoter={!sessionTransferee && (!usingApi || can('NOTES', 'CREER') || can('NOTES', 'MODIFIER'))}
               usingApi={usingApi}
               onSelectCandidate={(c) => setSelectedCandidateId(c.id)}
               onNavigateToBulletin={(c) => {
@@ -1199,7 +1275,8 @@ export default function App() {
                 setCurrentView('bulletin');
               }}
               onAddNewCandidate={handleAddNewCandidate}
-              juryLocked={juryLocked}
+              juryLocked={juryLocked || sessionTransferee}
+              transfertCentre={sessionTransferee ? activeTransfertCentre : undefined}
             />
           )}
 
@@ -1221,6 +1298,8 @@ export default function App() {
               centreExamen={activeCentreExamen}
               juryLocked={juryLocked}
               onToggleJuryLock={handleToggleJuryLock}
+              onOpenTransferts={peutVoirTransferts && sessionInter ? () => openTransferts('envois') : undefined}
+              transfertCentre={sessionTransferee ? activeTransfertCentre : undefined}
             />
           )}
 
@@ -1253,6 +1332,11 @@ export default function App() {
         platformOnly={sessionPlateformeSeule}
         platformOwner={platformOwner}
       />
+
+      {/* Conditions mises à jour : ré-acceptation bloquante pour OWNER / ADMIN, information pour les autres (jamais pour la plateforme) */}
+      {usingApi && !sessionPlateformeSeule && !isPlatformAccount(getSession()) && (
+        <ReacceptationConditions key={getSession()?.etablissementId ?? 'etab'} role={accountRole} />
+      )}
 
       {/* Signature Modal */}
       {isSignatureModalOpen && selectedCandidate && (

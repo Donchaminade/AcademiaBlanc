@@ -4,11 +4,11 @@ import { composerEnteteBulletin } from '../utils/bulletinEntete';
 import { academicYearCaption, establishmentCaption, ministryMark } from '../utils/bulletinHeader';
 import {
   camaradesDeClasse,
-  computeSubjectRank,
   decisionBucket,
-  extremesDeMatiere,
+  extremesMatiereAffiches,
   formatMinMax,
   formatSubjectRank,
+  rangMatiereAffiche,
 } from '../utils/bulletinMetrics';
 import { appreciationAffichee } from '../utils/appreciation';
 import { coefDuCandidat } from '../utils/coefficients';
@@ -337,7 +337,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       const coef = coefDuCandidat(candidate, subj);
                       const scoreTotal = gradeData ? (gradeData.score * coef).toFixed(2) : '—';
                       const isEven = sIdx % 2 === 0;
-                      const subjectRankValue = computeSubjectRank(candidate.id, subj.id, cohorteRangMatiere);
+                      const subjectRankValue = rangMatiereAffiche(candidate, subj.id, cohorteRangMatiere);
                       const professorAppreciation = appreciationAffichee(gradeData);
 
                       return (
@@ -364,7 +364,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                             {subjectRankValue === null ? '—' : formatSubjectRank(subjectRankValue)}
                           </td>
                           <td className="py-1 px-2 font-mono text-center text-[#444651] whitespace-nowrap">
-                            {formatMinMax(extremesDeMatiere(subj.id, camarades))}
+                            {formatMinMax(extremesMatiereAffiches(candidate, subj.id, camarades))}
                           </td>
                           <td className="py-1 px-3 italic text-[#131b2e] leading-tight">
                             {professorAppreciation}
@@ -447,11 +447,11 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       <span className="text-[18px] text-[#00236f] font-bold leading-none my-0">
                         {stats.average.toFixed(2)}
                       </span>
-                      <span className="text-[10px] text-[#444651] whitespace-nowrap">/ 20 • {sessionInter ? 'groupe' : 'classe'} {fmtMoyenne(stats.classAverage)}</span>
+                      <span className="text-[10px] text-[#444651] whitespace-nowrap">/ 20 • {candidate.examenCommun ? 'examen' : sessionInter ? 'groupe' : 'classe'} {fmtMoyenne(stats.classAverage)}</span>
                     </div>
 
                     <div className="bulletin-metric bg-white rounded-xs px-1.5 py-1 text-center border border-[#eaedff] flex flex-col justify-center">
-                      <span className="text-[10px] text-[#444651] uppercase font-semibold">Rang</span>
+                      <span className="text-[10px] text-[#444651] uppercase font-semibold">{candidate.examenCommun ? 'Rang à l’examen commun' : 'Rang'}</span>
                       <span className="text-[18px] text-[#0051d5] font-bold leading-none my-0">
                         {stats.rank === 1 ? '1er' : `${stats.rank < 10 ? `0${stats.rank}` : stats.rank}e`}
                       </span>

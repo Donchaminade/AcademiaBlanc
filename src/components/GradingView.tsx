@@ -21,6 +21,8 @@ interface GradingViewProps {
   juryLocked?: boolean;
   /** Session connectée : les notes sont enregistrées sur le serveur, cellule par cellule. */
   usingApi?: boolean;
+  /** Session issue d'un transfert : centre d'examen émetteur ; les notes viennent de l'examen commun et sont verrouillées. */
+  transfertCentre?: string;
 }
 
 /** État d'enregistrement d'une cellule de note : saisie en cours, envoi, enregistrée, refusée. */
@@ -39,6 +41,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
   onAddNewCandidate,
   juryLocked = false,
   usingApi = false,
+  transfertCentre,
 }) => {
   // Valeur tapée mais pas encore validée (blur / Entrée), par cellule ; absente = valeur enregistrée affichée.
   const [brouillons, setBrouillons] = useState<Record<string, string>>({});
@@ -191,6 +194,20 @@ export const GradingView: React.FC<GradingViewProps> = ({
 
   return (
     <div className="p-4 md:p-8 max-w-[1440px] mx-auto space-y-4 md:space-y-6">
+      {transfertCentre && (
+        <div
+          className="bg-[#fff3e0] border border-[#ffcc80] rounded px-4 py-2.5 text-[12px] text-[#8a4b00] flex items-center gap-2"
+          role="status"
+          data-testid="bandeau-session-transfert"
+        >
+          <span className="material-symbols-outlined text-base">lock</span>
+          <span>
+            <strong>Session issue d’un transfert — centre : {transfertCentre}.</strong>{' '}
+            Les notes proviennent de l’examen commun organisé par le centre et ne se modifient pas ici ; le classement
+            affiché sur les bulletins est celui de l’examen commun.
+          </span>
+        </div>
+      )}
       {/* Header with Search and Action Toolbar */}
       <div className="bg-white rounded p-4 md:p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">

@@ -7,6 +7,8 @@ import type { DeliberationApi } from './ecritures';
 import { SessionTypeExamen, libelleCourtSession, libelleLongSession } from './typesExamen';
 import { MODE_SESSION_DEFAUT, estSessionInter } from '../utils/sessionMode';
 import type { ModeSession } from '../utils/sessionMode';
+import { loadExamenCommun } from './transferts';
+import type { ExamenCommunVue } from './transferts';
 
 /** Une liste refusée (droit VOIR absent) est traitée comme vide : l’écran reste utilisable avec les droits détenus. */
 async function lire<T>(path: string): Promise<T[]> {
@@ -20,10 +22,14 @@ async function lire<T>(path: string): Promise<T[]> {
 
 interface Annee { id: number; libelle: string; courante: boolean; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
-/** `mode` et `centreExamen` (nom de l'établissement hôte en inter-établissements) : absents sur une ancienne API. */
+/**
+ * `mode` et `centreExamen` (nom de l'établissement hôte en inter-établissements) : absents sur une ancienne API.
+ * `transfertSourceId` / `transfertCentre` : session recréée à partir d'un transfert reçu (centre émetteur).
+ */
 interface SessionApi extends SessionTypeExamen {
   id: number; nom: string; statut?: string; serie?: string; anneeScolaireId: number; centreId: number;
   mode?: ModeSession | null; centreExamen?: string | null;
+  transfertSourceId?: number | null; transfertCentre?: string | null;
 }
 interface Matiere { id: number; nom: string; code: string; }
 interface Professeur { id: number; nom: string; }
@@ -82,6 +88,11 @@ export interface SchoolWorkspace {
   sessionMode: ModeSession;
   /** Nom du centre d'examen d'une session inter-établissements (l'établissement hôte) ; vide en mode interne. */
   centreExamen: string;
+  /**
+   * Session issue d'un transfert : nom du centre d'examen émetteur (bandeau « Session issue d'un transfert »,
+   * verrou de la saisie des notes) ; vide pour une session ordinaire.
+   */
+  transfertCentre: string;
   /** Somme des coefficients réellement enregistrés sur l'API (0 si aucune matière). */
   totalCoef: number;
   /** Nombre de coefficients explicitement saisis (les matières sans coefficient comptent 1 par défaut). */
@@ -89,20 +100,28 @@ export interface SchoolWorkspace {
 }
 
 /** Champs d'une session qui déterminent ses « sœurs » : même examen dans la même année scolaire. */
-export type SessionFamille = Pick<SessionApi, 'id' | 'anneeScolaireId' | 'typeExamenId' | 'typeExamen'>;
+export type SessionFamille = Pick<SessionApi, 'id' | 'anneeScolaireId' | 'typeExamenId' | 'typeExamen' | 'transfertSourceId'>;
+
+/** Session recréée chez le destinataire à partir d'un transfert reçu (miroir de `SessionExamen.estIssueDunTransfert`). */
+export function estSessionTransferee(session: Pick<SessionApi, 'transfertSourceId'> | null | undefined): boolean {
+  return session?.transfertSourceId != null;
+}
 
 /**
  * Identifiants des sessions sœurs de `session` (elle comprise) : même année scolaire et même type
  * d'examen (par référentiel, sinon par libellé). Un « BEPC blanc n°2 » en février reprend ainsi les
  * élèves importés pour le « BEPC blanc n°1 » de novembre, sans réimport.
+ * Une session issue d'un transfert n'a pas de sœur et n'en est pour personne : ses élèves viennent
+ * du centre d'examen et ne se mélangent pas aux sessions propres de l'établissement (même règle que l'API).
  */
 export function sessionsSoeurs(session: SessionFamille | null | undefined, sessions: readonly SessionFamille[]): number[] {
   if (!session) return [];
+  if (estSessionTransferee(session)) return [session.id];
   const memeType = (autre: SessionFamille) => (session.typeExamenId != null && autre.typeExamenId != null
     ? session.typeExamenId === autre.typeExamenId
     : (session.typeExamen || '').trim().toLowerCase() !== '' && (session.typeExamen || '').trim().toLowerCase() === (autre.typeExamen || '').trim().toLowerCase());
   const ids = sessions
-    .filter((autre) => autre.anneeScolaireId === session.anneeScolaireId && memeType(autre))
+    .filter((autre) => !estSessionTransferee(autre) && autre.anneeScolaireId === session.anneeScolaireId && memeType(autre))
     .map((autre) => autre.id);
   return ids.includes(session.id) ? ids : [session.id, ...ids];
 }
@@ -110,16 +129,42 @@ export function sessionsSoeurs(session: SessionFamille | null | undefined, sessi
 /**
  * Élèves à afficher pour la session chargée : ceux de cette session, ceux de ses sessions sœurs
  * (`soeurs`, cf. {@link sessionsSoeurs}) et ceux sans session. Avec `toutesSessions`, aucun élève
- * enregistré n'est écarté.
+ * enregistré n'est écarté. Pour une session issue d'un transfert (`stricte`), seuls ses propres élèves
+ * restent : ceux sans session appartiennent à l'établissement, pas à l'examen commun.
  */
 export function filtrerRoster<T extends { sessionId?: number | null }>(
   eleves: T[],
   sessionId: number | null,
   options: WorkspaceOptions = {},
   soeurs: readonly number[] = [],
+  stricte = false,
 ): T[] {
   if (options.toutesSessions || sessionId == null) return eleves;
+  if (stricte) return eleves.filter((eleve) => eleve.sessionId === sessionId);
   return eleves.filter((eleve) => eleve.sessionId == null || eleve.sessionId === sessionId || soeurs.includes(eleve.sessionId));
+}
+
+/**
+ * Statistiques de l'examen commun par élève (clé : id d'élève), prêtes à être portées par les candidats.
+ * Les ids de matières sont ceux de l'établissement destinataire (alignés à l'acceptation du transfert).
+ */
+export function statsExamenCommunParEleve(vue: ExamenCommunVue | null | undefined): Record<string, Candidate['examenCommun']> {
+  const resultat: Record<string, Candidate['examenCommun']> = {};
+  for (const stat of vue?.eleves ?? []) {
+    const matieres: NonNullable<Candidate['examenCommun']>['matieres'] = {};
+    for (const m of stat.matieres ?? []) {
+      matieres[String(m.matiereId)] = { rang: m.rang ?? null, noteMax: m.noteMax ?? null, noteMin: m.noteMin ?? null };
+    }
+    resultat[String(stat.eleveId)] = {
+      rang: stat.rang ?? null,
+      effectif: stat.effectifGroupe ?? null,
+      moyenneGroupe: stat.moyenneGroupe ?? null,
+      moyenneMax: stat.moyenneMaxGroupe ?? null,
+      moyenneMin: stat.moyenneMinGroupe ?? null,
+      matieres,
+    };
+  }
+  return resultat;
 }
 
 /** Miroir de `SessionStatut.estArchivee` côté API : archivée, clôturée, fermée ou terminée (casse et accents ignorés). */
@@ -184,13 +229,17 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
   ]);
 
   const session = sessionParDefaut(sessions, preferredSessionId, annees);
-  const [notes, deliberations]: [NoteApi[], DeliberationApi[]] = session
+  const transferee = estSessionTransferee(session);
+  const [notes, deliberations, examenCommun]: [NoteApi[], DeliberationApi[], ExamenCommunVue | null] = session
     ? await Promise.all([
       lire<NoteApi>(`/api/notes?sessionId=${session.id}`),
       // Délibérations du jury (observation, signature) : absentes sur une ancienne API.
       lire<DeliberationApi>(`/api/deliberations?sessionId=${session.id}`).catch(() => [] as DeliberationApi[]),
+      // Session issue d'un transfert : rang et extrêmes de l'examen commun figés par le centre.
+      transferee ? loadExamenCommun(session.id).catch(() => null) : Promise.resolve(null),
     ])
-    : [[], []];
+    : [[], [], null];
+  const statsCommunes = statsExamenCommunParEleve(examenCommun);
   // Année scolaire de la session chargée (imprimée sur le bulletin) ; à défaut l'année courante.
   const annee = annees.find((item) => item.id === session?.anneeScolaireId)
     || annees.find((item) => item.courante)
@@ -226,7 +275,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
   const coefsPourClasse = (classeId: number): Record<string, number> =>
     Object.fromEntries(matieres.map((matiere) => [String(matiere.id), coefficientEffectif(coefficients, matiere.id, classeId).valeur]));
 
-  const roster = filtrerRoster(eleves, session?.id ?? null, options, sessionsSoeurs(session, sessions));
+  const roster = filtrerRoster(eleves, session?.id ?? null, options, sessionsSoeurs(session, sessions), transferee);
 
   const candidates: Candidate[] = roster.map((eleve) => {
     const classe = classes.find((item) => item.id === eleve.classeId);
@@ -264,6 +313,8 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
       coefs: coefsPourClasse(eleve.classeId),
       generalObservation: '',
     };
+    const commun = statsCommunes[String(eleve.id)];
+    if (commun) candidate.examenCommun = commun;
     return appliquerDeliberation(candidate, deliberations.find((item) => item.eleveId === eleve.id));
   });
 
@@ -284,6 +335,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
     centerLabel: centre ? `${centre.nom}${centre.code ? ` (${centre.code})` : ''}` : '',
     sessionMode,
     centreExamen,
+    transfertCentre: transferee ? (session?.transfertCentre || examenCommun?.centre || '').trim() : '',
     totalCoef: subjects.reduce((sum, subject) => sum + subject.coef, 0),
     coefficientsCount: coefficients.length,
   };

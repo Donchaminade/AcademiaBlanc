@@ -43,6 +43,10 @@ interface SidebarProps {
   apiUser?: { name: string; role: string } | null;
   /** Ouvre l'écran d'administration (matières, enseignants, classes, élèves…). */
   onOpenAdmin?: () => void;
+  /** Ouvre l'écran « Transferts » (envois du centre d'examen, transferts reçus) ; absent sans le droit TRANSFERTS : VOIR. */
+  onOpenTransferts?: () => void;
+  /** Transferts reçus en attente de traitement (badge de l'entrée « Transferts »). */
+  transfertsEnAttente?: number;
   /** Ferme la session API et revient à l'écran de connexion. */
   onLogout?: () => void;
   /**
@@ -105,6 +109,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   usingApi = false,
   apiUser,
   onOpenAdmin,
+  onOpenTransferts,
+  transfertsEnAttente = 0,
   onLogout,
   variant = 'fixed',
   onClose,
@@ -524,6 +530,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="material-symbols-outlined text-lg">assignment_turned_in</span>
             <span>Palmarès &amp; PV Global</span>
           </button>
+
+          {/* Transferts d'examen blanc entre établissements (centre : envois ; destinataire : reçus) */}
+          {onOpenTransferts && (
+            <button
+              type="button"
+              onClick={onOpenTransferts}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium ${
+                currentView === 'transferts'
+                  ? 'bg-[#1e3a8a] text-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
+                  : 'text-[#444651] hover:bg-[#eaedff] hover:text-[#131b2e]'
+              }`}
+              title="Envoyer les résultats d'un examen blanc inter-établissements aux établissements d'origine, ou traiter les transferts reçus"
+              data-testid="menu-transferts"
+            >
+              <span className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-lg">swap_horiz</span>
+                <span>Transferts reçus &amp; envois</span>
+              </span>
+              {transfertsEnAttente > 0 && (
+                <span
+                  className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-[#ba1a1a] text-white font-bold"
+                  title={`${transfertsEnAttente} transfert(s) en attente de traitement`}
+                  data-testid="badge-transferts-en-attente"
+                >
+                  {transfertsEnAttente}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Settings & Archives */}
           <button

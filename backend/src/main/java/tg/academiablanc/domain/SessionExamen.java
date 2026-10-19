@@ -60,6 +60,17 @@ public class SessionExamen implements TenantOwned {
   @Column(nullable = false, length = 30)
   private ModeSession mode = ModeSession.INTERNE;
 
+  /**
+   * Transfert dont cette session est issue (établissement destinataire) ; null pour une session créée sur place.
+   * Une telle session est verrouillée en saisie (notes de l'examen commun) et n'est jamais « sœur » d'une autre.
+   */
+  @Column(name = "transfert_source_id")
+  private Long transfertSourceId;
+
+  public boolean estIssueDunTransfert() {
+    return transfertSourceId != null;
+  }
+
   public boolean estInterEtablissements() {
     return ModeSession.ouDefaut(mode) == ModeSession.INTER_ETABLISSEMENTS;
   }
@@ -71,6 +82,8 @@ public class SessionExamen implements TenantOwned {
    */
   public boolean memeExamenMemeAnnee(SessionExamen autre) {
     if (autre == null || anneeScolaireId == null || !anneeScolaireId.equals(autre.anneeScolaireId)) return false;
+    // Une session issue d'un transfert a ses propres candidats (ceux de l'examen commun) : jamais de sœur.
+    if (estIssueDunTransfert() || autre.estIssueDunTransfert()) return false;
     if (typeExamenId != null && autre.typeExamenId != null) return typeExamenId.equals(autre.typeExamenId);
     return typeExamen != null && autre.typeExamen != null && typeExamen.trim().equalsIgnoreCase(autre.typeExamen.trim());
   }

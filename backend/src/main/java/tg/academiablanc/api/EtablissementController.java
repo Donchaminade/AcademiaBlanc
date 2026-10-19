@@ -52,6 +52,12 @@ public class EtablissementController {
     return profil.appliquerPrereglage(droits.exiger(Ressource.PARAMETRES, Action.MODIFIER), id);
   }
 
+  /** Nouveau code de transfert personnel (chef d'établissement seulement) ; l'ancien n'est plus reconnu. */
+  @PostMapping("/code-transfert/regenerer")
+  public Profil regenererCodeTransfert() {
+    return profil.regenererCodeTransfert(droits.courant());
+  }
+
   @GetMapping("/statistiques")
   public Statistiques statistiques() {
     return profil.statistiques(droits.courant());

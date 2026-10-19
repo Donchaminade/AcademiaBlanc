@@ -63,12 +63,30 @@ export interface Candidate {
    * prime sur le coefficient « toutes classes »). Absent hors API : `Subject.coef` s’applique.
    */
   coefs?: Record<string, number>;
+  /**
+   * Session issue d'un transfert : statistiques figées de l'examen commun du centre (rang et effectif du
+   * groupe de classement, extrêmes, rang et extrêmes par matière). Elles priment sur le calcul local.
+   */
+  examenCommun?: StatsExamenCommun;
   generalObservation: string;
   digitalSignature?: {
     signedAt: string;
     signer: string;
     shaHash: string;
   };
+}
+
+/** Statistiques d'un élève à l'examen commun (calculées par le centre, importées avec le transfert). */
+export interface StatsExamenCommun {
+  /** Rang dans le groupe de classement (niveau / série) de la session complète du centre. */
+  rang: number | null;
+  /** Effectif du groupe de classement au centre. */
+  effectif: number | null;
+  moyenneGroupe: number | null;
+  moyenneMax: number | null;
+  moyenneMin: number | null;
+  /** Par matière (clé : id de matière de l'établissement) : rang et extrêmes dans le groupe du centre. */
+  matieres: Record<string, { rang: number | null; noteMax: number | null; noteMin: number | null }>;
 }
 
 export interface CandidateComputedStats {
@@ -101,7 +119,7 @@ export interface CandidateComputedStats {
   classEvaluatedCount: number;
 }
 
-export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth' | 'plateforme' | 'profil' | 'abonnement' | 'abonnements';
+export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth' | 'plateforme' | 'profil' | 'transferts' | 'abonnement' | 'abonnements';
 
 export type AdminSection =
   | 'annees'

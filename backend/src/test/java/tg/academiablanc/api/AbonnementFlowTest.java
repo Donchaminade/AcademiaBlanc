@@ -73,9 +73,9 @@ class AbonnementFlowTest {
   @Test
   void inscriptionAttenteDeclarationActivationExpirationEtProlongation() throws Exception {
     JsonNode inscription = corps(mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
-            .content("{\"nom\":\"Lycee Abonne\",\"ville\":\"Lome\",\"email\":\"abonne@ecole.tg\",\"motDePasse\":\"secret1\","
+            .content("{\"nom\":\"Lycee Abonne\",\"ville\":\"Lome\",\"email\":\"abonne@ecole.tg\",\"motDePasse\":\"secret1\",\"acceptationConditions\":true,"
                 + "\"nomResponsable\":\"Proviseur\",\"forfait\":\"MENSUEL\"}"))
-        .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("OWNER")));
+        .andExpect(status().isCreated()).andExpect(jsonPath("$.role").value("OWNER")));
     String token = inscription.get("token").asText();
     long etabId = inscription.get("etablissementId").asLong();
 
@@ -191,7 +191,7 @@ class AbonnementFlowTest {
   @Test
   void essaiDeQuatorzeJoursPuisExpiration() throws Exception {
     JsonNode inscription = corps(mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
-        .content("{\"nom\":\"College Essai\",\"ville\":\"Kara\",\"email\":\"essai@ecole.tg\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Directeur\"}")));
+        .content("{\"nom\":\"College Essai\",\"ville\":\"Kara\",\"email\":\"essai@ecole.tg\",\"motDePasse\":\"secret1\",\"acceptationConditions\":true,\"nomResponsable\":\"Directeur\"}")));
     String token = inscription.get("token").asText();
     long etabId = inscription.get("etablissementId").asLong();
     // Sans forfait précisé, l'annuel (recommandé) est retenu.
@@ -230,7 +230,7 @@ class AbonnementFlowTest {
   @Test
   void suspensionPuisReactivation() throws Exception {
     JsonNode inscription = corps(mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
-        .content("{\"nom\":\"Lycee Suspendu\",\"ville\":\"Sokode\",\"email\":\"suspendu@ecole.tg\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\",\"forfait\":\"ANNUEL\"}")));
+        .content("{\"nom\":\"Lycee Suspendu\",\"ville\":\"Sokode\",\"email\":\"suspendu@ecole.tg\",\"motDePasse\":\"secret1\",\"acceptationConditions\":true,\"nomResponsable\":\"Proviseur\",\"forfait\":\"ANNUEL\"}")));
     String token = inscription.get("token").asText();
     long etabId = inscription.get("etablissementId").asLong();
     String admin = connexionPlateforme();
@@ -263,7 +263,7 @@ class AbonnementFlowTest {
     assertFalse(statut.get("lectureSeule").asBoolean());
     // Écriture de plateforme : jamais 423.
     envoyer(admin, post("/api/plateforme/etablissements"),
-        "{\"nom\":\"Lycee Cree Par Plateforme\",\"ville\":\"Lome\",\"email\":\"cree-plateforme@ecole.tg\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\"}")
+        "{\"nom\":\"Lycee Cree Par Plateforme\",\"ville\":\"Lome\",\"email\":\"cree-plateforme@ecole.tg\",\"motDePasse\":\"secret1\",\"acceptationConditions\":true,\"nomResponsable\":\"Proviseur\"}")
         .andExpect(status().isCreated());
     // Un établissement créé par la plateforme démarre directement en essai.
     JsonNode ligne = trouver(corps(envoyer(admin, get("/api/plateforme/abonnements"))), "nom", "Lycee Cree Par Plateforme");
@@ -271,7 +271,7 @@ class AbonnementFlowTest {
 
     // Un compte d'établissement n'atteint jamais les adresses de la plateforme.
     String owner = corps(mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
-        .content("{\"nom\":\"Lycee Curieux\",\"ville\":\"Lome\",\"email\":\"curieux@ecole.tg\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\"}")))
+        .content("{\"nom\":\"Lycee Curieux\",\"ville\":\"Lome\",\"email\":\"curieux@ecole.tg\",\"motDePasse\":\"secret1\",\"acceptationConditions\":true,\"nomResponsable\":\"Proviseur\"}")))
         .get("token").asText();
     envoyer(owner, get("/api/plateforme/abonnements")).andExpect(status().isForbidden());
     envoyer(owner, get("/api/plateforme/abonnements/parametres")).andExpect(status().isForbidden());
@@ -282,9 +282,9 @@ class AbonnementFlowTest {
   @Test
   void unEtablissementNeLitPasLAbonnementDUnAutre() throws Exception {
     JsonNode a = corps(mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
-        .content("{\"nom\":\"Lycee Isole A\",\"ville\":\"Lome\",\"email\":\"isole-a@ecole.tg\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"A\"}")));
+        .content("{\"nom\":\"Lycee Isole A\",\"ville\":\"Lome\",\"email\":\"isole-a@ecole.tg\",\"motDePasse\":\"secret1\",\"acceptationConditions\":true,\"nomResponsable\":\"A\"}")));
     JsonNode b = corps(mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
-        .content("{\"nom\":\"Lycee Isole B\",\"ville\":\"Lome\",\"email\":\"isole-b@ecole.tg\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"B\"}")));
+        .content("{\"nom\":\"Lycee Isole B\",\"ville\":\"Lome\",\"email\":\"isole-b@ecole.tg\",\"motDePasse\":\"secret1\",\"acceptationConditions\":true,\"nomResponsable\":\"B\"}")));
     String admin = connexionPlateforme();
     envoyer(admin, post("/api/plateforme/abonnements/" + a.get("etablissementId").asLong() + "/activer"), "{\"forfait\":\"MENSUEL\",\"montant\":15000}")
         .andExpect(status().isOk());
@@ -337,7 +337,7 @@ class AbonnementFlowTest {
         .andExpect(jsonPath("$.beneficiaire").value("AcademiaBlanc SARL"));
     // Le statut d'un établissement reprend les contacts et tarifs.
     JsonNode inscription = corps(mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
-        .content("{\"nom\":\"Lycee Offre\",\"ville\":\"Lome\",\"email\":\"offre@ecole.tg\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"P\",\"forfait\":\"ANNUEL\"}")));
+        .content("{\"nom\":\"Lycee Offre\",\"ville\":\"Lome\",\"email\":\"offre@ecole.tg\",\"motDePasse\":\"secret1\",\"acceptationConditions\":true,\"nomResponsable\":\"P\",\"forfait\":\"ANNUEL\"}")));
     JsonNode statut = corps(envoyer(inscription.get("token").asText(), get("/api/abonnement/statut")));
     assertEquals("+228 90 00 00 00", statut.get("contacts").get("telWhatsapp").asText());
     assertEquals(150000, statut.get("contacts").get("tarifAnnuel").asLong());
@@ -367,7 +367,7 @@ class AbonnementFlowTest {
   void lesPaiementsDuMoisSontTotalises() throws Exception {
     horloge.regler(Instant.parse("2031-03-10T09:00:00Z"));
     JsonNode inscription = corps(mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
-        .content("{\"nom\":\"Lycee Totaux\",\"ville\":\"Lome\",\"email\":\"totaux@ecole.tg\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"P\"}")));
+        .content("{\"nom\":\"Lycee Totaux\",\"ville\":\"Lome\",\"email\":\"totaux@ecole.tg\",\"motDePasse\":\"secret1\",\"acceptationConditions\":true,\"nomResponsable\":\"P\"}")));
     long etabId = inscription.get("etablissementId").asLong();
     String admin = connexionPlateforme();
     envoyer(admin, post("/api/plateforme/abonnements/" + etabId + "/activer"), "{\"forfait\":\"MENSUEL\",\"montant\":15000,\"reference\":\"A\"}")

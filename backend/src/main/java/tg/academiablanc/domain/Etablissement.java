@@ -80,6 +80,14 @@ public class Etablissement {
   @Column(name = "signature_titulaire_url", columnDefinition = "TEXT")
   private String signatureTitulaireUrl;
 
+  /**
+   * Code de transfert personnel (« K7F3-9QZT ») : identifie l'établissement comme destinataire d'un transfert
+   * d'examen blanc. Généré à la création du compte (ou au démarrage pour les comptes antérieurs), régénéré à
+   * chaque acceptation ou à la demande du chef d'établissement ; jamais renvoyé aux autres rôles.
+   */
+  @Column(name = "code_transfert", length = 20)
+  private String codeTransfert;
+
   /** Préréglage national appliqué en dernier ; null si l'en-tête a été saisi sans préréglage. */
   @Column(name = "prereglage_national_id")
   private Long prereglageNationalId;
