@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { AuthView, type AuthMode } from './AuthView';
-import type { SchoolAccount } from '../types';
 import { ROUTE_PATHS } from '../utils/router';
 
 interface AuthPageProps {
@@ -8,8 +7,8 @@ interface AuthPageProps {
   onModeChange: (mode: AuthMode) => void;
   /** Retour au site vitrine (`/`). */
   onBack: () => void;
-  onSelectSchool: (schoolId: string) => void;
-  onAccountCreated: (newSchool: SchoolAccount) => void;
+  /** Compte d’établissement créé sur le serveur : entrée dans l’application. */
+  onAccountCreated: () => void;
   onApiReady: () => void;
   /** Appelé par le formulaire après une connexion réussie sans compte local correspondant. */
   onClose: () => void;
@@ -23,7 +22,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   mode,
   onModeChange,
   onBack,
-  onSelectSchool,
   onAccountCreated,
   onApiReady,
   onClose,
@@ -67,7 +65,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           hideCloseButton
           initialMode={mode}
           onModeChange={onModeChange}
-          onSelectSchool={onSelectSchool}
           onAccountCreated={onAccountCreated}
           onApiReady={onApiReady}
           onClose={onClose}

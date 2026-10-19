@@ -529,18 +529,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Footer & Sync Status */}
       <div className="p-4 bg-[#f2f3ff] space-y-3 border-t border-[#eaedff]">
-        <div className="p-3 rounded bg-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] space-y-1.5 border border-[#eaedff]">
+        {/* Hors connexion : bandeau discret « Mode démonstration » ; connecté : rappel de la source des données */}
+        <div
+          className={`p-3 rounded shadow-[0_1px_8px_rgba(0,0,0,0.04)] space-y-1.5 border ${usingApi ? 'bg-white border-[#eaedff]' : 'bg-amber-50 border-amber-200'}`}
+          role={usingApi ? undefined : 'status'}
+          data-testid={usingApi ? 'source-donnees-api' : 'bandeau-demonstration'}
+        >
           <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#131b2e]">
-              <span className="material-symbols-outlined text-sm text-[#0051d5]">cloud_done</span>
-              <span>{usingApi ? 'Base de l’établissement' : 'Sync Locale'}</span>
+            <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${usingApi ? 'text-[#131b2e]' : 'text-amber-900'}`}>
+              <span className={`material-symbols-outlined text-sm ${usingApi ? 'text-[#0051d5]' : 'text-amber-700'}`}>{usingApi ? 'cloud_done' : 'science'}</span>
+              <span>{usingApi ? 'Base de l’établissement' : 'Mode démonstration'}</span>
             </span>
-            <span className="font-mono text-[11px] text-[#0051d5] font-semibold">{usingApi ? 'API' : '100% OK'}</span>
+            <span className={`font-mono text-[11px] font-semibold ${usingApi ? 'text-[#0051d5]' : 'text-amber-800'}`}>{usingApi ? 'API' : 'DÉMO'}</span>
           </div>
-          <p className="text-[12px] text-[#444651] leading-tight">
+          <p className={`text-[12px] leading-tight ${usingApi ? 'text-[#444651]' : 'text-amber-900/80'}`}>
             {usingApi
               ? 'Données enregistrées sur le serveur de l’établissement'
-              : 'Toutes les notes synchronisées en local (IndexedDB)'}
+              : 'Données fictives, conservées dans ce navigateur. Connectez-vous pour voir celles de votre établissement.'}
           </p>
         </div>
 

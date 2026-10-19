@@ -18,8 +18,9 @@ import { AllBulletinsPrintModal } from './components/AllBulletinsPrintModal';
 import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
-import { DEFAULT_SETTINGS, INITIAL_SUBJECTS, TOGO_SETTINGS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
+import { INITIAL_SUBJECTS, TOGO_SETTINGS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
 import { ApiError, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, refreshSession, roleLabel, setSession } from './api/client';
+import { cleLocale, parametresDepuisServeur, parametresInitiauxConnecte, purgerSessionLocale } from './api/espaceConnecte';
 import {
   appliquerDeliberation,
   creerEleve,
@@ -41,11 +42,10 @@ import { confirmAction, showError, toastSuccess } from './utils/alerts';
 import { loadSchoolWorkspace, ExamOption, WorkspaceOptions } from './api/workspace';
 import { horsProgramme } from './utils/programme';
 import { APPRECIATION_LONGUEUR_MAX, appreciationManuelleValide, normaliserAppreciationManuelle } from './utils/appreciation';
-import { applyCharte, charteChanged, loadCharte, parametresSansDemonstration } from './api/charte';
+import { applyCharte, charteChanged, loadCharte } from './api/charte';
 import {
   getRegisteredSchools,
   getCurrentSchoolId,
-  setCurrentSchoolId,
   getSchoolData,
   saveSchoolData,
   getSchoolArchivedSessions,
@@ -67,7 +67,7 @@ const usingApiInter = (mode: ModeSession): boolean => Boolean(getToken()) && est
 export default function App() {
   // Establishment Multi-Tenant State
   const [schools, setSchools] = useState<SchoolAccount[]>(() => getRegisteredSchools());
-  const [currentSchoolId, setCurrentSchoolIdState] = useState<string>(() => getCurrentSchoolId());
+  const [currentSchoolId] = useState<string>(() => getCurrentSchoolId());
 
   const currentSchool = useMemo(() => {
     return schools.find((s) => s.id === currentSchoolId) || schools[0];
@@ -81,9 +81,10 @@ export default function App() {
   });
 
   const [settings, setSettings] = useState<AppSettings>(() => {
-    const data = getSchoolData(getCurrentSchoolId());
-    // Jeton présent : aucune image de démonstration en attendant la charte de l'établissement.
-    return getToken() ? parametresSansDemonstration(data.settings) : data.settings;
+    // Jeton présent : rien n'est lu de la démonstration mémorisée dans le navigateur (ni image, ni année,
+    // ni session, ni signataire) en attendant l'espace de l'établissement.
+    if (getToken()) return parametresInitiauxConnecte(getSession());
+    return getSchoolData(getCurrentSchoolId()).settings;
   });
   // Dernière modification du logo, du cachet ou des signatures sur le serveur (affichée dans Paramètres et Profil).
   const [charteModifieeLe, setCharteModifieeLe] = useState<string | null>(null);
@@ -143,13 +144,16 @@ export default function App() {
       return false;
     }
   });
-  const [juryLocked, setJuryLocked] = useState<boolean>(() => {
+  // Verrou du procès-verbal : préférence locale cloisonnée par établissement connecté (jamais celle de la
+  // démonstration ni d'un autre établissement passé par ce navigateur).
+  const lireVerrouJury = (schoolId: string): boolean => {
     try {
-      return localStorage.getItem(`academiablanc_jury_lock_${getCurrentSchoolId()}`) === '1';
+      return localStorage.getItem(cleLocale('jury_lock', getToken() ? getSession() : null, schoolId)) === '1';
     } catch {
       return false;
     }
-  });
+  };
+  const [juryLocked, setJuryLocked] = useState<boolean>(() => lireVerrouJury(getCurrentSchoolId()));
 
   // Modals state
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
@@ -260,29 +264,12 @@ export default function App() {
     setActiveExamTypeLong(workspace.examTypeLong);
     setActiveSessionMode(workspace.sessionMode);
     setActiveCentreExamen(workspace.centreExamen);
-    if (charte) setCharteModifieeLe(charte.modifieLe ?? null);
-    setSettings((prev) => {
-      // En session API, les paramètres viennent du serveur (charte) ou des valeurs par défaut du logiciel :
-      // rien n'est repris des réglages de démonstration mémorisés dans le navigateur, et aucune image de
-      // démonstration (logo, sceau du logiciel) n'est affichée pour un vrai compte : sans logo, ses initiales.
-      const base: AppSettings = parametresSansDemonstration(charte ? DEFAULT_SETTINGS : prev);
-      const next: AppSettings = {
-        ...base,
-        institutionName: session?.nomEtablissement || prev.institutionName,
-        // Devise propre de la fiche (pied de page) : jamais la valeur de démonstration en session connectée.
-        institutionMotto: profil?.devise ?? '',
-        academicYear: workspace.academicYear || prev.academicYear,
-        sessionName: workspace.sessionName || prev.sessionName,
-        // Libellé long du référentiel de la plateforme ; vide tant qu'aucune session n'existe (jamais la valeur de démo).
-        examType: workspace.examTypeLong,
-      };
-      // République, devise et ministère viennent de l'établissement (préréglage national appliqué, puis ajusté).
-      const avecEnTete = appliquerEnTeteAuxSettings(next, profil?.enTete);
-      const avecCharte = charte ? applyCharte(avecEnTete, charte) : avecEnTete;
-      // Le signataire officiel est le responsable de la fiche de l'établissement (page Profil), jamais la valeur
-      // de démonstration ; le titulaire n'est pas un paramètre : il vient de la classe de chaque élève.
-      return { ...avecCharte, jurySignerName: profil ? profil.nomResponsable : '' };
-    });
+    setCharteModifieeLe(charte?.modifieLe ?? null);
+    // Paramètres reconstruits intégralement depuis le serveur (session, espace, charte, fiche) : l'état
+    // précédent — démonstration ou compte connecté juste avant sur ce navigateur — n'est jamais fusionné,
+    // même quand la charte ou la fiche n'ont pas pu être lues (droit absent, serveur en cours de réveil).
+    setSettings(parametresDepuisServeur({ session, workspace, charte, profil }));
+    setJuryLocked(lireVerrouJury(currentSchoolId));
     // Les libellés viennent exclusivement de l'API : vide tant qu'aucune session / aucun centre n'existe.
     setSelectedSession(workspace.sessionName);
     setSelectedCenter(workspace.centerLabel);
@@ -317,7 +304,8 @@ export default function App() {
     setSelectedCandidateId('');
     setSelectedSession('');
     setSelectedCenter('');
-    setSettings((prev) => ({ ...parametresSansDemonstration(prev), institutionName: session?.nomEtablissement || 'Plateforme AcademiaBlanc' }));
+    setSettings({ ...parametresInitiauxConnecte(session), institutionName: session?.nomEtablissement || 'Plateforme AcademiaBlanc' });
+    setCharteModifieeLe(null);
     setIsSignatureModalOpen(false);
     setIsSmsModalOpen(false);
     setIsSearchModalOpen(false);
@@ -329,6 +317,16 @@ export default function App() {
     const session = getSession();
     const role = session?.role ?? '';
     setAccountRole(role);
+    // Connexion : l'espace de démonstration affiché jusque-là (candidats, matières, réglages, sélections)
+    // est vidé avant même la réponse du serveur, pour qu'aucun reste ne puisse être fusionné ni affiché.
+    setCandidates([]);
+    setSubjects([]);
+    setSelectedCandidateId('');
+    setSelectedSession('');
+    setSelectedCenter('');
+    setToutesSessions(false);
+    setSettings(parametresInitiauxConnecte(session));
+    setCharteModifieeLe(null);
     if (isPlatformAccount(session)) {
       if (!session?.etablissementId) {
         appliquerSessionPlateforme(session);
@@ -379,7 +377,8 @@ export default function App() {
     if (!confirmed) return;
     // Un compte de la plateforme revient sur son entrée dédiée `/admin`, un établissement sur la vitrine.
     const comptePlateforme = isPlatformAccount(getSession());
-    clearToken();
+    // Jeton, session, préférences locales du compte et caches d'exécution du service worker : tout est purgé.
+    await purgerSessionLocale();
     setUsingApi(false);
     setSessionPlateformeSeule(false);
     setApiUser(null);
@@ -401,6 +400,7 @@ export default function App() {
     setSelectedSession('');
     setSelectedCenter('');
     setSettings(getSchoolData(currentSchoolId).settings);
+    setJuryLocked(lireVerrouJury(currentSchoolId));
     setCharteModifieeLe(null);
     setAdminTarget({ section: null, nonce: 0 });
     setIsSignatureModalOpen(false);
@@ -449,54 +449,10 @@ export default function App() {
     if (sessionPlateformeSeule && currentView !== 'plateforme' && currentView !== 'auth') setCurrentView('plateforme');
   }, [sessionPlateformeSeule, currentView]);
 
-  // Switch active establishment
-  const handleSelectSchool = (schoolId: string) => {
-    const target = schools.find((s) => s.id === schoolId);
-    if (!target) return;
-
-    setCurrentSchoolIdState(schoolId);
-    setCurrentSchoolId(schoolId);
-
-    if (getToken()) {
-      if (currentView === 'auth') setCurrentView('bulletin');
-      applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
-      return;
-    }
-
-    const schoolData = getSchoolData(schoolId);
-    setCandidates(schoolData.candidates);
-    setSettings(schoolData.settings);
-    setSelectedCandidateId(schoolData.candidates[0]?.id || '');
-    setSelectedCenter(`${target.name} (Centre d'Examen)`);
-    try {
-      setJuryLocked(localStorage.getItem(`academiablanc_jury_lock_${schoolId}`) === '1');
-    } catch {
-      setJuryLocked(false);
-    }
-
-    if (currentView === 'auth') {
-      setCurrentView('bulletin');
-    }
-
-    showToast(`Espace de l'établissement "${target.name}" chargé avec succès. Données 100% isolées.`);
-  };
-
-  // Handle new establishment registration
-  const handleAccountCreated = (newSchool: SchoolAccount) => {
-    setSchools(getRegisteredSchools());
-    setCurrentSchoolIdState(newSchool.id);
-    setCurrentSchoolId(newSchool.id);
-
-    setCandidates(newSchool.candidates);
-    setSettings(newSchool.settings);
-    setSelectedCandidateId(newSchool.candidates[0]?.id || '');
-    setSelectedCenter(`${newSchool.name} (Centre d'Examen)`);
-
-    if (currentView === 'auth') {
-      setCurrentView('dashboard');
-    }
-
-    showToast(`Compte créé avec succès pour ${newSchool.name} ! Bienvenue sur votre espace souverain.`);
+  // Compte d'établissement créé sur le serveur : `handleApiReady` charge son espace (vide), l'accueil est le tableau de bord.
+  const handleAccountCreated = () => {
+    setCurrentView('dashboard');
+    showToast(`Compte créé avec succès pour ${getSession()?.nomEtablissement || 'votre établissement'} ! Bienvenue sur votre espace souverain.`);
   };
 
   // Compute stats for all candidates of the active school
@@ -761,7 +717,7 @@ export default function App() {
     const next = !juryLocked;
     setJuryLocked(next);
     try {
-      localStorage.setItem(`academiablanc_jury_lock_${currentSchoolId}`, next ? '1' : '0');
+      localStorage.setItem(cleLocale('jury_lock', usingApi ? getSession() : null, currentSchoolId), next ? '1' : '0');
     } catch {
       // quota ignore
     }
@@ -876,7 +832,6 @@ export default function App() {
         mode={route === 'connexion' ? 'login' : 'register'}
         onModeChange={(mode) => navigate(mode === 'login' ? 'connexion' : 'inscription', { replace: true })}
         onBack={() => navigate('vitrine')}
-        onSelectSchool={handleSelectSchool}
         onAccountCreated={handleAccountCreated}
         onApiReady={handleApiReady}
         // Après connexion sans compte local correspondant : entrée dans l’application.
