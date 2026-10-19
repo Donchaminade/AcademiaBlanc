@@ -72,30 +72,31 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
   return (
     <div className="batch-print-overlay fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex flex-col items-center">
       {/* Floating Control Toolbar (Hidden in Print) */}
-      <div className="w-full bg-[#00236f] text-white px-6 py-4 shadow-xl sticky top-0 z-50 flex flex-wrap items-center justify-between gap-4 no-print border-b border-[#90a8ff]/30">
-        <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-3xl text-[#90a8ff]">
+      <div className="w-full bg-[#00236f] text-white px-3 py-3 md:px-6 md:py-4 shadow-xl sticky top-0 z-50 flex flex-wrap items-center justify-between gap-3 md:gap-4 no-print border-b border-[#90a8ff]/30 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="material-symbols-outlined text-3xl text-[#90a8ff] hidden sm:inline-block">
             print_connect
           </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-[17px] font-bold">
-                Impression Groupée de Tous les Bulletins Officiels (1 Clic)
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-[15px] md:text-[17px] font-bold leading-tight">
+                <span className="md:hidden">Impression groupée</span>
+                <span className="hidden md:inline">Impression Groupée de Tous les Bulletins Officiels (1 Clic)</span>
               </h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-[#316bf3] text-[11px] font-bold uppercase tracking-wider">
+              <span className="px-2.5 py-0.5 rounded-full bg-[#316bf3] text-[11px] font-bold uppercase tracking-wider whitespace-nowrap">
                 {filteredCandidates.length} Bulletins Prêts
               </span>
             </div>
-            <p className="text-[12px] text-white/80">
+            <p className="text-[12px] text-white/80 hidden sm:block">
               {sessionInter ? 'Centre d’examen' : 'Établissement'} : <strong className="text-white">{(sessionInter && centreExamen) || settings.institutionName}</strong> • Format ISO 216 / A4 avec saut de page automatique
             </p>
           </div>
         </div>
 
         {/* Filter and Print Action */}
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 md:gap-3 flex-wrap w-full md:w-auto">
           {/* Filter options */}
-          <div className="inline-flex items-center bg-[#1e3a8a] rounded-lg p-1 text-[12px] font-medium border border-white/20">
+          <div className="inline-flex items-center bg-[#1e3a8a] rounded-lg p-1 text-[12px] font-medium border border-white/20 overflow-x-auto max-w-full">
             <button
               type="button"
               onClick={() => setFilterType('all')}
@@ -130,10 +131,10 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
             type="button"
             onClick={handlePrintAll}
             disabled={filteredCandidates.length === 0}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] shadow-lg hover:shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 md:px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] shadow-lg hover:shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-xl">print</span>
-            <span>Télécharger tous les bulletins ({filteredCandidates.length})</span>
+            <span><span className="hidden sm:inline">Télécharger tous les bulletins</span><span className="sm:hidden">Télécharger</span> ({filteredCandidates.length})</span>
           </button>
 
           {/* Close button */}
@@ -142,13 +143,14 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
             onClick={onClose}
             className="px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold text-[12px] transition-colors border border-white/20"
           >
-            Fermer l'Aperçu
+            <span className="hidden sm:inline">Fermer l'Aperçu</span><span className="sm:hidden">Fermer</span>
           </button>
         </div>
       </div>
 
       {/* Printable Area containing each student's A4 bulletin */}
-      <div className="w-full max-w-[880px] py-8 px-4 space-y-8 print:p-0 print:m-0 print:space-y-0 print:max-w-none">
+      {/* Écran étroit : les feuilles (800 px) défilent horizontalement ; à l'impression, aucun défilement. */}
+      <div className="w-full max-w-[880px] py-4 md:py-8 px-4 space-y-8 overflow-x-auto print:overflow-visible print:p-0 print:m-0 print:space-y-0 print:max-w-none">
         {filteredCandidates.map((candidate, idx) => {
           const stats = allStats[candidate.id];
           const isLast = idx === filteredCandidates.length - 1;

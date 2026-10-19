@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useLayoutEffect } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
 import { composerEnteteBulletin } from '../utils/bulletinEntete';
 import { academicYearCaption, establishmentCaption, ministryMark } from '../utils/bulletinHeader';
@@ -44,6 +44,9 @@ interface BulletinViewProps {
   centreExamen?: string;
 }
 
+/** Largeur minimale de la feuille A4 virtuelle à l'écran (`min-w-[800px]`). */
+const FEUILLE_LARGEUR_PX = 800;
+
 export const BulletinView: React.FC<BulletinViewProps> = ({
   candidates,
   selectedCandidate,
@@ -62,6 +65,31 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   centreExamen = '',
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  // Écrans étroits : la feuille (800 px) est réduite pour tenir dans la largeur disponible ; sa hauteur
+  // réelle est mesurée pour que le conteneur n'occupe que la place de la feuille réduite.
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [ajustement, setAjustement] = useState<{ scale: number; height: number } | null>(null);
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    const sheet = sheetRef.current;
+    if (!canvas || !sheet || typeof ResizeObserver === 'undefined') return undefined;
+    const mesurer = () => {
+      const disponible = canvas.clientWidth - 2 * 16; // px-4
+      const largeurFeuille = FEUILLE_LARGEUR_PX;
+      if (disponible >= largeurFeuille) {
+        setAjustement(null);
+        return;
+      }
+      const scale = Math.max(0.3, disponible / largeurFeuille);
+      setAjustement({ scale, height: sheet.offsetHeight * scale });
+    };
+    const observer = new ResizeObserver(mesurer);
+    observer.observe(canvas);
+    observer.observe(sheet);
+    mesurer();
+    return () => observer.disconnect();
+  }, []);
   const ministryMarkLabel = ministryMark(settings);
   const regionalAuthority = (settings.regionalAuthority || '').trim();
   const sealCaption = establishmentCaption(settings.institutionName);
@@ -114,34 +142,36 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   return (
     <div className="flex flex-col w-full">
       {/* Command Toolbar / PDF Preview Header */}
-      <div className="w-full bg-white px-6 py-3.5 shadow-sm sticky top-16 z-30 flex flex-wrap items-center justify-between gap-4 border-b border-[#eaedff] no-print">
+      <div className="w-full bg-white px-3 py-2.5 md:px-6 md:py-3.5 shadow-sm sticky top-14 lg:top-16 z-30 flex flex-col md:flex-row md:flex-wrap md:items-center md:justify-between gap-2.5 md:gap-4 border-b border-[#eaedff] no-print">
         {/* Student Selector & Pagination */}
-        <div className="flex items-center gap-3">
-          <div className="inline-flex items-center bg-[#f2f3ff] rounded p-0.5 border border-[#eaedff]">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          <div className="inline-flex items-center bg-[#f2f3ff] rounded p-0.5 border border-[#eaedff] shrink-0">
             <button
               type="button"
               onClick={handlePrev}
               disabled={currentIndex <= 0}
-              className="p-1.5 rounded hover:bg-white text-[#444651] hover:text-[#131b2e] transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+              aria-label="Candidat précédent"
+              className="p-2 md:p-1.5 rounded hover:bg-white text-[#444651] hover:text-[#131b2e] transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
               title="Candidat précédent (Touche Gauche)"
             >
               <span className="material-symbols-outlined text-base">arrow_back</span>
             </button>
-            <span className="font-mono text-[11px] px-2 text-[#00236f] font-semibold">
+            <span className="font-mono text-[11px] px-2 text-[#00236f] font-semibold whitespace-nowrap">
               {selectedCandidate.tableNumber} / {computedStats.totalCandidates}
             </span>
             <button
               type="button"
               onClick={handleNext}
               disabled={currentIndex >= candidates.length - 1}
-              className="p-1.5 rounded hover:bg-white text-[#444651] hover:text-[#131b2e] transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+              aria-label="Candidat suivant"
+              className="p-2 md:p-1.5 rounded hover:bg-white text-[#444651] hover:text-[#131b2e] transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
               title="Candidat suivant (Touche Droite)"
             >
               <span className="material-symbols-outlined text-base">arrow_forward</span>
             </button>
           </div>
 
-          <div className="relative min-w-[290px]">
+          <div className="relative flex-1 min-w-0 md:flex-none md:min-w-[290px]">
             <select
               value={selectedCandidate.id}
               onChange={(e) => {
@@ -161,14 +191,14 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             </span>
           </div>
 
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#eaedff] text-[#0051d5] text-[11px] font-semibold">
+          <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#eaedff] text-[#0051d5] text-[11px] font-semibold">
             <span className="material-symbols-outlined text-sm">verified</span>
             <span>Relevé Certifié ISO 216</span>
           </span>
         </div>
 
-        {/* Action Buttons & Zoom */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Action Buttons & Zoom — sur mobile : rangée défilante horizontalement, boutons ≥ 40 px */}
+        <div className="toolbar-actions flex items-center gap-2 overflow-x-auto md:overflow-visible md:flex-wrap -mx-3 px-3 md:mx-0 md:px-0 pb-0.5 [scrollbar-width:none] [&>*]:shrink-0">
           {/* Zoom controls */}
           <div className="hidden lg:flex items-center bg-[#f2f3ff] rounded p-1 gap-1 text-[#444651] font-mono text-[11px] border border-[#eaedff]">
             <button
@@ -266,11 +296,23 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
       </div>
 
       {/* Sheet Canvas Wrapper (A4 Center View) */}
-      <div className="bulletin-canvas w-full bg-[#d2d9f4] py-8 px-4 flex justify-center items-start overflow-x-auto min-h-[calc(100vh-8rem)]">
-        {/* Virtual ISO 216 / A4 Canvas: 210mm x 297mm */}
+      <div
+        ref={canvasRef}
+        className="bulletin-canvas w-full bg-[#d2d9f4] py-4 md:py-8 px-4 flex justify-center items-start overflow-x-auto min-h-[calc(100dvh-8rem)]"
+      >
+        {/* Virtual ISO 216 / A4 Canvas: 210mm x 297mm.
+            Écran étroit : feuille réduite (transform) dans un conteneur à la taille de la feuille réduite ;
+            à l'impression le conteneur reprend `auto` et la feuille sa taille réelle (transform: none). */}
+        <div
+          className="bulletin-scale-wrap"
+          style={ajustement ? { width: FEUILLE_LARGEUR_PX * ajustement.scale, height: ajustement.height } : undefined}
+        >
         <div
           id="bulletinSheet"
-          style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top center' }}
+          ref={sheetRef}
+          style={ajustement
+            ? { transform: `scale(${ajustement.scale})`, transformOrigin: 'top left', width: FEUILLE_LARGEUR_PX }
+            : { transform: `scale(${zoomLevel})`, transformOrigin: 'top center' }}
           className="bulletin-sheet w-full max-w-[860px] min-w-[800px] bg-white text-[#131b2e] rounded-xs shadow-xl p-8 sm:p-10 relative transition-transform duration-200 border border-[#eaedff]"
         >
           {/* Watermark Background Emblem (only if seal uploaded; never in inter-établissements) */}
@@ -673,6 +715,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
 
           {/* Dernier élément de la page : filet doré puis « NOM DE L'ÉTABLISSEMENT • Devise » (jamais en inter-établissements) */}
           {!sessionInter && <BulletinFooter institutionName={settings.institutionName} institutionMotto={settings.institutionMotto} />}
+        </div>
         </div>
       </div>
     </div>
