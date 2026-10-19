@@ -7,6 +7,7 @@ import { UtilisateursSection } from './UtilisateursSection';
 import { FamilleBadge, SerieForm, SeriesPanel } from './SeriesPanel';
 import { Serie, grouperSeries } from '../api/series';
 import { AdminSection } from '../types';
+import { NOTE_MAX, formatCoefficient, formatPointsMax, formatValeur, lireCoefficientSaisi, pointsMax } from '../utils/coefficients';
 
 interface Annee { id: number; libelle: string; courante: boolean; dateDebut?: string; dateFin?: string; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
@@ -138,6 +139,21 @@ const niveauCanonique = (niveau: string): string => {
 
 const cycleDeNiveau = (niveau: string): Cycle =>
   NIVEAUX.COLLEGE.some((n) => n.code === niveauCanonique(niveau)) ? 'COLLEGE' : 'LYCEE';
+
+const ORDRE_NIVEAUX = [...NIVEAUX.COLLEGE, ...NIVEAUX.LYCEE].map((n) => n.code);
+
+/** Position d’un niveau de la 6e à la Tle ; les niveaux inconnus passent en fin de liste. */
+const rangNiveau = (niveau: string): number => {
+  const index = ORDRE_NIVEAUX.indexOf(niveauCanonique(niveau));
+  return index === -1 ? ORDRE_NIVEAUX.length : index;
+};
+
+/** « Tle D » : nom de la classe complété par sa série de lycée quand le nom ne la contient pas déjà. */
+const libelleClasse = (classe: Classe): string => {
+  if (!classe.serie) return classe.nom;
+  const dejaPresente = classe.nom.split(/[\s-]+/).some((mot) => mot.toUpperCase() === classe.serie!.toUpperCase());
+  return dejaPresente ? classe.nom : `${classe.nom} ${classe.serie}`;
+};
 
 /** Nom de classe proposé : « 3e », « Tle D », « 1ère G2 ». */
 const nomClasseSuggere = (niveau: string, serie: string): string =>
@@ -296,6 +312,77 @@ const Badge: React.FC<{ tone?: 'blue' | 'green' | 'grey' | 'red'; children: Reac
   return <span className={`inline-flex items-center text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${tones[tone]}`}>{children}</span>;
 };
 
+/** Nombre de pastilles de coefficients affichées avant le repli « +N ». */
+const MAX_PASTILLES_COEF = 4;
+
+interface PastilleCoef { cle: number; libelle: string; valeur: number; globale: boolean; ordre: number }
+
+/**
+ * Coefficients d’une matière sous forme lisible : « Toutes classes ×2 », « 3e ×2 », « Tle D ×4 »,
+ * triés du collège au lycée, le coefficient commun en tête.
+ */
+const pastillesCoefficients = (coefs: Coefficient[], classes: Classe[]): PastilleCoef[] =>
+  coefs
+    .map((c): PastilleCoef => {
+      if (c.classeId == null) return { cle: c.id, libelle: 'Toutes classes', valeur: Number(c.valeur), globale: true, ordre: -1 };
+      const classe = classes.find((k) => k.id === c.classeId);
+      return {
+        cle: c.id,
+        libelle: classe ? libelleClasse(classe) : `Classe n° ${c.classeId}`,
+        valeur: Number(c.valeur),
+        globale: false,
+        ordre: classe ? rangNiveau(classe.niveau) : ORDRE_NIVEAUX.length + 1,
+      };
+    })
+    .sort((a, b) => a.ordre - b.ordre || a.libelle.localeCompare(b.libelle, 'fr'));
+
+const CoefficientsMatiere: React.FC<{ coefs: Coefficient[]; classes: Classe[]; onDefinir?: () => void }> = ({ coefs, classes, onDefinir }) => {
+  const pastilles = pastillesCoefficients(coefs, classes);
+  if (pastilles.length === 0) {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <span className="text-[12px] text-[#757682]">Aucun coefficient</span>
+        {onDefinir && (
+          <button
+            type="button"
+            onClick={onDefinir}
+            className="inline-flex items-center gap-0.5 text-[12px] font-semibold text-[#0051d5] hover:underline"
+          >
+            <span className="material-symbols-outlined text-sm">add_circle</span>
+            Définir
+          </button>
+        )}
+      </span>
+    );
+  }
+  const visibles = pastilles.slice(0, MAX_PASTILLES_COEF);
+  const repliees = pastilles.slice(MAX_PASTILLES_COEF);
+  const detail = (p: PastilleCoef) => `${p.libelle} : coefficient ${formatValeur(p.valeur)} — ${formatPointsMax(p.valeur)} au maximum`;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {visibles.map((p) => (
+        <span
+          key={p.cle}
+          title={detail(p)}
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${p.globale ? 'bg-[#f2f3ff] text-[#444651] border border-[#dce1ff]' : 'bg-[#eaedff] text-[#00236f]'}`}
+        >
+          <span>{p.libelle}</span>
+          <span className="font-mono font-bold text-[#00236f]">{formatCoefficient(p.valeur)}</span>
+        </span>
+      ))}
+      {repliees.length > 0 && (
+        <span
+          title={repliees.map((p) => `${p.libelle} ${formatCoefficient(p.valeur)}`).join(' · ')}
+          aria-label={`${repliees.length} autre${repliees.length > 1 ? 's' : ''} : ${repliees.map((p) => `${p.libelle} ${formatCoefficient(p.valeur)}`).join(', ')}`}
+          className="inline-flex items-center rounded-full bg-white border border-[#dce1ff] px-2 py-0.5 text-[11px] font-bold text-[#0051d5] cursor-help"
+        >
+          +{repliees.length}
+        </span>
+      )}
+    </span>
+  );
+};
+
 /* ------------------------------------------------------------------ */
 /* Écran d’administration                                              */
 /* ------------------------------------------------------------------ */
@@ -369,6 +456,14 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
     affectation: () => { setAffectationEdit(null); setAffectation(EMPTY.affectation); },
     eleve: (keep: Partial<typeof EMPTY.eleve> = {}) => { setEleveEdit(null); setEleve({ ...EMPTY.eleve, ...keep }); },
     note: (keep: Partial<typeof EMPTY.note> = {}) => { setNoteEdit(null); setNote({ ...EMPTY.note, ...keep }); },
+  };
+
+  /** Depuis la ligne d’une matière sans coefficient : préremplit le formulaire Coefficients et y défile. */
+  const preparerCoefficientPour = (cible: Matiere) => {
+    reset.coefficient({ matiereId: String(cible.id) });
+    window.setTimeout(() => {
+      document.getElementById(adminSectionAnchor('coefficients'))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
   };
 
   const nom = (liste: { id: number; nom?: string; libelle?: string; nomComplet?: string }[], id?: number) =>
@@ -817,10 +912,13 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 { header: 'Groupe', render: (r) => r.groupeCode
                   ? <Badge tone={r.groupeCode === 'SC' ? 'green' : 'grey'}>{r.groupeLibelle || r.groupeCode}</Badge>
                   : <span className="text-[#757682]">—</span> },
-                { header: 'Coefficients', render: (r) => {
-                  const n = coefficients.filter((c) => c.matiereId === r.id).length;
-                  return n ? `${n} défini${n > 1 ? 's' : ''}` : <span className="text-[#757682]">—</span>;
-                } },
+                { header: 'Coefficients', render: (r) => (
+                  <CoefficientsMatiere
+                    coefs={coefficients.filter((c) => c.matiereId === r.id)}
+                    classes={classes}
+                    onDefinir={droits('coefficients').creer ? () => preparerCoefficientPour(r) : undefined}
+                  />
+                ) },
               ]}
               onEdit={(r) => void open<Matiere>(`/api/matieres/${r.id}`, (detail) => { setMatiereEdit(detail); setMatiere({ nom: detail.nom, code: detail.code, groupeCode: detail.groupeCode || '' }); })}
               onDelete={(r) => void remove(`/api/matieres/${r.id}`, r.nom, reset.matiere)}
@@ -864,22 +962,29 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               emptyText="Aucun coefficient pour l’instant"
               columns={[
                 { header: 'Matière', render: (r) => <span className="font-semibold">{nom(matieres, r.matiereId)}</span> },
-                { header: 'Classe', render: (r) => r.classeId ? nom(classes, r.classeId) : <Badge>Toutes les classes</Badge> },
+                { header: 'Classe', render: (r) => {
+                  if (!r.classeId) return <Badge>Toutes les classes</Badge>;
+                  const classe = classes.find((k) => k.id === r.classeId);
+                  return classe ? libelleClasse(classe) : nom(classes, r.classeId);
+                } },
                 { header: 'Série', render: (r) => r.serie || <span className="text-[#757682]">—</span> },
-                { header: 'Coefficient', render: (r) => <span className="font-mono font-bold text-[#00236f]">{r.valeur}</span>, className: 'w-28' },
+                { header: 'Coefficient', render: (r) => <span className="font-mono font-bold text-[#00236f]">{formatCoefficient(Number(r.valeur))}</span>, className: 'w-28' },
+                { header: 'Points max', render: (r) => (
+                  <span className="font-mono text-[#444651]" title={`${NOTE_MAX} × ${formatValeur(Number(r.valeur))}`}>{formatPointsMax(Number(r.valeur))}</span>
+                ), className: 'w-28' },
               ]}
               onEdit={(r) => void open<Coefficient>(`/api/coefficients/${r.id}`, (detail) => {
                 setCoefficientEdit(detail);
                 setCoefficient({ matiereId: String(detail.matiereId), classeId: detail.classeId ? String(detail.classeId) : '', serie: detail.serie || '', valeur: String(detail.valeur) });
               })}
-              onDelete={(r) => void remove(`/api/coefficients/${r.id}`, `coefficient ${r.valeur} — ${nom(matieres, r.matiereId)}`, reset.coefficient)}
+              onDelete={(r) => void remove(`/api/coefficients/${r.id}`, `coefficient ${formatCoefficient(Number(r.valeur))} — ${nom(matieres, r.matiereId)}`, reset.coefficient)}
             />
-            {coefficientEdit && <EditBanner id={coefficientEdit.id} summary={<>valeur {coefficientEdit.valeur} · série {coefficientEdit.serie || '—'}</>} />}
+            {coefficientEdit && <EditBanner id={coefficientEdit.id} summary={<>{nom(matieres, coefficientEdit.matiereId)} · {coefficientEdit.classeId ? nom(classes, coefficientEdit.classeId) : 'toutes les classes'} · coefficient {formatCoefficient(Number(coefficientEdit.valeur))} ({formatPointsMax(Number(coefficientEdit.valeur))})</>} />}
             {(droits('coefficients').creer || (coefficientEdit && droits('coefficients').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
-              const valeur = Number(coefficient.valeur);
-              if (!Number.isFinite(valeur) || valeur < 0.5 || valeur > 20) { toastError('Le coefficient doit être compris entre 0,5 et 20.'); return; }
+              const valeur = lireCoefficientSaisi(coefficient.valeur);
+              if (valeur == null) { toastError('Le coefficient doit être compris entre 0,5 et 20.'); return; }
               const body = { matiereId: Number(coefficient.matiereId), classeId: coefficient.classeId ? Number(coefficient.classeId) : null, serie: coefficient.serie, valeur };
               void run(() => coefficientEdit
                 ? apiSend(`/api/coefficients/${coefficientEdit.id}`, 'PUT', body).then(() => undefined)
@@ -903,6 +1008,15 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 <input required inputMode="decimal" placeholder="2" value={coefficient.valeur} onChange={(e) => setCoefficient({ ...coefficient, valeur: e.target.value })} className={field} />
               </Field>
               <FormActions editing={!!coefficientEdit} createLabel="Ajouter le coefficient" updateLabel="Mettre à jour le coefficient" onCancel={reset.coefficient} />
+              <p aria-live="polite" className="col-span-full flex items-start gap-1.5 text-[12px] text-[#444651]">
+                <span className="material-symbols-outlined text-base text-[#0051d5]">info</span>
+                {(() => {
+                  const valeur = lireCoefficientSaisi(coefficient.valeur);
+                  return valeur == null
+                    ? <span>Indiquez un coefficient entre 0,5 et 20 : une note sur {NOTE_MAX} compte pour {NOTE_MAX} × coefficient points dans le total.</span>
+                    : <span>Une note sur {NOTE_MAX} avec le coefficient <strong className="text-[#00236f]">{formatValeur(valeur)}</strong> compte pour <strong className="text-[#00236f]">{formatValeur(pointsMax(valeur))} points</strong> dans le total.</span>;
+                })()}
+              </p>
             </form>
             )}
           </SectionCard>
