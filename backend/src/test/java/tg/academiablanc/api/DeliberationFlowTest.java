@@ -60,10 +60,11 @@ class DeliberationFlowTest {
         .andExpect(jsonPath("$.bonusJury").doesNotExist())
         .andExpect(jsonPath("$.signature").isEmpty());
 
-    // La délibération ne modifie pas la moyenne : 9,75 reste 9,75 (rattrapage), aucun point ajouté.
+    // La délibération ne modifie pas la moyenne : 9,75 reste 9,75 (ajourné, sous 10), aucun point ajouté.
     JsonNode bulletin = parEleve(json.readTree(lire(token, "/api/bulletins?sessionId=" + sessionId)), eleve);
     assertNombre(bulletin.get("moyenne"), 9.75);
-    assertEquals("RATTRAPAGE", bulletin.get("mention").asText());
+    assertEquals("AJOURNÉ", bulletin.get("mention").asText());
+    assertEquals("AJOURNÉ", bulletin.get("decision").asText());
 
     // Un ancien client qui enverrait encore un bonus est ignoré : le champ inconnu ne change rien.
     envoyer(token, put("/api/deliberations"),

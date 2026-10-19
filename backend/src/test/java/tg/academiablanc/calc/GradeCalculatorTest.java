@@ -86,8 +86,41 @@ class GradeCalculatorTest {
     assertEquals("BIEN", GradeCalculator.mention(new BigDecimal("14")));
     assertEquals("ASSEZ BIEN", GradeCalculator.mention(new BigDecimal("12")));
     assertEquals("PASSABLE", GradeCalculator.mention(new BigDecimal("10")));
-    assertEquals("RATTRAPAGE", GradeCalculator.mention(new BigDecimal("8")));
+    assertEquals("AJOURNÉ", GradeCalculator.mention(new BigDecimal("9.99")));
+    assertEquals("AJOURNÉ", GradeCalculator.mention(new BigDecimal("8")));
     assertEquals("AJOURNÉ", GradeCalculator.mention(new BigDecimal("7.99")));
     assertNull(GradeCalculator.appreciation(null));
+    assertNull(GradeCalculator.mention(null));
+  }
+
+  @Test
+  void decisionAdmisADixDeMoyenneSinonAjourne() {
+    assertEquals("ADMIS", GradeCalculator.decision(new BigDecimal("10.00")));
+    assertEquals("ADMIS", GradeCalculator.decision(new BigDecimal("16")));
+    assertEquals("AJOURNÉ", GradeCalculator.decision(new BigDecimal("9.99")));
+    assertEquals("AJOURNÉ", GradeCalculator.decision(new BigDecimal("8")));
+    assertEquals("AJOURNÉ", GradeCalculator.decision(new BigDecimal("0")));
+  }
+
+  @Test
+  void decisionPorteSurLaMoyenneAffichee() {
+    // 9,995 s'imprime 10,00 : admis, mention passable. 9,994 s'imprime 9,99 : ajourné.
+    assertEquals("ADMIS", GradeCalculator.decision(new BigDecimal("9.995")));
+    assertEquals("PASSABLE", GradeCalculator.mention(new BigDecimal("9.995")));
+    assertEquals("AJOURNÉ", GradeCalculator.decision(new BigDecimal("9.994")));
+    // Même résultat à partir des notes : (9,99 + 10) / 2 = 9,995 → moyenne calculée 10,00.
+    List<Ligne> lignes = List.of(
+        new Ligne(1L, 1L, new BigDecimal("9.99"), BigDecimal.ONE, false),
+        new Ligne(1L, 2L, new BigDecimal("10"), BigDecimal.ONE, false)
+    );
+    BigDecimal moyenne = GradeCalculator.moyenne(lignes);
+    assertEquals(new BigDecimal("10.00"), moyenne);
+    assertEquals("ADMIS", GradeCalculator.decision(moyenne));
+  }
+
+  @Test
+  void sansAucuneNoteIlNyAPasDeDecision() {
+    assertNull(GradeCalculator.decision(null));
+    assertNull(GradeCalculator.decision(GradeCalculator.moyenne(List.of(new Ligne(1L, 1L, null, BigDecimal.ONE, true)))));
   }
 }

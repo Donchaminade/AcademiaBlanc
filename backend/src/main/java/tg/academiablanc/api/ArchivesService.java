@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import tg.academiablanc.api.BulletinService.BulletinVue;
+import tg.academiablanc.calc.GradeCalculator;
 import tg.academiablanc.domain.AnneeScolaire;
 import tg.academiablanc.domain.SessionExamen;
 import tg.academiablanc.domain.SessionStatut;
@@ -24,9 +25,12 @@ import tg.academiablanc.security.Tenant;
 /**
  * Registre des sessions archivées d'un établissement.
  *
- * <p>Les statistiques (effectif, admis, second tour, ajournés, moyenne, major, mentions) sont
+ * <p>Les statistiques (effectif, classés, admis, ajournés, moyenne, major, mentions) sont
  * recalculées à la demande à partir des notes, via {@link BulletinService#calculer(Long)} : elles
- * sont donc toujours identiques à celles des bulletins. Une session entre dans les archives quand
+ * sont donc toujours identiques à celles des bulletins. La décision est celle du bulletin
+ * ({@link tg.academiablanc.calc.GradeCalculator#decision} : admis à 10 de moyenne, sinon ajourné) ;
+ * un élève sans aucune note n'est ni admis ni ajourné, et les taux portent sur les élèves classés.
+ * Une session entre dans les archives quand
  * son statut passe à {@link SessionStatut#ARCHIVEE} (ou clôturée) ; la retirer la rouvre, sans
  * toucher aux notes.
  */
@@ -56,10 +60,10 @@ public class ArchivesService {
       String statut,
       Instant archiveeLe,
       int effectif,
+      /** Élèves ayant au moins une note : dénominateur des taux. */
+      int classes,
       int admis,
       BigDecimal tauxReussite,
-      int secondTour,
-      BigDecimal tauxSecondTour,
       int ajournes,
       BigDecimal tauxAjournes,
       BigDecimal moyennePromo,
@@ -119,7 +123,6 @@ public class ArchivesService {
     List<BulletinVue> vues = bulletins.calculer(session.getId());
     int effectif = vues.size();
     int admis = 0;
-    int secondTour = 0;
     int ajournes = 0;
     int tresBien = 0;
     int bien = 0;
@@ -133,13 +136,11 @@ public class ArchivesService {
     for (BulletinVue vue : vues) {
       BigDecimal moyenne = vue.moyenne();
       String mention = vue.mention();
-      // Même règle que le bulletin : un élève sans aucune note (moyenne nulle) est ajourné.
-      if (mention == null || "AJOURNÉ".equals(mention)) {
-        ajournes++;
-      } else if ("RATTRAPAGE".equals(mention)) {
-        secondTour++;
-      } else {
+      // Même règle que le bulletin : admis à 10 de moyenne affichée, sinon ajourné ; sans note, aucune décision.
+      if (GradeCalculator.DECISION_ADMIS.equals(vue.decision())) {
         admis++;
+      } else if (GradeCalculator.DECISION_AJOURNE.equals(vue.decision())) {
+        ajournes++;
       }
       if ("TRÈS BIEN".equals(mention)) tresBien++;
       else if ("BIEN".equals(mention)) bien++;
@@ -168,12 +169,11 @@ public class ArchivesService {
         session.getStatut(),
         session.getArchiveeLe(),
         effectif,
+        evalues,
         admis,
-        taux(admis, effectif),
-        secondTour,
-        taux(secondTour, effectif),
+        taux(admis, evalues),
         ajournes,
-        taux(ajournes, effectif),
+        taux(ajournes, evalues),
         moyennePromo,
         max,
         min,

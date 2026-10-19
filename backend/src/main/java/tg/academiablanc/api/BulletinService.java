@@ -104,9 +104,11 @@ public class BulletinService {
    * (« NOM DE L'ÉTABLISSEMENT • Devise ») ; la devise est celle propre à l'établissement
    * ({@code etablissement.devise}), pas la devise nationale de l'en-tête, et vaut null si aucune n'est saisie.
    * {@code entete} : données du bandeau de titre du bulletin, toutes lues en base (voir {@link EnteteBulletin}).
+   * {@code decision} : {@code ADMIS} si la moyenne affichée est ≥ 10/20, {@code AJOURNÉ} sinon, null sans aucune note
+   * (voir {@link GradeCalculator#decision}).
    */
   public record BulletinVue(Long eleveId, String nomComplet, String matricule, String titulaireNom, BigDecimal moyenne,
-                            Integer rang, String mention, String appreciation, BigDecimal totalPoints,
+                            Integer rang, String mention, String decision, String appreciation, BigDecimal totalPoints,
                             BigDecimal totalCoef, BigDecimal totalCoefProgramme, BigDecimal pointsMax,
                             BigDecimal moyenneClasse, BigDecimal moyenneClasseMax, BigDecimal moyenneClasseMin,
                             List<LigneBulletin> lignes,
@@ -265,6 +267,7 @@ public class BulletinService {
           moyenne,
           rangsGeneraux.get(eleve.getId()),
           GradeCalculator.mention(moyenne),
+          GradeCalculator.decision(moyenne),
           GradeCalculator.appreciation(moyenne),
           GradeCalculator.sommePoints(lignes),
           GradeCalculator.sommeCoef(lignes),
