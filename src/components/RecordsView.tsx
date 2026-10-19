@@ -3,6 +3,15 @@ import { AppSettings, Candidate, CandidateComputedStats } from '../types';
 import { decisionBucket } from '../utils/bulletinMetrics';
 import { ligneTitreBulletin } from '../utils/bulletinEntete';
 import { printDocument } from '../utils/printDocument';
+import {
+  TITRE_CHEF_CENTRE,
+  TITRE_PRESIDENT_JURY,
+  etablissementOrigineAffiche,
+  libelleNiveauSerie,
+  ligneCentreExamen,
+  totauxParEtablissement,
+  trierPalmares,
+} from '../utils/sessionMode';
 
 type FiltreDecision = 'all' | 'admis' | 'rattrapage' | 'ajourne';
 
@@ -41,6 +50,13 @@ interface RecordsViewProps {
   settings?: AppSettings;
   juryLocked: boolean;
   onToggleJuryLock: () => void;
+  /**
+   * Session inter-établissements : palmarès par niveau / série (rang calculé dans le groupe sur toute la
+   * session), en-tête « Centre d'examen », établissement d'origine toujours renseigné, totaux par établissement.
+   */
+  sessionInter?: boolean;
+  /** Nom du centre d'examen (établissement hôte) en session inter-établissements. */
+  centreExamen?: string;
 }
 
 export const RecordsView: React.FC<RecordsViewProps> = ({
@@ -54,6 +70,8 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   settings,
   juryLocked,
   onToggleJuryLock,
+  sessionInter = false,
+  centreExamen = '',
 }) => {
   const [filterDecision, setFilterDecision] = useState<FiltreDecision>('all');
 
@@ -64,16 +82,20 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   });
   const anneeScolaire = (settings?.academicYear ?? '').trim();
   const nomEtablissement = (settings?.institutionName ?? '').trim() || selectedCenter;
-  const signataireTitre = settings?.jurySignerTitle?.trim() || "Le Chef d'établissement";
+  const nomCentre = (centreExamen || '').trim() || nomEtablissement;
+  // En inter-établissements, le PV est signé par le chef du centre (responsable de l'établissement hôte).
+  const signataireTitre = sessionInter ? TITRE_CHEF_CENTRE : (settings?.jurySignerTitle?.trim() || "Le Chef d'établissement");
   const signataireNom = (settings?.jurySignerName ?? '').trim();
   const dateEdition = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const origine = (cand: Candidate): string => (sessionInter ? etablissementOrigineAffiche(cand, nomCentre) : cand.originSchool);
 
-  // Sort candidates by rank
-  const sorted = [...candidates].sort((a, b) => {
-    const sA = allStats[a.id]?.average ?? 0;
-    const sB = allStats[b.id]?.average ?? 0;
-    return sB - sA;
-  });
+  // Palmarès : par moyenne décroissante ; en inter-établissements, par niveau / série puis moyenne
+  // (le rang de chaque candidat est celui de son groupe sur toute la session).
+  const sorted = trierPalmares(candidates, allStats, sessionInter);
+  const totauxEtablissements = sessionInter ? totauxParEtablissement(candidates, allStats, nomCentre) : [];
+  /** Libellé du groupe affiché en tête de chaque bloc du palmarès inter (« 3e », « Tle D »). */
+  const groupeDe = (cand: Candidate): string => (sessionInter ? libelleNiveauSerie(cand) : '');
+  const effectifGroupe = (groupe: string): number => candidates.filter((c) => libelleNiveauSerie(c) === groupe).length;
 
   const filtered = sorted.filter((c) => {
     const stats = allStats[c.id];
@@ -90,7 +112,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   };
 
   const exportCSV = () => {
-    const lines = ['Rang,Table,Matricule,Nom et Prenoms,Genre,Etablissement,Total Points,Total Maximum,Moyenne,Mention,Decision'];
+    const lines = [`Rang,Table,Matricule,Nom et Prenoms,Genre,${sessionInter ? 'Classe / serie,' : ''}Etablissement,Total Points,Total Maximum,Moyenne,Mention,Decision`];
     sorted.forEach((c) => {
       const s = allStats[c.id];
       lines.push([
@@ -99,7 +121,8 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
         csvCell(c.matricule),
         csvCell(c.fullName),
         csvCell(c.gender),
-        csvCell(c.originSchool),
+        ...(sessionInter ? [csvCell(libelleNiveauSerie(c))] : []),
+        csvCell(origine(c)),
         csvCell(s?.totalPoints ?? 0),
         csvCell(s?.pointsMax ?? 0),
         csvCell(s?.average ?? 0),
@@ -131,8 +154,13 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
             Palmarès Général &amp; Registre des Épreuves
           </h2>
           <p className="text-[13px] text-[#444651] mt-0.5">
-            {examType ? `${examType} • ` : ''}{selectedSession} • {selectedCenter}
+            {examType ? `${examType} • ` : ''}{selectedSession} • {sessionInter ? `Centre d'examen : ${nomCentre}` : selectedCenter}
           </p>
+          {sessionInter && (
+            <p className="text-[11.5px] text-[#8a4b00] mt-1" data-testid="pv-inter-info">
+              Session inter-établissements : rang calculé par niveau / série sur l'ensemble des candidats du centre, toutes classes confondues.
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -246,9 +274,18 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
               {filtered.map((cand, idx) => {
                 const s = allStats[cand.id];
                 const isEven = idx % 2 === 0;
+                const groupe = groupeDe(cand);
+                const nouveauGroupe = sessionInter && (idx === 0 || groupeDe(filtered[idx - 1]) !== groupe);
                 return (
+                  <React.Fragment key={cand.id}>
+                  {nouveauGroupe && (
+                    <tr className="bg-[#eaedff]">
+                      <td colSpan={10} className="py-1.5 px-3 text-[11px] font-bold uppercase tracking-wider text-[#00236f]">
+                        {groupe || 'Sans niveau'} — {effectifGroupe(groupe)} candidat{effectifGroupe(groupe) > 1 ? 's' : ''}
+                      </td>
+                    </tr>
+                  )}
                   <tr
-                    key={cand.id}
                     className={`${isEven ? 'bg-white' : 'bg-[#faf8ff]'} hover:bg-[#eaedff]/60 transition-colors`}
                   >
                     <td className="py-2.5 px-3 font-mono font-bold text-center">
@@ -275,7 +312,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
                       <div className="font-semibold text-[#131b2e]">{cand.fullName}</div>
                       <div className="font-mono text-[11px] text-[#444651]">{cand.matricule}</div>
                     </td>
-                    <td className="py-2.5 px-3 text-[#444651]">{cand.originSchool}</td>
+                    <td className="py-2.5 px-3 text-[#444651]">{origine(cand)}</td>
                     <td className="py-2.5 px-2 text-center font-medium">
                       {cand.gender === 'M' ? 'M' : 'F'}
                     </td>
@@ -329,12 +366,43 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
                       </button>
                     </td>
                   </tr>
+                  </React.Fragment>
                 );
               })}
             </tbody>
           </table>
         </div>
       </div>
+
+      {sessionInter && totauxEtablissements.length > 0 && (
+        <div className="bg-white rounded border border-[#eaedff] shadow-sm overflow-hidden" data-testid="pv-totaux-etablissements">
+          <div className="px-4 py-2.5 border-b border-[#eaedff] text-[12px] font-bold uppercase tracking-wider text-[#00236f]">
+            Résultats par établissement d'origine
+          </div>
+          <table className="w-full text-left border-collapse text-[12px]">
+            <thead>
+              <tr className="bg-[#f2f3ff] text-[#444651]">
+                <th className="py-2 px-4 font-semibold">Établissement</th>
+                <th className="py-2 px-3 font-semibold text-right">Effectif</th>
+                <th className="py-2 px-3 font-semibold text-right">Évalués</th>
+                <th className="py-2 px-3 font-semibold text-right">Admis</th>
+                <th className="py-2 px-4 font-semibold text-right">Taux d'admission</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#eaedff]">
+              {totauxEtablissements.map((t) => (
+                <tr key={t.etablissement}>
+                  <td className="py-2 px-4 font-semibold text-[#131b2e]">{t.etablissement}</td>
+                  <td className="py-2 px-3 font-mono text-right">{t.effectif}</td>
+                  <td className="py-2 px-3 font-mono text-right">{t.evalues}</td>
+                  <td className="py-2 px-3 font-mono text-right text-[#0051d5] font-bold">{t.admis}</td>
+                  <td className="py-2 px-4 font-mono text-right">{t.taux == null ? '—' : `${t.taux.toFixed(1)} %`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Closing Protocol Certification Box */}
       <div className="bg-[#f2f3ff] p-5 rounded border border-[#eaedff] shadow-xs flex flex-wrap items-center justify-between gap-4">
@@ -363,7 +431,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
     <div className="registre-sheet">
       <div className="registre-head">
         <div>
-          <div className="registre-school">{nomEtablissement}</div>
+          <div className="registre-school">{sessionInter ? ligneCentreExamen(nomCentre) : nomEtablissement}</div>
           <h1 className="registre-title">Procès-verbal de délibération — Palmarès</h1>
           <div className="registre-subtitle">
             {[titreSession, anneeScolaire].filter(Boolean).join(' • ')}
@@ -401,10 +469,18 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
           </tr>
         </thead>
         <tbody>
-          {filtered.map((cand) => {
+          {filtered.map((cand, idx) => {
             const s = allStats[cand.id];
+            const groupe = groupeDe(cand);
+            const nouveauGroupe = sessionInter && (idx === 0 || groupeDe(filtered[idx - 1]) !== groupe);
             return (
-              <tr key={cand.id}>
+              <React.Fragment key={cand.id}>
+              {nouveauGroupe && (
+                <tr className="registre-groupe">
+                  <td colSpan={9}>{groupe || 'Sans niveau'} — {effectifGroupe(groupe)} candidat{effectifGroupe(groupe) > 1 ? 's' : ''} (rang dans le groupe)</td>
+                </tr>
+              )}
+              <tr>
                 <td className="c">
                   {s ? (
                     <span className={s.rank <= 3 ? 'registre-badge registre-podium' : ''}>{libelleRang(s.rank)}</span>
@@ -415,19 +491,62 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
                   <div className="registre-name">{cand.fullName}</div>
                   <div className="registre-matricule">{cand.matricule}</div>
                 </td>
-                <td>{cand.originSchool}</td>
+                <td>{origine(cand)}</td>
                 <td className="c">{cand.gender === 'M' ? 'M' : 'F'}</td>
                 <td className="r mono">{s?.totalPoints.toFixed(2) ?? '0.00'} / {s?.pointsMax.toFixed(0) ?? '—'}</td>
                 <td className="r mono registre-moyenne">{s?.average.toFixed(2) ?? '0.00'}</td>
                 <td className="c"><span className="registre-badge">{s?.mention || 'EN COURS'}</span></td>
                 <td>{decisionCourte(s?.decision)}</td>
               </tr>
+              </React.Fragment>
             );
           })}
         </tbody>
       </table>
 
+      {sessionInter && totauxEtablissements.length > 0 && (
+        <div className="registre-totaux">
+          <div className="registre-subtitle">Résultats par établissement d'origine</div>
+          <table className="registre-table">
+            <colgroup>
+              <col style={{ width: '52%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '12%' }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Établissement</th>
+                <th className="r">Effectif</th>
+                <th className="r">Évalués</th>
+                <th className="r">Admis</th>
+                <th className="r">Taux</th>
+              </tr>
+            </thead>
+            <tbody>
+              {totauxEtablissements.map((t) => (
+                <tr key={t.etablissement}>
+                  <td className="registre-name">{t.etablissement}</td>
+                  <td className="r mono">{t.effectif}</td>
+                  <td className="r mono">{t.evalues}</td>
+                  <td className="r mono">{t.admis}</td>
+                  <td className="r mono">{t.taux == null ? '—' : `${t.taux.toFixed(1)} %`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div className="registre-signatures">
+        {sessionInter && (
+          <div className="registre-signature">
+            <div className="registre-signature-title">{TITRE_PRESIDENT_JURY}</div>
+            <div className="registre-signature-space" />
+            <div className="registre-signature-name">Nom et prénoms : ……………………</div>
+          </div>
+        )}
         <div className="registre-signature">
           <div className="registre-signature-title">{signataireTitre}</div>
           <div className="registre-signature-space" />
