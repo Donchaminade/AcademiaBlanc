@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import tg.academiablanc.domain.Etablissement;
+import tg.academiablanc.domain.Forfait;
 import tg.academiablanc.domain.Role;
 import tg.academiablanc.domain.Utilisateur;
 import tg.academiablanc.repo.EtablissementRepository;
@@ -62,7 +63,9 @@ public class AuthController {
       @NotBlank @Size(max = 180) String nomResponsable,
       @Size(max = 40) String telephone,
       @Size(max = 120) String region,
-      @Size(max = 160) String typeEtablissement
+      @Size(max = 160) String typeEtablissement,
+      /** Forfait choisi à l'étape « Forfait » de l'inscription (MENSUEL / ANNUEL) ; ANNUEL par défaut. */
+      Forfait forfait
   ) {}
 
   public record LoginRequest(
@@ -98,7 +101,8 @@ public class AuthController {
   public AuthResponse signup(@Valid @RequestBody SignupRequest request) {
     EtablissementService.Creation created = creation.creer(
         request.nom(), request.ville(), request.email(), request.motDePasse(), request.nomResponsable(),
-        request.telephone(), request.region(), request.typeEtablissement(), null);
+        request.telephone(), request.region(), request.typeEtablissement(), null,
+        request.forfait() == null ? Forfait.ANNUEL : request.forfait());
     return reponse(created.owner(), created.etablissement());
   }
 

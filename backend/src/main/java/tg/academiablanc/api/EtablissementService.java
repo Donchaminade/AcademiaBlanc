@@ -8,8 +8,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import tg.academiablanc.abonnement.AbonnementService;
 import tg.academiablanc.domain.AnneeScolaire;
 import tg.academiablanc.domain.Etablissement;
+import tg.academiablanc.domain.Forfait;
 import tg.academiablanc.domain.Role;
 import tg.academiablanc.domain.Utilisateur;
 import tg.academiablanc.repo.AnneeScolaireRepository;
@@ -25,27 +27,41 @@ public class EtablissementService {
   private final AnneeScolaireRepository annees;
   private final PasswordEncoder passwordEncoder;
   private final PrereglageNationalRepository prereglages;
+  private final AbonnementService abonnements;
 
   public EtablissementService(
       EtablissementRepository etablissements,
       UtilisateurRepository utilisateurs,
       AnneeScolaireRepository annees,
       PasswordEncoder passwordEncoder,
-      PrereglageNationalRepository prereglages
+      PrereglageNationalRepository prereglages,
+      AbonnementService abonnements
   ) {
     this.etablissements = etablissements;
     this.utilisateurs = utilisateurs;
     this.annees = annees;
     this.passwordEncoder = passwordEncoder;
     this.prereglages = prereglages;
+    this.abonnements = abonnements;
   }
 
   public record Creation(Etablissement etablissement, Utilisateur owner) {}
 
-  /** L’email est partagé par l’établissement et son OWNER ; il doit être libre des deux côtés. */
+  /** Création par la plateforme (ou sans forfait) : l'établissement démarre en essai. */
   @Transactional
   public Creation creer(String nom, String ville, String email, String motDePasse, String nomResponsable,
                         String telephone, String region, String typeEtablissement, Long creePar) {
+    return creer(nom, ville, email, motDePasse, nomResponsable, telephone, region, typeEtablissement, creePar, null);
+  }
+
+  /**
+   * L’email est partagé par l’établissement et son OWNER ; il doit être libre des deux côtés.
+   * {@code forfaitChoisi} : forfait retenu à l'inscription publique (statut initial selon la configuration) ;
+   * null quand la plateforme crée l'établissement (essai immédiat).
+   */
+  @Transactional
+  public Creation creer(String nom, String ville, String email, String motDePasse, String nomResponsable,
+                        String telephone, String region, String typeEtablissement, Long creePar, Forfait forfaitChoisi) {
     String normalise = normaliser(email);
     if (utilisateurs.findByEmailIgnoreCase(normalise).isPresent() || etablissements.findByEmailIgnoreCase(normalise).isPresent()) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "Cet email est déjà utilisé.");
@@ -93,6 +109,8 @@ public class EtablissementService {
     annee.setDateFin(LocalDate.of(2025, 7, 31));
     annee.setCourante(true);
     annees.save(annee);
+
+    abonnements.initialiser(school, forfaitChoisi, creePar != null, normalise);
 
     return new Creation(school, owner);
   }
