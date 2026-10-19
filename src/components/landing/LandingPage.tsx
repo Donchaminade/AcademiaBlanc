@@ -4,6 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ROUTE_PATHS } from '../../utils/router';
 import { usePrereglageDefaut } from '../../api/prereglages';
 import { bandeauNational } from '../../utils/prereglages';
+import { LiensLegaux } from '../legal/LiensLegaux';
 
 // Three.js n’est chargé que lorsque la vitrine s’affiche : l’application connectée n’en dépend pas.
 const HeroScene = lazy(() => import('./HeroScene'));
@@ -927,8 +928,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
             </div>
           </nav>
         </div>
-        <div className="border-t border-[#eaedff] bg-[#faf8ff] px-4 py-4 text-center text-[11px] text-[#444651] sm:px-6">
-          AcademiaBlanc • {bandeau} • © {new Date().getFullYear()}
+        <div className="border-t border-[#eaedff] bg-[#faf8ff] px-4 py-4 text-center text-[11px] text-[#444651] sm:px-6 space-y-1.5">
+          {/* Documents légaux : CGU, confidentialité, conditions d’utilisation + © année */}
+          <LiensLegaux />
+          <p>AcademiaBlanc • {bandeau}</p>
         </div>
       </footer>
     </div>

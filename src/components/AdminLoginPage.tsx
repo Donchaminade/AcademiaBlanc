@@ -3,6 +3,7 @@ import { ApiError, isPlatformAccount, isUnavailable, loginPlateforme, setSession
 import type { AuthSession } from '../api/client';
 import { isPlausibleEmail } from '../utils/safeUrl';
 import { ROUTE_PATHS } from '../utils/router';
+import { LiensLegaux } from './legal/LiensLegaux';
 
 interface AdminLoginPageProps {
   /** Retour au site vitrine (`/`). */
@@ -212,8 +213,9 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
         </section>
       </main>
 
-      <footer className="px-4 py-3 text-center text-[11px] text-[#9aa0ad]">
-        AcademiaBlanc • Accès d’administration de la plateforme
+      <footer className="px-4 py-3 text-center text-[11px] text-[#9aa0ad] space-y-1">
+        <p>AcademiaBlanc • Accès d’administration de la plateforme</p>
+        <LiensLegaux nouvelOnglet />
       </footer>
     </div>
   );
