@@ -1,5 +1,6 @@
 import { apiGet, isForbidden } from './client';
 import { Candidate, Subject } from '../types';
+import { estCollege } from '../utils/niveaux';
 import { coefficientEffectif } from '../utils/coefficients';
 
 /** Une liste refusée (droit VOIR absent) est traitée comme vide : l’écran reste utilisable avec les droits détenus. */
@@ -17,7 +18,7 @@ interface Centre { id: number; nom: string; code: string; ville?: string; }
 interface SessionApi { id: number; nom: string; typeExamen: string; serie?: string; anneeScolaireId: number; centreId: number; }
 interface Matiere { id: number; nom: string; code: string; }
 interface Professeur { id: number; nom: string; }
-interface Classe { id: number; nom: string; serie?: string; titulaireId?: number; }
+interface Classe { id: number; nom: string; niveau?: string; serie?: string; titulaireId?: number; }
 interface Affectation { professeurId: number; matiereId: number; classeId: number; }
 interface Coefficient { matiereId: number; classeId?: number | null; valeur: number; }
 interface EleveApi {
@@ -80,12 +81,18 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
   // comme le fait l’API (BulletinService.coefDe) : il prime sur le coefficient commun.
   const subjects: Subject[] = matieres.map((matiere) => {
     const coef = coefficientEffectif(coefficients, matiere.id, null);
+    // Programme des classes : une ligne (matière, classe) = la matière est au programme de la classe.
+    const coefParClasse: Record<string, number> = {};
+    coefficients
+      .filter((item) => item.matiereId === matiere.id && item.classeId != null)
+      .forEach((item) => { coefParClasse[String(item.classeId)] = Number(item.valeur); });
     return {
       id: String(matiere.id),
       name: matiere.nom,
       teacher: teacherName(matiere.id),
       coef: coef.valeur,
       coefDefault: coef.source === 'defaut',
+      coefParClasse,
     };
   });
   const coefsPourClasse = (classeId: number): Record<string, number> =>
@@ -111,7 +118,9 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
       originSchool: eleve.etablissementOrigine || '',
       gender: eleve.genre === 'M' ? 'M' : 'F',
       // La classe porte le code du référentiel (« D », « G2 ») ; le bulletin attend « Série D ».
-      serie: classe?.serie ? `Série ${classe.serie}` : session?.serie || '',
+      // Au collège (6e–3e) il n'y a pas de série, même si la session en porte une.
+      serie: classe?.serie ? `Série ${classe.serie}` : (classe && estCollege(classe.niveau) ? '' : session?.serie || ''),
+      classeId: String(eleve.classeId),
       examCenter: centre?.code || '',
       examCenterName: centre ? `${centre.nom}${centre.ville ? ` (${centre.ville})` : ''}` : '',
       parentPhone: '',

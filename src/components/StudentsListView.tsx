@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Candidate, Subject, AppSettings } from '../types';
 import { printDocument } from '../utils/printDocument';
+import { subjectsFor } from '../utils/programme';
 import { confirmDelete } from '../utils/alerts';
 import { getToken } from '../api/client';
 
@@ -67,7 +68,7 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
 
   // Check if candidate has completed grades
   const isCandidateGradesComplete = (cand: Candidate) => {
-    return subjects.every((s) => cand.grades[s.id] && cand.grades[s.id].score > 0);
+    return subjectsFor(cand, subjects).every((s) => cand.grades[s.id] && cand.grades[s.id].score > 0);
   };
 
   const filteredCandidates = candidates.filter((c) => {

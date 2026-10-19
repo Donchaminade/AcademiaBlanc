@@ -12,11 +12,12 @@ import tg.academiablanc.domain.Classe;
 import tg.academiablanc.domain.Matiere;
 
 /**
- * Référentiel des matières principales (collège / lycée) et de leurs coefficients par défaut.
+ * Référentiel des matières de base (collège / lycée) et de leurs coefficients suggérés.
  *
  * <p>C'est le seul endroit à modifier pour changer la liste des matières, leur groupe (UE)
- * ou les coefficients proposés. Les valeurs chargées restent ensuite modifiables par chaque
- * établissement dans « Matières &amp; Coefficients » : ce sont des valeurs de départ, pas une règle.
+ * ou les coefficients proposés. Seules les matières sont chargées dans le catalogue de
+ * l'établissement ; les coefficients ne servent qu'à pré-remplir l'écran « Programme des
+ * classes » (voir {@link ProgrammeClasseService#suggerer}) et restent modifiables avant validation.
  */
 public final class ReferentielMatieres {
   private ReferentielMatieres() {}
