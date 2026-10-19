@@ -12,10 +12,11 @@ export interface ArchiveApi {
   statut: string;
   archiveeLe: string | null;
   effectif: number;
+  /** Élèves ayant au moins une note : dénominateur des taux. */
+  classes: number;
+  /** Admis : moyenne affichée ≥ 10/20 ; les autres élèves classés sont ajournés. */
   admis: number;
   tauxReussite: number;
-  secondTour: number;
-  tauxSecondTour: number;
   ajournes: number;
   tauxAjournes: number;
   moyennePromo: number | null;
@@ -52,8 +53,6 @@ export function toArchivedSession(archive: ArchiveApi): ArchivedSession {
     candidatesCount: archive.effectif,
     admittedCount: archive.admis,
     admittedRate: Number(archive.tauxReussite) || 0,
-    catchupCount: archive.secondTour,
-    catchupRate: Number(archive.tauxSecondTour) || 0,
     failedCount: archive.ajournes,
     failedRate: Number(archive.tauxAjournes) || 0,
     promoAverage: archive.moyennePromo == null ? 0 : Number(archive.moyennePromo),

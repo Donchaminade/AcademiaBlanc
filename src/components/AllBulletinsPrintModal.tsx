@@ -46,7 +46,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
   sessionInter = false,
   centreExamen = '',
 }) => {
-  const [filterType, setFilterType] = useState<'all' | 'admis' | 'rattrapage'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'admis' | 'ajourne'>('all');
   const sealCaption = establishmentCaption(settings.institutionName);
   const yearCaption = academicYearCaption(settings.academicYear);
   // Inter-établissements : aucun sceau ni filigrane de l'établissement hôte sur les relevés.
@@ -57,10 +57,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
   const filteredCandidates = candidates.filter((c) => {
     const stats = allStats[c.id];
     if (filterType === 'admis') return decisionBucket(stats?.decision) === 'admis';
-    if (filterType === 'rattrapage') {
-      const bucket = decisionBucket(stats?.decision);
-      return bucket === 'rattrapage' || bucket === 'ajourne';
-    }
+    if (filterType === 'ajourne') return decisionBucket(stats?.decision) === 'ajourne';
     return true;
   });
 
@@ -119,12 +116,12 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setFilterType('rattrapage')}
+              onClick={() => setFilterType('ajourne')}
               className={`px-3 py-1.5 rounded-md transition-all ${
-                filterType === 'rattrapage' ? 'bg-white text-[#00236f] font-bold shadow-xs' : 'text-white/80 hover:text-white'
+                filterType === 'ajourne' ? 'bg-white text-[#00236f] font-bold shadow-xs' : 'text-white/80 hover:text-white'
               }`}
             >
-              Rattrapage / Ajournés
+              Ajournés
             </button>
           </div>
 
@@ -401,17 +398,27 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                         <span className="text-[10px] text-[#444651] uppercase font-semibold block">
                           Décision Officielle du Conseil de Délibération
                         </span>
-                        <span className="text-[15px] font-bold text-[#0051d5] flex items-center gap-1 mt-0.5">
-                          <span className="material-symbols-outlined text-base">check_circle</span>
-                          {stats.decision}
+                        <span
+                          className={`text-[15px] font-bold flex items-center gap-1 mt-0.5 ${
+                            stats.decision === 'ADMIS' ? 'text-emerald-700' : stats.decision === 'AJOURNÉ' ? 'text-[#ba1a1a]' : 'text-[#444651]'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-base">
+                            {stats.decision === 'ADMIS' ? 'check_circle' : stats.decision === 'AJOURNÉ' ? 'cancel' : 'pending'}
+                          </span>
+                          {stats.decision ?? 'Non classé — aucune note saisie'}
                         </span>
                       </div>
                       <div className="text-right">
                         <span className="text-[10px] text-[#444651] uppercase font-semibold block">
                           Mention
                         </span>
-                        <span className="inline-block px-2 py-0.5 rounded bg-[#0051d5] text-white text-[13px] font-bold">
-                          {stats.mention}
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-white text-[13px] font-bold ${
+                            stats.mention === 'AJOURNÉ' ? 'bg-[#ba1a1a]' : stats.mention ? 'bg-[#0051d5]' : 'bg-[#444651]'
+                          }`}
+                        >
+                          {stats.mention ?? '—'}
                         </span>
                       </div>
                     </div>

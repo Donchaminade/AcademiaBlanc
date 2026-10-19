@@ -26,7 +26,7 @@ export const SmsModal: React.FC<SmsModalProps> = ({
 
   const defaultMessage = useMemo(() => {
     const rank = formatSubjectRank(stats.rank);
-    const base = `Relevé de ${candidate.fullName} (table ${candidate.tableNumber}, matricule ${candidate.matricule}) : moyenne ${stats.average.toFixed(2)}/20, rang ${rank}. Décision : ${stats.decision}. Mention : ${stats.mention}.`;
+    const base = `Relevé de ${candidate.fullName} (table ${candidate.tableNumber}, matricule ${candidate.matricule}) : moyenne ${stats.average.toFixed(2)}/20, rang ${rank}. Décision : ${stats.decision ?? 'non classé (aucune note)'}. Mention : ${stats.mention ?? '—'}.`;
     return includeDetails ? `${base} Document établi localement par l'établissement.` : base;
   }, [candidate, stats, includeDetails]);
 
@@ -126,7 +126,7 @@ export const SmsModal: React.FC<SmsModalProps> = ({
                     const next = e.target.checked;
                     setIncludeDetails(next);
                     const rank = formatSubjectRank(stats.rank);
-                    const base = `Relevé de ${candidate.fullName} (table ${candidate.tableNumber}, matricule ${candidate.matricule}) : moyenne ${stats.average.toFixed(2)}/20, rang ${rank}. Décision : ${stats.decision}. Mention : ${stats.mention}.`;
+                    const base = `Relevé de ${candidate.fullName} (table ${candidate.tableNumber}, matricule ${candidate.matricule}) : moyenne ${stats.average.toFixed(2)}/20, rang ${rank}. Décision : ${stats.decision ?? 'non classé (aucune note)'}. Mention : ${stats.mention ?? '—'}.`;
                     setMessage(next ? `${base} Document établi localement par l'établissement.` : base);
                   }}
                 />

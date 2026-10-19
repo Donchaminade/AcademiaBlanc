@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Candidate, Subject, CandidateComputedStats, AdminSection } from '../types';
+import { Candidate, Subject, CandidateComputedStats, AdminSection, MentionType } from '../types';
 import { ADMIN_STEPS } from './AdminParametres';
 import { DEMO_EXAM_LABEL } from '../utils/bulletinHeader';
 
@@ -36,12 +36,11 @@ function standardDeviation(values: number[], mean: number): number {
   return Math.sqrt(variance);
 }
 
-const MENTION_LABELS: Record<CandidateComputedStats['mention'], string> = {
+const MENTION_LABELS: Record<MentionType, string> = {
   'TRÈS BIEN': 'Très Bien',
   'BIEN': 'Bien',
   'ASSEZ BIEN': 'Assez Bien',
   'PASSABLE': 'Passable',
-  'RATTRAPAGE': 'Second Tour',
   'AJOURNÉ': 'Ajourné',
 };
 
@@ -68,9 +67,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       .filter((item): item is { candidate: Candidate; stats: CandidateComputedStats } => Boolean(item.stats));
     const averages = evaluatedStats.map((item) => item.stats.average);
 
-    const admitted = evaluatedStats.filter((item) => item.stats.average >= 10).length;
-    const secondTour = evaluatedStats.filter((item) => item.stats.average >= 8 && item.stats.average < 10).length;
-    const ajournes = evaluatedStats.length - admitted - secondTour;
+    // Règle unique du bulletin : admis à 10 de moyenne affichée, sinon ajourné ; taux de réussite = admis / classés.
+    const admitted = evaluatedStats.filter((item) => item.stats.decision === 'ADMIS').length;
+    const ajournes = evaluatedStats.filter((item) => item.stats.decision === 'AJOURNÉ').length;
     const successRate = evaluatedStats.length > 0 ? round2((admitted / evaluatedStats.length) * 100) : null;
 
     const mean = averages.length > 0 ? round2(averages.reduce((acc, value) => acc + value, 0) / averages.length) : null;
@@ -82,16 +81,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       return best;
     }, null);
 
-    const mentionsCount: Record<CandidateComputedStats['mention'], number> = {
+    const mentionsCount: Record<MentionType, number> = {
       'TRÈS BIEN': 0,
       'BIEN': 0,
       'ASSEZ BIEN': 0,
       'PASSABLE': 0,
-      'RATTRAPAGE': 0,
       'AJOURNÉ': 0,
     };
     evaluatedStats.forEach((item) => {
-      mentionsCount[item.stats.mention] += 1;
+      if (item.stats.mention) mentionsCount[item.stats.mention] += 1;
     });
 
     // Total maximal par élève : 20 × Σ coef du programme de SA classe (pas d’un jeu global de matières).
@@ -106,7 +104,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       girls,
       evaluatedCount: evaluatedStats.length,
       admitted,
-      secondTour,
       ajournes,
       successRate,
       mean,
@@ -272,11 +269,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="font-mono text-[11px] text-[#444651] mt-1">
               {summary.evaluatedCount === 0
                 ? 'Aucune note saisie'
-                : `${summary.admitted} admis d'office ou par délibération`}
+                : `${summary.admitted} admis (moyenne ≥ 10/20) sur ${summary.evaluatedCount} classés`}
             </div>
           </div>
           <div className="text-[12px] text-[#444651] pt-2 border-t border-[#eaedff] flex items-center justify-between font-mono">
-            <span>2nd Tour: {summary.secondTour}</span>
+            <span className="text-emerald-700">Admis: {summary.admitted}</span>
             <span className="text-[#ba1a1a]">Ajournés: {summary.ajournes}</span>
           </div>
         </div>
@@ -292,7 +289,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {fmt(summary.mean)}
             </div>
             <div className="font-mono text-[11px] text-[#444651] mt-1">
-              sur 20.00 (Seuil d'éligibilité: 10.00)
+              sur 20.00 (Seuil d'admission : 10.00)
             </div>
           </div>
           <div className="text-[12px] text-[#0051d5] font-medium pt-2 border-t border-[#eaedff] flex items-center justify-between font-mono">
@@ -318,7 +315,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="text-[11px] text-[#0051d5] font-semibold pt-2 border-t border-[#eaedff]">
             {summary.major
-              ? `Mention ${MENTION_LABELS[summary.major.stats.mention]}${summary.major.candidate.tableNumber ? ` • Table N° ${summary.major.candidate.tableNumber}` : ''}`
+              ? `Mention ${summary.major.stats.mention ? MENTION_LABELS[summary.major.stats.mention] : '—'}${summary.major.candidate.tableNumber ? ` • Table N° ${summary.major.candidate.tableNumber}` : ''}`
               : 'En attente de notes'}
           </div>
         </div>
@@ -342,8 +339,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 { label: 'Bien (14 – 15.99)', count: summary.mentionsCount['BIEN'], bg: 'bg-[#0051d5]', text: 'text-[#0051d5]' },
                 { label: 'Assez Bien (12 – 13.99)', count: summary.mentionsCount['ASSEZ BIEN'], bg: 'bg-[#316bf3]', text: 'text-[#316bf3]' },
                 { label: 'Passable (10 – 11.99)', count: summary.mentionsCount['PASSABLE'], bg: 'bg-[#90a8ff]', text: 'text-[#00236f]' },
-                { label: 'Second Tour (8 – 9.99)', count: summary.mentionsCount['RATTRAPAGE'], bg: 'bg-[#fc922b]', text: 'text-[#fc922b]' },
-                { label: 'Ajourné (< 8/20)', count: summary.mentionsCount['AJOURNÉ'], bg: 'bg-[#ba1a1a]', text: 'text-[#ba1a1a]' },
+                { label: 'Ajourné (< 10/20)', count: summary.mentionsCount['AJOURNÉ'], bg: 'bg-[#ba1a1a]', text: 'text-[#ba1a1a]' },
               ].map((m, idx) => {
                 const pct = summary.evaluatedCount > 0 ? Math.round((m.count / summary.evaluatedCount) * 100) : 0;
                 return (

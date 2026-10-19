@@ -1,5 +1,5 @@
-import { Subject, Candidate, CandidateComputedStats, MentionType, DecisionType, AppSettings } from '../types';
-import { camaradesDeClasse, extremesDesMoyennes, moyenneReelle } from '../utils/bulletinMetrics';
+import { Subject, Candidate, CandidateComputedStats, AppSettings } from '../types';
+import { camaradesDeClasse, decisionDe, extremesDesMoyennes, mentionDe, moyenneReelle } from '../utils/bulletinMetrics';
 import { groupeDeClassement } from '../utils/sessionMode';
 import { PREREGLAGES_DEMONSTRATION } from './prereglagesDemo';
 
@@ -129,7 +129,7 @@ export const INITIAL_CANDIDATES: Candidate[] = [
     examCenterName: 'Lycée Moderne de Tokoin (Lomé)',
     parentPhone: '+228 96 11 22 33',
     parentEmail: 'kablan.parents@moov.tg',
-    generalObservation: '« Doit impérativement préparer les oraux de rattrapage en Mathématiques et Sciences Physiques. Capacité de rebond évidente si le travail est intensifié. »',
+    generalObservation: '« Doit impérativement renforcer les Mathématiques et les Sciences Physiques. Capacité de rebond évidente si le travail est intensifié. »',
     grades: {
       math: { score: 8.0, appreciation: 'Trop de lacunes en analyse, reprise nécessaire.' },
       pc: { score: 8.5, appreciation: 'Connaissances expérimentales insuffisantes.' },
@@ -300,28 +300,11 @@ export function computeCandidateStats(
     rank = firstWithThisAvg !== -1 ? firstWithThisAvg + 1 : foundIndex + 1;
   }
 
-  let mention: MentionType = 'PASSABLE';
-  let decision: DecisionType = "ADMIS D'OFFICE À L'EXAMEN BLANC";
-
-  if (average >= 16) {
-    mention = 'TRÈS BIEN';
-    decision = "ADMIS D'OFFICE À L'EXAMEN BLANC";
-  } else if (average >= 14) {
-    mention = 'BIEN';
-    decision = "ADMIS D'OFFICE À L'EXAMEN BLANC";
-  } else if (average >= 12) {
-    mention = 'ASSEZ BIEN';
-    decision = "ADMIS D'OFFICE À L'EXAMEN BLANC";
-  } else if (average >= 10) {
-    mention = 'PASSABLE';
-    decision = "ADMIS D'OFFICE À L'EXAMEN BLANC";
-  } else if (average >= 8) {
-    mention = 'RATTRAPAGE';
-    decision = "ADMISSIBLE AU SECOND TOUR (RATTRAPAGE)";
-  } else {
-    mention = 'AJOURNÉ';
-    decision = "AJOURNÉ À L'EXAMEN BLANC";
-  }
+  // Décision unique (même règle que l'API) : moyenne affichée ≥ 10 → ADMIS, sinon AJOURNÉ ;
+  // aucune décision ni mention tant qu'aucune note n'est saisie.
+  const moyenne = { average, evaluated };
+  const mention = mentionDe(moyenne);
+  const decision = decisionDe(moyenne);
 
   const promoAvg = allAverages.length > 0 
     ? Math.round((allAverages.reduce((acc, curr) => acc + curr.avg, 0) / allAverages.length) * 100) / 100 

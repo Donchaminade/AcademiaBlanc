@@ -50,7 +50,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
     : null;
   const peutSaisirAppreciation = Boolean(onUpdateAppreciation) && peutAnnoter && !juryLocked;
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'admis' | 'rattrapage' | 'ajourne'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'admis' | 'ajourne'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRankings, setShowRankings] = useState(false);
   const [showExplanation, setShowExplanation] = useState(true);
@@ -91,14 +91,12 @@ export const GradingView: React.FC<GradingViewProps> = ({
     const stats = allStats[c.id];
     if (!matchesSearch) return false;
 
+    // Même règle que le bulletin : admis à 10 de moyenne affichée, sinon ajourné ; sans note, ni l'un ni l'autre.
     if (filterStatus === 'admis') {
       return decisionBucket(stats?.decision) === 'admis';
     }
-    if (filterStatus === 'rattrapage') {
-      return stats && stats.average >= 8 && stats.average < 10;
-    }
     if (filterStatus === 'ajourne') {
-      return stats && stats.average < 8;
+      return decisionBucket(stats?.decision) === 'ajourne';
     }
     return true;
   });
@@ -388,7 +386,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
                         {cand.fullName}
                       </div>
                       <div className="text-[11px] text-[#444651] mt-0.5">
-                        Table {cand.tableNumber} • {stats?.decision.split(' ')[0] || 'En cours'}
+                        Table {cand.tableNumber} • {stats?.decision ?? 'En cours'}
                       </div>
                     </div>
                   </div>
@@ -445,18 +443,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
                 : 'text-[#444651] hover:text-[#131b2e]'
             }`}
           >
-            Admis d'office
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterStatus('rattrapage')}
-            className={`px-3 py-1.5 rounded text-[12px] font-semibold transition-colors ${
-              filterStatus === 'rattrapage'
-                ? 'bg-white text-[#fc922b] shadow-xs'
-                : 'text-[#444651] hover:text-[#131b2e]'
-            }`}
-          >
-            Second Tour (8-9.99)
+            Admis (≥ 10)
           </button>
           <button
             type="button"
@@ -467,7 +454,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
                 : 'text-[#444651] hover:text-[#131b2e]'
             }`}
           >
-            Ajournés (&lt; 8)
+            Ajournés (&lt; 10)
           </button>
         </div>
       </div>
@@ -650,9 +637,9 @@ export const GradingView: React.FC<GradingViewProps> = ({
                             ? 'bg-[#eaedff] text-[#00236f]'
                             : stats?.mention === 'PASSABLE'
                             ? 'bg-[#eaedff] text-[#0051d5]'
-                            : stats?.mention === 'RATTRAPAGE'
-                            ? 'bg-[#ffdcc3] text-[#442100]'
-                            : 'bg-[#ffdad6] text-[#ba1a1a]'
+                            : stats?.mention === 'AJOURNÉ'
+                            ? 'bg-[#ffdad6] text-[#ba1a1a]'
+                            : 'bg-[#f2f3ff] text-[#444651]'
                         }`}
                       >
                         {stats?.mention || 'EN COURS'}

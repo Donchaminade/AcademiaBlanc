@@ -4,10 +4,14 @@ import { computeCandidateStats, INITIAL_CANDIDATES, INITIAL_SUBJECTS } from '../
 import { Candidate, Subject } from '../types';
 import {
   camaradesDeClasse,
+  decisionBucket,
+  decisionDe,
   extremesDeMatiere,
   extremesDesMoyennes,
   formatMinMax,
+  mentionDe,
   moyenneReelle,
+  round2,
 } from './bulletinMetrics';
 
 const candidat = (id: string, classeId: string, grades: Record<string, number>, coefs?: Record<string, number>): Candidate => ({
@@ -140,15 +144,46 @@ describe('computeCandidateStats', () => {
     assert.equal(stats.classAverage, 10.14);
     assert.equal(stats.classEvaluatedCount, 2);
     assert.equal(stats.mention, 'PASSABLE');
-    assert.equal(stats.decision, "ADMIS D'OFFICE À L'EXAMEN BLANC");
+    assert.equal(stats.decision, 'ADMIS');
   });
 
-  it('un élève à 9,75 reste en rattrapage : aucun repêchage ne majore la moyenne', () => {
+  it('un élève à 9,75 est ajourné : aucun repêchage ne majore la moyenne', () => {
     const limite = candidat('5', '30', { math: 9.75, fr: 9.75, pc: 9.75, svt: 9.75, hg: 9.75, ang: 9.75, eps: 9.75 });
     const stats = computeCandidateStats(limite, subjects, [limite]);
     assert.equal(stats.average, 9.75);
-    assert.equal(stats.mention, 'RATTRAPAGE');
-    assert.equal(stats.decision, 'ADMISSIBLE AU SECOND TOUR (RATTRAPAGE)');
+    assert.equal(stats.mention, 'AJOURNÉ');
+    assert.equal(stats.decision, 'AJOURNÉ');
+  });
+
+  it('admis à 10,00 de moyenne, ajourné à 9,99', () => {
+    const dix = candidat('10', '30', { math: 10, fr: 10 });
+    assert.equal(computeCandidateStats(dix, subjects, [dix]).average, 10);
+    assert.equal(computeCandidateStats(dix, subjects, [dix]).decision, 'ADMIS');
+    assert.equal(computeCandidateStats(dix, subjects, [dix]).mention, 'PASSABLE');
+
+    const presque = candidat('11', '30', { math: 9.99, fr: 9.99 });
+    assert.equal(computeCandidateStats(presque, subjects, [presque]).average, 9.99);
+    assert.equal(computeCandidateStats(presque, subjects, [presque]).decision, 'AJOURNÉ');
+  });
+
+  it('compare la moyenne affichée : 9,995 s’imprime 10,00 et est admis (même arrondi que l’API)', () => {
+    // ang (coef 1) et eps (coef 1) en 3e : (9,99 + 10) / 2 = 9,995 → 10,00.
+    const limite = candidat('12', '30', { ang: 9.99, eps: 10 });
+    const stats = computeCandidateStats(limite, subjects, [limite]);
+    assert.equal(stats.average, 10);
+    assert.equal(stats.decision, 'ADMIS');
+    assert.equal(stats.mention, 'PASSABLE');
+    // 9,994 reste 9,99 : ajourné.
+    assert.equal(decisionDe({ average: 9.994, evaluated: true }), 'AJOURNÉ');
+    assert.equal(decisionDe({ average: 9.995, evaluated: true }), 'ADMIS');
+  });
+
+  it('un élève sans aucune note n’a ni décision ni mention : jamais ajourné par défaut', () => {
+    const stats = computeCandidateStats(troisiemeC, subjects, tous);
+    assert.equal(stats.evaluated, false);
+    assert.equal(stats.decision, null);
+    assert.equal(stats.mention, null);
+    assert.equal(decisionBucket(stats.decision), 'other');
   });
 
   it('classe la terminale sur son propre programme et ses propres extrêmes', () => {
@@ -160,5 +195,41 @@ describe('computeCandidateStats', () => {
     assert.equal(stats.classHighestAverage, 13.33);
     assert.equal(stats.classLowestAverage, 13.33);
     assert.equal(stats.classEvaluatedCount, 1);
+  });
+});
+
+describe('décision unique : admis à 10 de moyenne, sinon ajourné', () => {
+  it('arrondit au centième comme BigDecimal HALF_UP, malgré le bruit des flottants', () => {
+    assert.equal(round2(9.995), 10);
+    assert.equal(round2(9.994), 9.99);
+    assert.equal(round2(1.005), 1.01);
+    assert.equal(round2(11.642857), 11.64);
+    assert.equal(round2(0), 0);
+  });
+
+  it('décide sur la moyenne affichée', () => {
+    assert.equal(decisionDe({ average: 10, evaluated: true }), 'ADMIS');
+    assert.equal(decisionDe({ average: 16.4, evaluated: true }), 'ADMIS');
+    assert.equal(decisionDe({ average: 9.99, evaluated: true }), 'AJOURNÉ');
+    assert.equal(decisionDe({ average: 8, evaluated: true }), 'AJOURNÉ');
+    assert.equal(decisionDe({ average: 0, evaluated: true }), 'AJOURNÉ');
+    assert.equal(decisionDe({ average: 0, evaluated: false }), null);
+  });
+
+  it('garde les mentions Passable / Assez bien / Bien / Très bien, AJOURNÉ sous 10', () => {
+    assert.equal(mentionDe({ average: 16, evaluated: true }), 'TRÈS BIEN');
+    assert.equal(mentionDe({ average: 14, evaluated: true }), 'BIEN');
+    assert.equal(mentionDe({ average: 12, evaluated: true }), 'ASSEZ BIEN');
+    assert.equal(mentionDe({ average: 10, evaluated: true }), 'PASSABLE');
+    assert.equal(mentionDe({ average: 9.99, evaluated: true }), 'AJOURNÉ');
+    assert.equal(mentionDe({ average: 8, evaluated: true }), 'AJOURNÉ');
+    assert.equal(mentionDe({ average: 0, evaluated: false }), null);
+  });
+
+  it('classe les décisions en deux catégories seulement', () => {
+    assert.equal(decisionBucket('ADMIS'), 'admis');
+    assert.equal(decisionBucket('AJOURNÉ'), 'ajourne');
+    assert.equal(decisionBucket(null), 'other');
+    assert.equal(decisionBucket(undefined), 'other');
   });
 });
