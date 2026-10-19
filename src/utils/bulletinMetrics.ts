@@ -1,8 +1,13 @@
-import { Candidate, Subject } from '../types';
+import { Candidate, DecisionType, MentionType, Subject } from '../types';
 import { coefDuCandidat, NOTE_MAX } from './coefficients';
 import { subjectsFor } from './programme';
 
-const round2 = (n: number): number => Math.round(n * 100) / 100;
+/**
+ * Arrondi au centième, « commercial » (HALF_UP), identique à `BigDecimal.setScale(2, HALF_UP)` côté API.
+ * Le produit `n × 100` est d'abord ramené à 12 chiffres significatifs pour effacer le bruit binaire
+ * des flottants : 9,995 × 100 vaut 999,4999999… en machine et doit donner 1000, donc 10,00.
+ */
+export const round2 = (n: number): number => Math.round(Number((n * 100).toPrecision(12))) / 100;
 
 /**
  * Moyenne réelle d'un candidat, même règle que `GradeCalculator` côté API :
@@ -139,13 +144,38 @@ export function computeSubjectRank(
   return first + 1;
 }
 
-export type DecisionBucket = 'admis' | 'rattrapage' | 'ajourne' | 'other';
+/** Seuil d'admission : moyenne générale affichée ≥ 10/20 (même constante que `GradeCalculator.SEUIL_ADMISSION`). */
+export const SEUIL_ADMISSION = 10;
 
-/** Distingue admis, second tour et ajournés (ADMISSIBLE ne compte pas comme admis). */
-export function decisionBucket(decision: string | undefined): DecisionBucket {
-  const value = decision || '';
-  if (value.includes('AJOURNÉ')) return 'ajourne';
-  if (value.includes('RATTRAPAGE') || value.includes('SECOND TOUR')) return 'rattrapage';
-  if (value.includes("ADMIS D'OFFICE") || value.includes('ADMIS APRÈS')) return 'admis';
+/**
+ * Décision unique de l'examen blanc, même règle que `GradeCalculator.decision` côté API : la moyenne
+ * affichée (arrondie au centième) ≥ 10 → ADMIS, sinon AJOURNÉ. Sans aucune note (`evaluated` faux) :
+ * null, jamais ajourné par défaut.
+ */
+export function decisionDe(moyenne: Pick<MoyenneReelle, 'average' | 'evaluated'>): DecisionType | null {
+  if (!moyenne.evaluated) return null;
+  return round2(moyenne.average) >= SEUIL_ADMISSION ? 'ADMIS' : 'AJOURNÉ';
+}
+
+/**
+ * Mention de la moyenne affichée, même barème que `GradeCalculator.mention` : Très bien 16, Bien 14,
+ * Assez bien 12, Passable 10, sinon AJOURNÉ. Sans aucune note : null.
+ */
+export function mentionDe(moyenne: Pick<MoyenneReelle, 'average' | 'evaluated'>): MentionType | null {
+  if (!moyenne.evaluated) return null;
+  const affichee = round2(moyenne.average);
+  if (affichee >= 16) return 'TRÈS BIEN';
+  if (affichee >= 14) return 'BIEN';
+  if (affichee >= 12) return 'ASSEZ BIEN';
+  if (affichee >= SEUIL_ADMISSION) return 'PASSABLE';
+  return 'AJOURNÉ';
+}
+
+export type DecisionBucket = 'admis' | 'ajourne' | 'other';
+
+/** Classe une décision : admis, ajourné, ou « other » quand l'élève n'a pas encore de décision (aucune note). */
+export function decisionBucket(decision: string | null | undefined): DecisionBucket {
+  if (decision === 'ADMIS') return 'admis';
+  if (decision === 'AJOURNÉ') return 'ajourne';
   return 'other';
 }

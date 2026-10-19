@@ -88,8 +88,7 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
     examType: 'BACCALAURÉAT DEUXIÈME PARTIE',
     candidatesCount: 30,
     admittedCount: 20,
-    catchupCount: 7,
-    failedCount: 3,
+    failedCount: 10,
     promoAverage: 10.95,
     highestAverage: 15.80,
     lowestAverage: 5.50,
@@ -111,13 +110,15 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
       return null;
     }
 
+    // Même règle que le bulletin et que l'API : admis à 10 de moyenne affichée, sinon ajourné ; un élève sans
+    // aucune note n'est ni admis ni ajourné, et les taux portent sur les élèves classés.
     const count = candidates.length;
+    let classes = 0;
     let admitted = 0;
-    let catchup = 0;
     let failed = 0;
     let sumAvg = 0;
-    let highest = 0;
-    let lowest = 20;
+    let highest: number | null = null;
+    let lowest: number | null = null;
     let tb = 0;
     let b = 0;
     let ab = 0;
@@ -125,41 +126,35 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
 
     candidates.forEach((cand) => {
       const stat = allStats[cand.id];
-      const avg = stat?.average ?? 0;
+      if (!stat || !stat.evaluated) return;
+      const avg = stat.average;
+      classes++;
       sumAvg += avg;
-      if (avg > highest) highest = avg;
-      if (avg < lowest) lowest = avg;
+      if (highest === null || avg > highest) highest = avg;
+      if (lowest === null || avg < lowest) lowest = avg;
 
-      if (avg >= 10 || stat?.decision?.includes('ADMIS')) {
-        admitted++;
-      } else if (avg >= 8 || stat?.decision?.includes('RATTRAPAGE')) {
-        catchup++;
-      } else {
-        failed++;
-      }
+      if (stat.decision === 'ADMIS') admitted++;
+      else if (stat.decision === 'AJOURNÉ') failed++;
 
-      if (avg >= 16) tb++;
-      else if (avg >= 14) b++;
-      else if (avg >= 12) ab++;
-      else if (avg >= 10) p++;
+      if (stat.mention === 'TRÈS BIEN') tb++;
+      else if (stat.mention === 'BIEN') b++;
+      else if (stat.mention === 'ASSEZ BIEN') ab++;
+      else if (stat.mention === 'PASSABLE') p++;
     });
 
-    const promoAvg = Math.round((sumAvg / count) * 100) / 100;
-    const admittedRate = Math.round((admitted / count) * 10000) / 100;
-    const catchupRate = Math.round((catchup / count) * 10000) / 100;
-    const failedRate = Math.round((failed / count) * 10000) / 100;
+    const promoAvg = classes > 0 ? Math.round((sumAvg / classes) * 100) / 100 : 0;
+    const admittedRate = classes > 0 ? Math.round((admitted / classes) * 10000) / 100 : 0;
+    const failedRate = classes > 0 ? Math.round((failed / classes) * 10000) / 100 : 0;
 
     return {
       candidatesCount: count,
       admittedCount: admitted,
       admittedRate,
-      catchupCount: catchup,
-      catchupRate,
       failedCount: failed,
       failedRate,
       promoAverage: promoAvg,
-      highestAverage: highest,
-      lowestAverage: lowest === 20 ? 0 : lowest,
+      highestAverage: highest ?? 0,
+      lowestAverage: lowest ?? 0,
       mentionsBreakdown: {
         tresBien: tb,
         bien: b,
@@ -214,8 +209,6 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
       candidatesCount: currentSessionLiveStats.candidatesCount,
       admittedCount: currentSessionLiveStats.admittedCount,
       admittedRate: currentSessionLiveStats.admittedRate,
-      catchupCount: currentSessionLiveStats.catchupCount,
-      catchupRate: currentSessionLiveStats.catchupRate,
       failedCount: currentSessionLiveStats.failedCount,
       failedRate: currentSessionLiveStats.failedRate,
       promoAverage: currentSessionLiveStats.promoAverage,
@@ -247,11 +240,9 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
     e.preventDefault();
     const total = Number(manualForm.candidatesCount);
     const adm = Number(manualForm.admittedCount);
-    const cat = Number(manualForm.catchupCount);
     const fail = Number(manualForm.failedCount);
 
     const admittedRate = total > 0 ? Math.round((adm / total) * 10000) / 100 : 0;
-    const catchupRate = total > 0 ? Math.round((cat / total) * 10000) / 100 : 0;
     const failedRate = total > 0 ? Math.round((fail / total) * 10000) / 100 : 0;
 
     const newArchived: ArchivedSession = {
@@ -264,8 +255,6 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
       candidatesCount: total,
       admittedCount: adm,
       admittedRate,
-      catchupCount: cat,
-      catchupRate,
       failedCount: fail,
       failedRate,
       promoAverage: Number(manualForm.promoAverage),
@@ -733,9 +722,8 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
                 <th className="py-3 px-4">Année Scolaire</th>
                 <th className="py-3 px-3">Session &amp; Série</th>
                 <th className="py-3 px-3 text-center">Effectif</th>
-                <th className="py-3 px-3 text-center">Admis d'Office</th>
+                <th className="py-3 px-3 text-center">Admis</th>
                 <th className="py-3 px-3 text-center">Taux Réussite</th>
-                <th className="py-3 px-3 text-center">Second Tour</th>
                 <th className="py-3 px-3 text-center">Ajournés</th>
                 <th className="py-3 px-3 text-center">Moyenne Promo</th>
                 <th className="py-3 px-3 text-center">Major (Note Max)</th>
@@ -778,9 +766,6 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
                     >
                       {session.admittedRate.toFixed(2)}%
                     </span>
-                  </td>
-                  <td className="py-3 px-3 text-center text-amber-700 font-semibold">
-                    {session.catchupCount} ({session.catchupRate.toFixed(1)}%)
                   </td>
                   <td className="py-3 px-3 text-center text-red-700 font-semibold">
                     {session.failedCount} ({session.failedRate.toFixed(1)}%)
@@ -887,7 +872,6 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
               </div>
               <div className="flex items-center justify-between text-[11px] text-[#444651] pt-1">
                 <span>Admis: <strong>{currentSessionLiveStats.admittedCount}</strong></span>
-                <span>Second tour: <strong>{currentSessionLiveStats.catchupCount}</strong></span>
                 <span>Ajournés: <strong>{currentSessionLiveStats.failedCount}</strong></span>
                 <span>Major: <strong>{currentSessionLiveStats.highestAverage} / 20</strong></span>
               </div>
@@ -896,7 +880,7 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
             {usingApi ? (
               <p className="text-[12px] text-[#444651] leading-relaxed bg-amber-50 border border-amber-200 rounded-lg p-3">
                 La session passe au statut <strong>ARCHIVÉE</strong> sur le serveur : ses statistiques définitives
-                (effectif, admis, second tour, ajournés, moyenne de promotion, major, mentions) sont calculées à partir
+                (effectif, admis, ajournés, moyenne de promotion, major, mentions) sont calculées à partir
                 des notes enregistrées, avec les mêmes règles que le bulletin. Vous pourrez la retirer des archives à tout moment.
               </p>
             ) : (
@@ -999,7 +983,7 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
 
               <div>
                 <label className="block font-bold text-[#444651] uppercase text-[10px] mb-1">
-                  Admis d'Office (Moyenne &gt;= 10)
+                  Admis (Moyenne &gt;= 10)
                 </label>
                 <input
                   type="number"
@@ -1013,21 +997,7 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
 
               <div>
                 <label className="block font-bold text-[#444651] uppercase text-[10px] mb-1">
-                  Second Tour (Rattrapage)
-                </label>
-                <input
-                  type="number"
-                  required
-                  min={0}
-                  value={manualForm.catchupCount}
-                  onChange={(e) => setManualForm({ ...manualForm, catchupCount: Number(e.target.value) })}
-                  className="w-full bg-[#f2f3ff] py-1.5 px-2.5 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-[#444651] uppercase text-[10px] mb-1">
-                  Ajournés
+                  Ajournés (Moyenne &lt; 10)
                 </label>
                 <input
                   type="number"

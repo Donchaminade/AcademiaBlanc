@@ -138,13 +138,38 @@ public final class GradeCalculator {
     return Appreciation.selonNote(moyenne);
   }
 
+  /**
+   * Mention portée sur la moyenne affichée (arrondie au centième) : Très bien 16, Bien 14, Assez bien 12,
+   * Passable 10 ; en dessous de 10 la mention est {@value #DECISION_AJOURNE}. Sans moyenne : {@code null}.
+   */
   public static String mention(BigDecimal moyenne) {
     if (moyenne == null) return null;
-    if (moyenne.compareTo(new BigDecimal("16")) >= 0) return "TRÈS BIEN";
-    if (moyenne.compareTo(new BigDecimal("14")) >= 0) return "BIEN";
-    if (moyenne.compareTo(new BigDecimal("12")) >= 0) return "ASSEZ BIEN";
-    if (moyenne.compareTo(new BigDecimal("10")) >= 0) return "PASSABLE";
-    if (moyenne.compareTo(new BigDecimal("8")) >= 0) return "RATTRAPAGE";
-    return "AJOURNÉ";
+    BigDecimal affichee = arrondie(moyenne);
+    if (affichee.compareTo(new BigDecimal("16")) >= 0) return "TRÈS BIEN";
+    if (affichee.compareTo(new BigDecimal("14")) >= 0) return "BIEN";
+    if (affichee.compareTo(new BigDecimal("12")) >= 0) return "ASSEZ BIEN";
+    if (affichee.compareTo(SEUIL_ADMISSION) >= 0) return "PASSABLE";
+    return DECISION_AJOURNE;
+  }
+
+  /** Seuil d'admission : moyenne générale affichée ≥ 10/20. */
+  public static final BigDecimal SEUIL_ADMISSION = new BigDecimal("10");
+  public static final String DECISION_ADMIS = "ADMIS";
+  public static final String DECISION_AJOURNE = "AJOURNÉ";
+
+  /**
+   * Décision unique de l'examen blanc : moyenne générale affichée ≥ 10 → {@value #DECISION_ADMIS}, sinon
+   * {@value #DECISION_AJOURNE}. La comparaison porte sur la moyenne arrondie au centième, telle qu'imprimée
+   * (9,995 s'affiche 10,00 et est admis). Sans aucune note (moyenne nulle) : {@code null}, jamais ajourné
+   * par défaut.
+   */
+  public static String decision(BigDecimal moyenne) {
+    if (moyenne == null) return null;
+    return arrondie(moyenne).compareTo(SEUIL_ADMISSION) >= 0 ? DECISION_ADMIS : DECISION_AJOURNE;
+  }
+
+  /** Moyenne telle qu'affichée sur le bulletin : deux décimales, arrondi commercial. */
+  private static BigDecimal arrondie(BigDecimal moyenne) {
+    return moyenne.setScale(2, RoundingMode.HALF_UP);
   }
 }

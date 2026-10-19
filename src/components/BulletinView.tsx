@@ -476,17 +476,31 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   <span className="text-[11px] text-[#444651] uppercase font-semibold block">
                     Décision Officielle du Conseil de Délibération
                   </span>
-                  <span className="text-[15px] font-bold text-[#0051d5] flex items-center gap-1.5 mt-0.5">
-                    <span className="material-symbols-outlined text-base">check_circle</span>
-                    {computedStats.decision}
+                  <span
+                    className={`text-[15px] font-bold flex items-center gap-1.5 mt-0.5 ${
+                      computedStats.decision === 'ADMIS'
+                        ? 'text-emerald-700'
+                        : computedStats.decision === 'AJOURNÉ'
+                        ? 'text-[#ba1a1a]'
+                        : 'text-[#444651]'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">
+                      {computedStats.decision === 'ADMIS' ? 'check_circle' : computedStats.decision === 'AJOURNÉ' ? 'cancel' : 'pending'}
+                    </span>
+                    {computedStats.decision ?? 'Non classé — aucune note saisie'}
                   </span>
                 </div>
                 <div className="text-right">
                   <span className="text-[11px] text-[#444651] uppercase font-semibold block">
                     Mention Obtenue
                   </span>
-                  <span className="inline-block px-2.5 py-0.5 rounded bg-[#0051d5] text-white text-[13px] font-bold tracking-wider shadow-xs">
-                    {computedStats.mention}
+                  <span
+                    className={`inline-block px-2.5 py-0.5 rounded text-white text-[13px] font-bold tracking-wider shadow-xs ${
+                      computedStats.mention === 'AJOURNÉ' ? 'bg-[#ba1a1a]' : computedStats.mention ? 'bg-[#0051d5]' : 'bg-[#444651]'
+                    }`}
+                  >
+                    {computedStats.mention ?? '—'}
                   </span>
                 </div>
               </div>

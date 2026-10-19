@@ -1,6 +1,8 @@
 package tg.academiablanc.api;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -9,7 +11,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -63,11 +68,35 @@ class ArchivesFlowTest {
     long classeId = id(envoyer(token, post("/api/classes"),
         "{\"anneeScolaireId\":" + anneeId + ",\"nom\":\"Tle D\",\"niveau\":\"Tle\",\"serie\":\"D\"}"));
 
-    // Quatre candidats : 17 (admis, très bien), 12 (admis, assez bien), 9 (second tour), 5 (ajourné).
+    long physiqueId = id(envoyer(token, post("/api/matieres"), "{\"nom\":\"Physique\",\"code\":\"pc\"}"));
+
+    // Six candidats : 17 (admis, très bien), 12 (admis, assez bien), 10,00 (admis), 9,99 (ajourné),
+    // (9,99 + 10) / 2 = 9,995 affiché 10,00 (admis), 5 (ajourné) ; un septième inscrit sans note n'est pas classé.
     noter(token, eleve(token, classeId, sessionId, "ABALO Koffi"), mathsId, sessionId, "17");
     noter(token, eleve(token, classeId, sessionId, "BOKO Ama"), mathsId, sessionId, "12");
-    noter(token, eleve(token, classeId, sessionId, "DOSSOU Yao"), mathsId, sessionId, "9");
-    noter(token, eleve(token, classeId, sessionId, "EDOH Afi"), mathsId, sessionId, "5");
+    noter(token, eleve(token, classeId, sessionId, "CODJO Yawa"), mathsId, sessionId, "10");
+    noter(token, eleve(token, classeId, sessionId, "DOSSOU Yao"), mathsId, sessionId, "9.99");
+    long limite = eleve(token, classeId, sessionId, "EDOH Afi");
+    noter(token, limite, mathsId, sessionId, "9.99");
+    noter(token, limite, physiqueId, sessionId, "10");
+    noter(token, eleve(token, classeId, sessionId, "FOLLY Kossi"), mathsId, sessionId, "5");
+    eleve(token, classeId, sessionId, "GADO Sena");
+
+    // Les décisions des bulletins : admis à 10 de moyenne affichée, sinon ajourné, rien sans note.
+    JsonNode bulletins = json.readTree(lire(token, "/api/bulletins?sessionId=" + sessionId));
+    Map<String, String> decisions = new HashMap<>();
+    Map<String, Double> moyennes = new HashMap<>();
+    for (JsonNode bulletin : bulletins) {
+      decisions.put(bulletin.get("nomComplet").asText(), bulletin.path("decision").isNull() ? null : bulletin.get("decision").asText());
+      moyennes.put(bulletin.get("nomComplet").asText(), bulletin.path("moyenne").isNull() ? null : bulletin.get("moyenne").asDouble());
+    }
+    assertEquals("ADMIS", decisions.get("CODJO Yawa"));
+    assertEquals("AJOURNÉ", decisions.get("DOSSOU Yao"));
+    assertEquals(10.00, moyennes.get("EDOH Afi"), 0.0001);
+    assertEquals("ADMIS", decisions.get("EDOH Afi"));
+    assertEquals("AJOURNÉ", decisions.get("FOLLY Kossi"));
+    assertNull(decisions.get("GADO Sena"));
+    assertNull(moyennes.get("GADO Sena"));
 
     envoyer(token, post("/api/archives/" + sessionId))
         .andExpect(status().isOk())
@@ -82,18 +111,21 @@ class ArchivesFlowTest {
         .andExpect(jsonPath("$[0].anneeScolaire").value("2024-2025"))
         .andExpect(jsonPath("$[0].sessionNom").value("BAC Blanc 2025"))
         .andExpect(jsonPath("$[0].serie").value("D"))
-        .andExpect(jsonPath("$[0].effectif").value(4))
-        .andExpect(jsonPath("$[0].admis").value(2))
-        .andExpect(jsonPath("$[0].tauxReussite").value(50.00))
-        .andExpect(jsonPath("$[0].secondTour").value(1))
-        .andExpect(jsonPath("$[0].ajournes").value(1))
-        .andExpect(jsonPath("$[0].moyennePromo").value(10.75))
+        .andExpect(jsonPath("$[0].effectif").value(7))
+        .andExpect(jsonPath("$[0].classes").value(6))
+        .andExpect(jsonPath("$[0].admis").value(4))
+        // Taux sur les élèves classés : 4 / 6.
+        .andExpect(jsonPath("$[0].tauxReussite").value(66.67))
+        .andExpect(jsonPath("$[0].ajournes").value(2))
+        .andExpect(jsonPath("$[0].tauxAjournes").value(33.33))
+        // (17 + 12 + 10 + 9,99 + 10 + 5) / 6 = 10,665 → 10,67
+        .andExpect(jsonPath("$[0].moyennePromo").value(10.67))
         .andExpect(jsonPath("$[0].noteMax").value(17.00))
         .andExpect(jsonPath("$[0].noteMin").value(5.00))
         .andExpect(jsonPath("$[0].mentions.tresBien").value(1))
         .andExpect(jsonPath("$[0].mentions.bien").value(0))
         .andExpect(jsonPath("$[0].mentions.assezBien").value(1))
-        .andExpect(jsonPath("$[0].mentions.passable").value(0));
+        .andExpect(jsonPath("$[0].mentions.passable").value(2));
 
     // Les archives sont cloisonnées par établissement.
     String autre = inscrire("archives-autre@ecole.tg", "Autre Lycee");
@@ -106,7 +138,7 @@ class ArchivesFlowTest {
     envoyer(token, get("/api/sessions/" + sessionId))
         .andExpect(jsonPath("$.statut").value("OUVERTE"))
         .andExpect(jsonPath("$.archiveeLe", nullValue()));
-    envoyer(token, get("/api/notes?sessionId=" + sessionId)).andExpect(jsonPath("$", hasSize(4)));
+    envoyer(token, get("/api/notes?sessionId=" + sessionId)).andExpect(jsonPath("$", hasSize(7)));
   }
 
   private long eleve(String token, long classeId, long sessionId, String nom) throws Exception {
