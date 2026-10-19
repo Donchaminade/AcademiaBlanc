@@ -31,8 +31,8 @@ Une permission s’écrit `RESSOURCE:ACTION` (par exemple `MATIERES:SUPPRIMER`).
 | `ANNEES` | Voir, Détails, Créer, Modifier, Supprimer | `/api/annees-scolaires` |
 | `CENTRES` | idem | `/api/centres` |
 | `SESSIONS` | idem | `/api/sessions` |
-| `MATIERES` | idem (`CREER` couvre le chargement du référentiel) | `/api/matieres`, `/api/matieres/referentiel` |
-| `COEFFICIENTS` | idem | `/api/coefficients` |
+| `MATIERES` | idem (`CREER` couvre le chargement des matières de base) | `/api/matieres`, `/api/matieres/referentiel` |
+| `COEFFICIENTS` | idem (`VOIR` couvre la lecture du programme d’une classe et ses suggestions, `MODIFIER` son remplacement et sa copie) | `/api/coefficients`, `/api/classes/{id}/programme`, `/api/classes/{id}/programme/copier-de/{autreId}`, `/api/classes/{id}/programme/suggestions` |
 | `ENSEIGNANTS` | idem | `/api/professeurs` |
 | `CLASSES` | idem (`MODIFIER` couvre le titulaire) | `/api/classes` |
 | `SERIES` | idem (`CREER` couvre le chargement des séries par défaut) | `/api/series`, `/api/series/defauts` |
