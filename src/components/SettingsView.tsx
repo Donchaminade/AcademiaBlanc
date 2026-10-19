@@ -211,14 +211,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="settings-chrome bg-white rounded p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
+      <div className="settings-chrome bg-white rounded p-4 md:p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5] bg-[#eaedff] px-2.5 py-1 rounded">
             Configuration &amp; Charte Graphique
           </span>
-          <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">
+          <h2 className="text-[18px] md:text-[22px] font-bold text-[#00236f] mt-1.5">
             Paramètres Institutionnels &amp; Gestion des Logos
           </h2>
           <p className="text-[13px] text-[#444651] mt-0.5">
@@ -226,7 +226,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="toolbar-actions flex flex-wrap items-center gap-2 w-full md:w-auto [&>button]:flex-1 md:[&>button]:flex-none [&>button]:justify-center">
           <button
             type="button"
             onClick={() => void handleResetDefaults()}
@@ -351,7 +351,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {/* Right Column: Institutional Identity Form */}
-        <div className="lg:col-span-7 bg-white p-6 rounded border border-[#eaedff] shadow-xs">
+        <div className="lg:col-span-7 bg-white p-4 md:p-6 rounded border border-[#eaedff] shadow-xs">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="border-b border-[#eaedff] pb-3">
               <h3 className="text-[15px] font-bold text-[#00236f] uppercase tracking-wide">

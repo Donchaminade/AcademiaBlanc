@@ -982,12 +982,12 @@ export default function App() {
 
           {currentView === 'admin' && (
             <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
-              <div className="bg-white rounded p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
-                <div>
+              <div className="bg-white rounded p-4 md:p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
+                <div className="min-w-0">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5] bg-[#eaedff] px-2.5 py-1 rounded">
                     Administration (API)
                   </span>
-                  <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">
+                  <h2 className="text-[18px] md:text-[22px] font-bold text-[#00236f] mt-1.5">
                     Données de l’établissement
                   </h2>
                   <p className="text-[13px] text-[#444651] mt-0.5">

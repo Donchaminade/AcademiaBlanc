@@ -144,14 +144,14 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
 
   return (
     <>
-    <div className="registre-ui p-8 max-w-[1440px] mx-auto space-y-6">
+    <div className="registre-ui p-4 md:p-8 max-w-[1440px] mx-auto space-y-4 md:space-y-6">
       {/* Official Header */}
-      <div className="bg-white rounded p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
-        <div>
+      <div className="bg-white rounded p-4 md:p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5] bg-[#eaedff] px-2.5 py-1 rounded">
             Procès-Verbal de Délibération
           </span>
-          <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">
+          <h2 className="text-[18px] md:text-[22px] font-bold text-[#00236f] mt-1.5">
             Palmarès Général &amp; Registre des Épreuves
           </h2>
           <p className="text-[13px] text-[#444651] mt-0.5">
@@ -164,7 +164,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="toolbar-actions flex items-center gap-2 flex-wrap w-full md:w-auto">
           <button
             type="button"
             onClick={exportCSV}
@@ -199,8 +199,8 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
       </div>
 
       {/* Filter Chips */}
-      <div className="bg-white p-3.5 rounded border border-[#eaedff] shadow-xs flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[12px]">
+      <div className="bg-white p-3.5 rounded border border-[#eaedff] shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 text-[12px]">
           <span className="text-[#444651] font-semibold uppercase text-[11px]">Filtrer le palmarès :</span>
           <button
             type="button"
@@ -245,7 +245,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
       {/* Official Ranking Table */}
       <div className="bg-white rounded border border-[#eaedff] shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[12px]">
+          <table className="table-sticky-first w-full text-left border-collapse text-[12px]">
             <thead>
               <tr className="bg-[#00236f] text-white">
                 <th className="py-2.5 px-3 font-semibold text-center w-16">Rang</th>
@@ -369,6 +369,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
           <div className="px-4 py-2.5 border-b border-[#eaedff] text-[12px] font-bold uppercase tracking-wider text-[#00236f]">
             Résultats par établissement d'origine
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-[12px]">
             <thead>
               <tr className="bg-[#f2f3ff] text-[#444651]">
@@ -391,19 +392,20 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {/* Closing Protocol Certification Box */}
-      <div className="bg-[#f2f3ff] p-5 rounded border border-[#eaedff] shadow-xs flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-1">
+      <div className="bg-[#f2f3ff] p-4 md:p-5 rounded border border-[#eaedff] shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[#0051d5]">security</span>
             <span className="text-[13px] font-bold text-[#00236f]">
               Certification &amp; Clôture Numérique du Procès-Verbal
             </span>
           </div>
-          <p className="text-[12px] text-[#444651]">
+          <p className="text-[12px] text-[#444651] break-words">
             Certificat d'intégrité DEXCO : <span className="font-mono text-[#00236f] font-semibold">SHA256: 7f8b91c...e9b488a1</span> • Horodatage certifié : 15-05-2025 à 18:42:09 GMT.
           </p>
         </div>

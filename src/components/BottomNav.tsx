@@ -62,6 +62,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   <span aria-hidden="true" className="absolute top-0 left-1/2 h-0.5 w-10 -translate-x-1/2 rounded-b bg-[#0051d5]" />
                 )}
                 <span
+                  aria-hidden="true"
                   className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${estActive ? 'bg-[#eaedff]' : ''}`}
                 >
                   <span className="material-symbols-outlined text-[22px]" style={estActive ? { fontVariationSettings: "'FILL' 1" } : undefined}>

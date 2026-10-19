@@ -79,7 +79,7 @@ export const PlateformeView: React.FC = () => {
 
   if (!allowed) {
     return (
-      <div className="p-8 max-w-3xl mx-auto">
+      <div className="p-4 md:p-8 max-w-3xl mx-auto">
         <div className="bg-white border border-[#eaedff] rounded p-6 text-[13px] text-[#444651]">
           Cet écran est réservé au propriétaire du logiciel et à ses gestionnaires. Le compte d’un établissement n’y a pas accès.
         </div>
@@ -163,8 +163,8 @@ export const PlateformeView: React.FC = () => {
   const ongletCourant: Onglet | null = ongletsVisibles.some((o) => o.key === onglet) ? onglet : (ongletsVisibles[0]?.key ?? null);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
-      <div className="bg-white rounded p-6 shadow-sm border border-[#eaedff]">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-4 md:space-y-6">
+      <div className="bg-white rounded p-4 md:p-6 shadow-sm border border-[#eaedff]">
         <span className="text-[11px] font-bold uppercase tracking-wider text-[#0051d5] bg-[#eaedff] px-2.5 py-1 rounded">
           Plateforme
         </span>
