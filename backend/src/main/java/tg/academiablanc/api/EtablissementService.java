@@ -14,6 +14,7 @@ import tg.academiablanc.domain.Role;
 import tg.academiablanc.domain.Utilisateur;
 import tg.academiablanc.repo.AnneeScolaireRepository;
 import tg.academiablanc.repo.EtablissementRepository;
+import tg.academiablanc.repo.PrereglageNationalRepository;
 import tg.academiablanc.repo.UtilisateurRepository;
 
 /** Création d’un établissement et de son compte OWNER (inscription publique ou ajout par la plateforme). */
@@ -23,17 +24,20 @@ public class EtablissementService {
   private final UtilisateurRepository utilisateurs;
   private final AnneeScolaireRepository annees;
   private final PasswordEncoder passwordEncoder;
+  private final PrereglageNationalRepository prereglages;
 
   public EtablissementService(
       EtablissementRepository etablissements,
       UtilisateurRepository utilisateurs,
       AnneeScolaireRepository annees,
-      PasswordEncoder passwordEncoder
+      PasswordEncoder passwordEncoder,
+      PrereglageNationalRepository prereglages
   ) {
     this.etablissements = etablissements;
     this.utilisateurs = utilisateurs;
     this.annees = annees;
     this.passwordEncoder = passwordEncoder;
+    this.prereglages = prereglages;
   }
 
   public record Creation(Etablissement etablissement, Utilisateur owner) {}
@@ -65,6 +69,10 @@ public class EtablissementService {
     school.setNomResponsable(nomResponsable.trim());
     school.setActif(true);
     school.setCreeLe(Instant.now());
+    // Un nouvel établissement part de l'en-tête du préréglage national par défaut (sinon du premier actif).
+    prereglages.findByParDefautTrue().stream().filter(p -> p.isActif()).findFirst()
+        .or(() -> prereglages.findByActifTrueOrderByOrdreAscNomPaysAsc().stream().findFirst())
+        .ifPresent(school::appliquer);
     school = etablissements.save(school);
 
     Utilisateur owner = new Utilisateur();

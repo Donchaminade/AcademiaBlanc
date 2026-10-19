@@ -195,6 +195,7 @@ public class PermissionService {
       case GESTIONNAIRE_PLATEFORME -> {
         ajouter(droits, Ressource.ETABLISSEMENTS, Action.VOIR, Action.DETAILS);
         ajouter(droits, Ressource.GESTIONNAIRES, Action.VOIR);
+        ajouter(droits, Ressource.PREREGLAGES, Action.VOIR);
       }
     }
     return droits;

@@ -66,4 +66,36 @@ public class Etablissement {
 
   @Column(name = "signature_titulaire_url", columnDefinition = "TEXT")
   private String signatureTitulaireUrl;
+
+  /** Préréglage national appliqué en dernier ; null si l'en-tête a été saisi sans préréglage. */
+  @Column(name = "prereglage_national_id")
+  private Long prereglageNationalId;
+
+  /** En-tête officiel du bulletin : république, devise nationale, ministère de tutelle et sigle. */
+  private String republique;
+
+  @Column(name = "devise_nationale")
+  private String deviseNationale;
+
+  private String ministere;
+
+  @Column(name = "sigle_ministere")
+  private String sigleMinistere;
+
+  @Column(name = "autorite_regionale")
+  private String autoriteRegionale;
+
+  @Column(name = "pied_de_page")
+  private String piedDePage;
+
+  /** Copie les libellés d'un préréglage dans l'en-tête de l'établissement et mémorise son identifiant. */
+  public void appliquer(PrereglageNational prereglage) {
+    this.prereglageNationalId = prereglage.getId();
+    this.republique = prereglage.getRepublique();
+    this.deviseNationale = prereglage.getDevise();
+    this.ministere = prereglage.getMinistere();
+    this.sigleMinistere = prereglage.getSigleMinistere();
+    this.autoriteRegionale = prereglage.getAutoriteRegionale();
+    this.piedDePage = prereglage.getPiedDePage();
+  }
 }
