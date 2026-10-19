@@ -101,6 +101,14 @@ public class PermissionService {
     return user;
   }
 
+  /**
+   * Chef d'établissement : le créateur du compte (OWNER) ou un administrateur de l'école (ADMIN). Seuls ces
+   * rôles voient et régénèrent le code de transfert de l'établissement.
+   */
+  public static boolean estChefEtablissement(Utilisateur user) {
+    return user != null && user.getEtablissementId() != null && (user.getRole() == Role.OWNER || user.getRole() == Role.ADMIN);
+  }
+
   /** Exige {@code ressource:action} pour l’utilisateur courant ; 403 avec un message explicite sinon. */
   public Utilisateur exiger(Ressource ressource, Action action) {
     Utilisateur user = courant();
@@ -136,11 +144,16 @@ public class PermissionService {
     if (lignes.isEmpty()) return prereglage(role);
     Set<Droit> droits = new LinkedHashSet<>();
     Set<Ressource> domaine = domaine(role);
+    boolean transfertsRegles = false;
     for (PermissionUtilisateur ligne : lignes) {
+      if (ligne.getRessource() == Ressource.TRANSFERTS) transfertsRegles = true;
       if (ligne.isAccorde() && domaine.contains(ligne.getRessource()) && ligne.getRessource().accepte(ligne.getAction())) {
         droits.add(new Droit(ligne.getRessource(), ligne.getAction()));
       }
     }
+    // Les transferts d'examen blanc sont accordés d'office à l'administrateur de l'école : un compte ADMIN dont
+    // la matrice a été enregistrée avant l'existence de cette ressource les reçoit tant qu'elle n'est pas re-saisie.
+    if (role == Role.ADMIN && !transfertsRegles) droits.addAll(tous(List.of(Ressource.TRANSFERTS)));
     return droits;
   }
 
@@ -174,7 +187,7 @@ public class PermissionService {
       }
       case SECRETAIRE -> {
         for (Ressource r : Ressource.etablissement()) {
-          if (r == Ressource.UTILISATEURS) continue;
+          if (r == Ressource.UTILISATEURS || r == Ressource.TRANSFERTS) continue;
           if (r.accepte(Action.VOIR)) droits.add(new Droit(r, Action.VOIR));
           if (r.accepte(Action.DETAILS)) droits.add(new Droit(r, Action.DETAILS));
         }
