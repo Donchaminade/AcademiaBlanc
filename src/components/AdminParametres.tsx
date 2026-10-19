@@ -75,6 +75,8 @@ interface AdminParametresProps {
   scrollKey?: number;
   /** Appelé après chaque création / modification / suppression réussie. */
   onDataChanged?: () => void;
+  /** Session active de l'application : présélectionnée dans l'import d'élèves. */
+  activeSessionId?: number | null;
 }
 
 const field = 'w-full bg-[#f2f3ff] text-[13px] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5] disabled:opacity-60 disabled:cursor-not-allowed';
@@ -392,7 +394,7 @@ const sectionFromHash = (): AdminSection | null => {
   return ADMIN_STEPS.some((s) => s.section === hash) || hash === 'coefficients' || hash === 'utilisateurs' ? (hash as AdminSection) : null;
 };
 
-export const AdminParametres: React.FC<AdminParametresProps> = ({ section: requestedSection, scrollKey = 0, onDataChanged }) => {
+export const AdminParametres: React.FC<AdminParametresProps> = ({ section: requestedSection, scrollKey = 0, onDataChanged, activeSessionId = null }) => {
   const { can, permissions: mesDroits } = usePermissions();
   /** Droits de l’utilisateur sur une section : pilotent formulaires et boutons (le serveur reste la référence). */
   const droits = (section: AdminSection) => {
@@ -1340,6 +1342,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
           <ImportElevesPanel
             classes={classes}
             sessions={sessions}
+            defaultSessionId={activeSessionId}
             onImported={() => load()
               .then(() => onDataChanged?.())
               .catch((err: Error) => void showError('Rechargement des listes impossible', err.message))}

@@ -36,11 +36,26 @@ interface NoteApi { eleveId: number; matiereId: number; valeur?: number | null; 
 
 export interface ExamOption { id: number; label: string; }
 
+export interface WorkspaceOptions {
+  /**
+   * `true` : la liste affiche tous les élèves enregistrés, quelle que soit leur session.
+   * Sinon (défaut), les élèves rattachés à une autre session que la session chargée sont écartés ;
+   * ceux sans session restent toujours visibles.
+   */
+  toutesSessions?: boolean;
+}
+
 export interface SchoolWorkspace {
   sessionId: number | null;
   classeId: number | null;
   sessions: ExamOption[];
   centers: ExamOption[];
+  /** Classes de l'établissement (choix de la classe à l'import). */
+  classes: ExamOption[];
+  /** Nombre total d'élèves enregistrés dans la base de l'établissement (avant tout filtre de session). */
+  elevesEnBase: number;
+  /** Élèves enregistrés mais écartés de la liste parce que rattachés à une autre session. */
+  elevesMasques: number;
   subjects: Subject[];
   candidates: Candidate[];
   academicYear: string;
@@ -53,7 +68,20 @@ export interface SchoolWorkspace {
   coefficientsCount: number;
 }
 
-export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<SchoolWorkspace> {
+/**
+ * Élèves à afficher pour la session chargée : ceux de cette session et ceux sans session.
+ * Avec `toutesSessions`, aucun élève enregistré n'est écarté.
+ */
+export function filtrerRoster<T extends { sessionId?: number | null }>(
+  eleves: T[],
+  sessionId: number | null,
+  options: WorkspaceOptions = {},
+): T[] {
+  if (options.toutesSessions || sessionId == null) return eleves;
+  return eleves.filter((eleve) => eleve.sessionId == null || eleve.sessionId === sessionId);
+}
+
+export async function loadSchoolWorkspace(preferredSessionId?: number, options: WorkspaceOptions = {}): Promise<SchoolWorkspace> {
   const [annees, centres, sessions, matieres, profs, classes, affectations, coefficients, eleves] = await Promise.all([
     lire<Annee>('/api/annees-scolaires'),
     lire<Centre>('/api/centres'),
@@ -91,9 +119,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
   const coefsPourClasse = (classeId: number): Record<string, number> =>
     Object.fromEntries(matieres.map((matiere) => [String(matiere.id), coefficientEffectif(coefficients, matiere.id, classeId).valeur]));
 
-  const roster = session
-    ? eleves.filter((eleve) => eleve.sessionId == null || eleve.sessionId === session.id)
-    : eleves;
+  const roster = filtrerRoster(eleves, session?.id ?? null, options);
 
   const candidates: Candidate[] = roster.map((eleve) => {
     const classe = classes.find((item) => item.id === eleve.classeId);
@@ -127,6 +153,9 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
     classeId: classes[0]?.id ?? null,
     sessions: sessions.map((item) => ({ id: item.id, label: item.nom })),
     centers: centres.map((item) => ({ id: item.id, label: `${item.nom}${item.code ? ` (${item.code})` : ''}` })),
+    classes: classes.map((item) => ({ id: item.id, label: item.nom })),
+    elevesEnBase: eleves.length,
+    elevesMasques: eleves.length - roster.length,
     subjects,
     candidates,
     academicYear: annee?.libelle || '',
