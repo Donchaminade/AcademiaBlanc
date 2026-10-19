@@ -1,12 +1,9 @@
-import React, { Suspense, lazy, useLayoutEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ROUTE_PATHS } from '../../utils/router';
 import { usePrereglageDefaut } from '../../api/prereglages';
 import { bandeauNational } from '../../utils/prereglages';
-
-// Three.js n’est chargé que lorsque la vitrine s’affiche : l’application connectée n’en dépend pas.
-const HeroScene = lazy(() => import('./HeroScene'));
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -401,12 +398,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
           aria-labelledby="titre-accueil"
           className="relative isolate flex overflow-hidden bg-[#00236f] text-white lg:min-h-[calc(100svh-4rem)]"
         >
-          <div className="absolute inset-0 -z-10" aria-hidden="true">
-            <Suspense fallback={null}>
-              <HeroScene />
-            </Suspense>
-          </div>
-          {/* Voile de lisibilité au-dessus de la scène, sous le texte. */}
+          {/* Voile de lisibilité sous le texte. */}
           <div
             className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(0,35,111,0.55)_0%,rgba(0,35,111,0.35)_55%,#00236f_100%)]"
             aria-hidden="true"
