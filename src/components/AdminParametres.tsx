@@ -6,12 +6,13 @@ import { ImportElevesPanel } from './ImportElevesPanel';
 import { UtilisateursSection } from './UtilisateursSection';
 import { FamilleBadge, SerieForm, SeriesPanel } from './SeriesPanel';
 import { Serie, grouperSeries } from '../api/series';
+import { SessionTypeExamen, TypeExamenChoix, avertissementCycle, grouperTypesExamen, libelleCourtSession, nomSessionSuggere } from '../api/typesExamen';
 import { AdminSection } from '../types';
 import { NOTE_MAX, formatCoefficient, formatPointsMax, formatValeur, lireCoefficientSaisi, pointsMax } from '../utils/coefficients';
 
 interface Annee { id: number; libelle: string; courante: boolean; dateDebut?: string; dateFin?: string; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
-interface Session { id: number; nom: string; typeExamen: string; statut: string; serie?: string; anneeScolaireId: number; centreId: number; }
+interface Session extends SessionTypeExamen { id: number; nom: string; statut: string; serie?: string; anneeScolaireId: number; centreId: number; }
 interface Matiere { id: number; nom: string; code: string; groupeCode?: string | null; groupeLibelle?: string | null; }
 /** Compte rendu du chargement du référentiel des matières principales (POST /api/matieres/referentiel). */
 interface ReferentielResultat { matieresCreees: number; matieresExistantes: number; coefficientsCrees: number; coefficientsExistants: number; }
@@ -94,7 +95,7 @@ const MATIERES_PRINCIPALES = 'Français, Anglais, Histoire-Géographie, ECM, Sci
 
 const EMPTY = {
   centre: { nom: '', code: '', ville: 'Lomé' },
-  session: { nom: '', typeExamen: 'BACCALAURÉAT II', statut: 'OUVERTE', serie: 'Série D', anneeScolaireId: '', centreId: '' },
+  session: { nom: '', typeExamenId: '', statut: 'OUVERTE', serie: '', anneeScolaireId: '', centreId: '' },
   matiere: { nom: '', code: '', groupeCode: '' },
   prof: { nom: '', email: '' },
   classe: { nom: '', cycle: 'LYCEE' as Cycle, niveau: 'Tle', serie: '', titulaireId: '', anneeScolaireId: '' },
@@ -407,6 +408,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const [annees, setAnnees] = useState<Annee[]>([]);
   const [centres, setCentres] = useState<Centre[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [typesExamen, setTypesExamen] = useState<TypeExamenChoix[]>([]);
   const [matieres, setMatieres] = useState<Matiere[]>([]);
   const [profs, setProfs] = useState<Professeur[]>([]);
   const [classes, setClasses] = useState<Classe[]>([]);
@@ -421,6 +423,8 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const [centreEdit, setCentreEdit] = useState<Centre | null>(null);
   const [session, setSession] = useState(EMPTY.session);
   const [sessionEdit, setSessionEdit] = useState<Session | null>(null);
+  /** Dernier nom proposé automatiquement : tant que l’utilisateur ne l’a pas modifié, il suit le type et l’année. */
+  const nomSessionProposeRef = useRef('');
   const [matiere, setMatiere] = useState(EMPTY.matiere);
   const [matiereEdit, setMatiereEdit] = useState<Matiere | null>(null);
   const [chargementReferentiel, setChargementReferentiel] = useState(false);
@@ -448,7 +452,7 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const reset = {
     annee: () => { setAnneeEdit(null); setAnnee('2025-2026'); },
     centre: () => { setCentreEdit(null); setCentre(EMPTY.centre); },
-    session: () => { setSessionEdit(null); setSession(EMPTY.session); },
+    session: () => { setSessionEdit(null); setSession(EMPTY.session); nomSessionProposeRef.current = ''; },
     matiere: () => { setMatiereEdit(null); setMatiere(EMPTY.matiere); },
     coefficient: (keep: Partial<typeof EMPTY.coefficient> = {}) => { setCoefficientEdit(null); setCoefficient({ ...EMPTY.coefficient, ...keep }); },
     prof: () => { setProfEdit(null); setProf(EMPTY.prof); },
@@ -478,11 +482,38 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
     return acc;
   }, {});
 
+  const typeExamenParId = (id: string | number | null | undefined) =>
+    id === '' || id == null ? undefined : typesExamen.find((t) => t.id === Number(id));
+
+  /** Met à jour le type choisi et, si l’utilisateur n’a pas saisi de nom, propose « BEPC Blanc 2026 ». */
+  const choisirTypeExamen = (valeur: string, anneeId = session.anneeScolaireId) => {
+    const type = typeExamenParId(valeur);
+    const annee = annees.find((a) => a.id === Number(anneeId || annees[0]?.id));
+    const propose = nomSessionSuggere(type, annee?.libelle);
+    const nomLibre = session.nom.trim() !== '' && session.nom !== nomSessionProposeRef.current;
+    nomSessionProposeRef.current = propose;
+    setSession({ ...session, typeExamenId: valeur, anneeScolaireId: anneeId, nom: nomLibre ? session.nom : propose });
+  };
+
+  /**
+   * Cycles des classes concernées par la session : celles des élèves déjà inscrits à cette session,
+   * sinon toutes les classes de l’année choisie (à la création). Sert à l’avertissement non bloquant.
+   */
+  const cyclesClassesSession = (): Cycle[] => {
+    const anneeId = Number(session.anneeScolaireId || annees[0]?.id);
+    const classesEleves = sessionEdit
+      ? eleves.filter((e) => e.sessionId === sessionEdit.id).map((e) => classes.find((k) => k.id === e.classeId)).filter((k): k is Classe => !!k)
+      : [];
+    const concernees = classesEleves.length > 0 ? classesEleves : classes.filter((k) => k.anneeScolaireId === anneeId);
+    return concernees.map((k) => cycleDeNiveau(k.niveau));
+  };
+  const alerteCycleSession = avertissementCycle(typeExamenParId(session.typeExamenId), cyclesClassesSession());
+
   const load = async () => {
     if (!getToken()) return;
     // Seules les listes autorisées (droit VOIR) sont demandées : les autres restent vides au lieu de provoquer un 403.
     const si = <T,>(section: AdminSection, path: string): Promise<T[]> => (droits(section).voir ? apiGet<T[]>(path) : Promise.resolve([]));
-    const [a, c, s, m, p, k, af, coef, el, se] = await Promise.all([
+    const [a, c, s, m, p, k, af, coef, el, se, te] = await Promise.all([
       si<Annee>('annees', '/api/annees-scolaires'),
       si<Centre>('centres', '/api/centres'),
       si<Session>('sessions', '/api/sessions'),
@@ -493,11 +524,14 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
       si<Coefficient>('coefficients', '/api/coefficients'),
       si<Eleve>('eleves', '/api/eleves'),
       si<Serie>('series', '/api/series'),
+      // Référentiel de la plateforme (types actifs), lisible par tout utilisateur connecté.
+      si<TypeExamenChoix>('sessions', '/api/types-examen'),
     ]);
     setAnnees(a);
     setSeries(se);
     setCentres(c);
     setSessions(s);
+    setTypesExamen(te);
     setMatieres(m);
     setProfs(p);
     setClasses(k);
@@ -827,34 +861,74 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               emptyText="Aucune session d’examen pour l’instant"
               columns={[
                 { header: 'Session', render: (r) => <span className="font-semibold">{r.nom}</span> },
-                { header: 'Examen', render: (r) => r.typeExamen },
+                {
+                  header: 'Examen',
+                  render: (r) => (
+                    <span className="inline-flex flex-wrap items-center gap-1.5" title={r.typeExamenLibelleLong || undefined}>
+                      <span>{libelleCourtSession(r)}</span>
+                      {r.typeExamenHorsReferentiel && <Badge tone="red">Hors référentiel</Badge>}
+                    </span>
+                  ),
+                },
                 { header: 'Année', render: (r) => nom(annees, r.anneeScolaireId) },
                 { header: 'Centre', render: (r) => nom(centres, r.centreId) },
                 { header: 'Statut', render: (r) => <Badge tone={r.statut === 'OUVERTE' ? 'green' : 'grey'}>{r.statut}</Badge> },
               ]}
               onEdit={(r) => void open<Session>(`/api/sessions/${r.id}`, (detail) => {
                 setSessionEdit(detail);
-                setSession({ nom: detail.nom, typeExamen: detail.typeExamen, statut: detail.statut, serie: detail.serie || '', anneeScolaireId: String(detail.anneeScolaireId), centreId: String(detail.centreId) });
+                nomSessionProposeRef.current = '';
+                setSession({ nom: detail.nom, typeExamenId: detail.typeExamenId ? String(detail.typeExamenId) : '', statut: detail.statut, serie: detail.serie || '', anneeScolaireId: String(detail.anneeScolaireId), centreId: String(detail.centreId) });
               })}
               onDelete={(r) => void remove(`/api/sessions/${r.id}`, r.nom, reset.session)}
             />
-            {sessionEdit && <EditBanner id={sessionEdit.id} summary={<>{sessionEdit.typeExamen} · année {nom(annees, sessionEdit.anneeScolaireId)} · centre {nom(centres, sessionEdit.centreId)}</>} />}
+            {sessionEdit && <EditBanner id={sessionEdit.id} summary={<>{libelleCourtSession(sessionEdit)}{sessionEdit.typeExamenHorsReferentiel ? ' (hors référentiel)' : ''} · année {nom(annees, sessionEdit.anneeScolaireId)} · centre {nom(centres, sessionEdit.centreId)}</>} />}
             {(droits('sessions').creer || (sessionEdit && droits('sessions').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               const anneeId = Number(session.anneeScolaireId || annees[0]?.id);
               const centreId = Number(session.centreId || centres[0]?.id);
               if (!anneeId || !centreId) { toastError('Créez d’abord une année et un centre.'); return; }
-              const body = { ...session, anneeScolaireId: anneeId, centreId };
+              const typeExamenId = session.typeExamenId ? Number(session.typeExamenId) : null;
+              // Une session antérieure non rattachée peut garder son libellé texte tant qu’aucun type n’est choisi.
+              if (!typeExamenId && !sessionEdit?.typeExamenHorsReferentiel) { toastError('Choisissez un type d’examen.'); return; }
+              const body = {
+                nom: session.nom,
+                statut: session.statut,
+                serie: session.serie || null,
+                anneeScolaireId: anneeId,
+                centreId,
+                typeExamenId,
+                typeExamen: typeExamenId ? null : sessionEdit?.typeExamen ?? null,
+              };
               void run(() => sessionEdit
                 ? apiSend(`/api/sessions/${sessionEdit.id}`, 'PUT', body).then(() => undefined)
                 : apiSend('/api/sessions', 'POST', body).then(() => undefined), sessionEdit ? 'Session mise à jour.' : 'Session créée.', reset.session);
             }}>
+              <Field label="Examen" className="lg:col-span-2">
+                <select
+                  required={!sessionEdit?.typeExamenHorsReferentiel}
+                  value={session.typeExamenId}
+                  onChange={(e) => choisirTypeExamen(e.target.value)}
+                  className={field}
+                  aria-describedby={alerteCycleSession ? 'session-alerte-cycle' : undefined}
+                >
+                  <option value="">
+                    {sessionEdit?.typeExamenHorsReferentiel
+                      ? `Conserver « ${sessionEdit.typeExamen} » (hors référentiel)`
+                      : typesExamen.length === 0 ? 'Aucun type d’examen proposé par la plateforme' : 'Choisir un type d’examen…'}
+                  </option>
+                  {grouperTypesExamen(typesExamen).map((groupe) => (
+                    <optgroup key={groupe.cycle} label={groupe.label}>
+                      {groupe.types.map((t) => <option key={t.id} value={t.id}>{t.libelleCourt} — {t.libelleLong}</option>)}
+                    </optgroup>
+                  ))}
+                </select>
+              </Field>
               <Field label="Nom de la session" className="lg:col-span-2">
-                <input required placeholder="BEPC BLANC" value={session.nom} onChange={(e) => setSession({ ...session, nom: e.target.value })} className={field} />
+                <input required placeholder="BEPC Blanc 2026" value={session.nom} onChange={(e) => setSession({ ...session, nom: e.target.value })} className={field} />
               </Field>
               <Field label="Année scolaire">
-                <select value={session.anneeScolaireId} onChange={(e) => setSession({ ...session, anneeScolaireId: e.target.value })} className={field}>
+                <select value={session.anneeScolaireId} onChange={(e) => choisirTypeExamen(session.typeExamenId, e.target.value)} className={field}>
                   <option value="">Année courante de la liste</option>
                   {annees.map((item) => <option key={item.id} value={item.id}>{item.libelle}</option>)}
                 </select>
@@ -865,6 +939,12 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                   {centres.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}
                 </select>
               </Field>
+              {alerteCycleSession && (
+                <p id="session-alerte-cycle" role="status" className="col-span-full flex items-start gap-2 rounded border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-[12px] text-[#92400e]">
+                  <span className="material-symbols-outlined text-base shrink-0">warning</span>
+                  <span>{alerteCycleSession}</span>
+                </p>
+              )}
               <FormActions editing={!!sessionEdit} createLabel="Créer la session" onCancel={reset.session} />
             </form>
             )}

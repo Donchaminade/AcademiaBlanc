@@ -18,6 +18,8 @@ interface AllBulletinsPrintModalProps {
   settings: AppSettings;
   onClose: () => void;
   selectedSession?: string;
+  /** Libellé long du type d'examen de la session active (référentiel de la plateforme) ; absent en démonstration. */
+  examTypeLong?: string;
 }
 
 export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
@@ -27,6 +29,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
   settings,
   onClose,
   selectedSession,
+  examTypeLong,
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'admis' | 'rattrapage'>('all');
   const sealCaption = establishmentCaption(settings.institutionName);
@@ -133,7 +136,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
         {filteredCandidates.map((candidate, idx) => {
           const stats = allStats[candidate.id];
           const isLast = idx === filteredCandidates.length - 1;
-          const headerInfo = getBulletinHeaderInfo(selectedSession || settings.sessionName, candidate.serie);
+          const headerInfo = getBulletinHeaderInfo(selectedSession || settings.sessionName, candidate.serie, examTypeLong);
           const ministryMark = ministrySigle(settings.ministryName);
 
           return (
