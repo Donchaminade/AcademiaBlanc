@@ -155,28 +155,27 @@ describe('ecritures : écritures de l’espace de travail', () => {
     await assert.rejects(() => sauvegarderNote({ candidateId: '42', subjectId: '12', sessionId: 5, score: 10 }), /pas au programme/);
   });
 
-  it('sauvegarderDeliberation envoie PUT /api/deliberations avec bonus, observation et signature', async () => {
+  it('sauvegarderDeliberation envoie PUT /api/deliberations avec observation et signature, sans aucun point ajouté', async () => {
     const delibere: Candidate = {
       ...candidat,
-      juryBonus: 0.25,
-      generalObservation: ' « Repêchage accordé. » ',
+      generalObservation: ' « Observation du conseil. » ',
       digitalSignature: { signedAt: '2026-06-01T10:00:00.000Z', signer: 'Dr. Traoré (Le Proviseur)', shaHash: 'ABC123' },
     };
-    reponse = () => json({ eleveId: 42, sessionId: 5, bonusJury: 0.25, observation: '« Repêchage accordé. »',
+    reponse = () => json({ eleveId: 42, sessionId: 5, observation: '« Observation du conseil. »',
       signature: { signeLe: '2026-06-01T10:00:00Z', signataire: 'Dr. Traoré (Le Proviseur)', empreinte: 'ABC123' } });
     const vue = await sauvegarderDeliberation(delibere, 5);
     assert.equal(appels[0].method, 'PUT');
     assert.ok(appels[0].url.endsWith('/api/deliberations'));
     assert.deepEqual(appels[0].body, {
-      eleveId: 42, sessionId: 5, bonusJury: 0.25, observation: '« Repêchage accordé. »',
+      eleveId: 42, sessionId: 5, observation: '« Observation du conseil. »',
       signature: { signeLe: '2026-06-01T10:00:00.000Z', signataire: 'Dr. Traoré (Le Proviseur)', empreinte: 'ABC123' },
     });
     // La réponse du serveur fait foi dans la fiche du candidat.
     const relu = appliquerDeliberation(candidat, vue);
-    assert.equal(relu.juryBonus, 0.25);
-    assert.equal(relu.generalObservation, '« Repêchage accordé. »');
+    assert.ok(!('bonusJury' in appels[0].body), 'aucun bonus de repêchage ne part au serveur');
+    assert.equal(relu.generalObservation, '« Observation du conseil. »');
     assert.deepEqual(relu.digitalSignature, { signedAt: '2026-06-01T10:00:00Z', signer: 'Dr. Traoré (Le Proviseur)', shaHash: 'ABC123' });
-    assert.equal(appliquerDeliberation(candidat, { eleveId: 42, sessionId: 5, bonusJury: 0, observation: null, signature: null }).juryBonus, undefined);
+    assert.equal(appliquerDeliberation(candidat, { eleveId: 42, sessionId: 5, observation: null, signature: null }).generalObservation, '');
 
     await assert.rejects(() => sauvegarderDeliberation(delibere, null), /Aucune session/);
     await assert.rejects(() => sauvegarderDeliberation({ ...delibere, id: 'cand-7' }, 5), /absente de la base/);
@@ -242,7 +241,6 @@ const fonctionsEcriture = [...sourceEcritures.matchAll(/^export (?:async )?funct
 const GESTIONNAIRES_ECRITURE = [
   'handleUpdateSettings',
   'handleUpdateGrade',
-  'handleApplyJuryBonus',
   'handleSign',
   'handleAddNewCandidate',
   'handleBatchAddCandidates',

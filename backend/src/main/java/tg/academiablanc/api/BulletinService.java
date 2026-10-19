@@ -14,13 +14,11 @@ import tg.academiablanc.calc.GradeCalculator;
 import tg.academiablanc.calc.GradeCalculator.Ligne;
 import tg.academiablanc.domain.Bulletin;
 import tg.academiablanc.domain.Coefficient;
-import tg.academiablanc.domain.DeliberationJury;
 import tg.academiablanc.domain.Eleve;
 import tg.academiablanc.domain.Matiere;
 import tg.academiablanc.domain.Note;
 import tg.academiablanc.repo.BulletinRepository;
 import tg.academiablanc.repo.CoefficientRepository;
-import tg.academiablanc.repo.DeliberationJuryRepository;
 import tg.academiablanc.repo.EleveRepository;
 import tg.academiablanc.repo.MatiereRepository;
 import tg.academiablanc.repo.NoteRepository;
@@ -35,7 +33,6 @@ public class BulletinService {
   private final CoefficientRepository coefficients;
   private final NoteRepository notes;
   private final BulletinRepository bulletins;
-  private final DeliberationJuryRepository deliberations;
 
   public BulletinService(
       SessionExamenRepository sessions,
@@ -43,8 +40,7 @@ public class BulletinService {
       MatiereRepository matieres,
       CoefficientRepository coefficients,
       NoteRepository notes,
-      BulletinRepository bulletins,
-      DeliberationJuryRepository deliberations
+      BulletinRepository bulletins
   ) {
     this.sessions = sessions;
     this.eleves = eleves;
@@ -52,15 +48,28 @@ public class BulletinService {
     this.coefficients = coefficients;
     this.notes = notes;
     this.bulletins = bulletins;
-    this.deliberations = deliberations;
   }
 
+  /**
+   * Ligne du bulletin. {@code noteMaxClasse} / {@code noteMinClasse} : meilleure et moins bonne note de
+   * la matière parmi les élèves de la même classe (même session) qui ont une note présente ; null sans note.
+   */
   public record LigneBulletin(Long matiereId, String matiere, BigDecimal note, BigDecimal coefficient,
-                              BigDecimal total, Integer rang, boolean absent) {}
+                              BigDecimal total, Integer rang, boolean absent,
+                              BigDecimal noteMaxClasse, BigDecimal noteMinClasse) {}
 
+  /**
+   * Bulletin d'un élève. La moyenne est la moyenne réelle Σ(note × coef) / Σ coef : aucun point n'y est
+   * ajouté. {@code totalCoef} ne compte que les matières notées (une matière sans note ne vaut pas zéro) ;
+   * {@code totalCoefProgramme} et {@code pointsMax} (= 20 × Σ coef) portent sur tout le programme de la
+   * classe. {@code moyenneClasse}, {@code moyenneClasseMax} et {@code moyenneClasseMin} sont calculées sur
+   * les élèves notés de la même classe dans la session ; null si personne n'est noté.
+   */
   public record BulletinVue(Long eleveId, String nomComplet, String matricule, BigDecimal moyenne,
                             Integer rang, String mention, String appreciation, BigDecimal totalPoints,
-                            BigDecimal totalCoef, List<LigneBulletin> lignes) {}
+                            BigDecimal totalCoef, BigDecimal totalCoefProgramme, BigDecimal pointsMax,
+                            BigDecimal moyenneClasse, BigDecimal moyenneClasseMax, BigDecimal moyenneClasseMin,
+                            List<LigneBulletin> lignes) {}
 
   /** Calcule les bulletins de la session et les enregistre (table {@code bulletin}). */
   @Transactional
@@ -108,14 +117,6 @@ public class BulletinService {
       notesByEleve.computeIfAbsent(note.getEleveId(), ignored -> new HashMap<>()).put(note.getMatiereId(), note);
     }
 
-    // Bonus de repêchage accordé par le jury : ajouté à la moyenne, comme dans l'application cliente.
-    Map<Long, BigDecimal> bonusJury = new HashMap<>();
-    for (DeliberationJury deliberation : deliberations.findByEtablissementIdAndSessionId(user.etablissementId(), sessionId)) {
-      if (deliberation.getBonusJury() != null && deliberation.getBonusJury().signum() > 0) {
-        bonusJury.put(deliberation.getEleveId(), deliberation.getBonusJury());
-      }
-    }
-
     Map<Long, BigDecimal> moyennes = new HashMap<>();
     Map<Long, List<Ligne>> lignesParEleve = new HashMap<>();
     for (Eleve eleve : roster) {
@@ -127,11 +128,29 @@ public class BulletinService {
         lignes.add(new Ligne(eleve.getId(), matiere.getId(), valeur, coefDe(coefs, programmes, matiere.getId(), eleve.getClasseId()), absent));
       }
       lignesParEleve.put(eleve.getId(), lignes);
-      BigDecimal moyenne = GradeCalculator.moyenne(lignes);
-      BigDecimal bonus = bonusJury.get(eleve.getId());
-      moyennes.put(eleve.getId(), moyenne == null || bonus == null ? moyenne : moyenne.add(bonus));
+      // Moyenne réelle, jamais majorée : la délibération du jury ne porte que l'observation et la signature.
+      moyennes.put(eleve.getId(), GradeCalculator.moyenne(lignes));
     }
     Map<Long, Integer> rangsGeneraux = GradeCalculator.rangsCompetition(moyennes);
+
+    // Extrêmes par classe (même session) : moyenne de classe, moyenne la plus forte et la plus faible,
+    // sur les élèves qui ont au moins une note. Les élèves sans classe forment un groupe à part.
+    Map<Long, List<BigDecimal>> moyennesParClasse = new HashMap<>();
+    for (Eleve eleve : roster) {
+      BigDecimal moyenne = moyennes.get(eleve.getId());
+      if (moyenne != null) moyennesParClasse.computeIfAbsent(eleve.getClasseId(), ignored -> new ArrayList<>()).add(moyenne);
+    }
+
+    // Notes extrêmes par classe et par matière, sur les notes présentes.
+    Map<Long, Map<Long, List<BigDecimal>>> notesParClasseEtMatiere = new HashMap<>();
+    for (Eleve eleve : roster) {
+      for (Ligne ligne : lignesParEleve.get(eleve.getId())) {
+        if (ligne.absent() || ligne.note() == null) continue;
+        notesParClasseEtMatiere.computeIfAbsent(eleve.getClasseId(), ignored -> new HashMap<>())
+            .computeIfAbsent(ligne.matiereId(), ignored -> new ArrayList<>())
+            .add(ligne.note());
+      }
+    }
 
     // Rang par matière : parmi les élèves qui ont cette matière à leur programme et une note présente.
     Map<Long, Map<Long, Integer>> rangsMatieres = new HashMap<>();
@@ -154,9 +173,11 @@ public class BulletinService {
       List<Ligne> lignes = lignesParEleve.get(eleve.getId());
       BigDecimal moyenne = moyennes.get(eleve.getId());
       List<LigneBulletin> detail = new ArrayList<>();
+      Map<Long, List<BigDecimal>> notesDeLaClasse = notesParClasseEtMatiere.getOrDefault(eleve.getClasseId(), Map.of());
       for (Ligne ligne : lignes) {
         Matiere matiere = matiereParId.get(ligne.matiereId());
         Integer rangMatiere = rangsMatieres.get(matiere.getId()).get(eleve.getId());
+        List<BigDecimal> notesMatiere = notesDeLaClasse.getOrDefault(matiere.getId(), List.of());
         detail.add(new LigneBulletin(
             matiere.getId(),
             matiere.getNom(),
@@ -164,9 +185,12 @@ public class BulletinService {
             ligne.coef(),
             GradeCalculator.totalPondere(ligne.note(), ligne.coef()),
             rangMatiere,
-            ligne.absent()
+            ligne.absent(),
+            GradeCalculator.max(notesMatiere),
+            GradeCalculator.min(notesMatiere)
         ));
       }
+      List<BigDecimal> moyennesDeLaClasse = moyennesParClasse.getOrDefault(eleve.getClasseId(), List.of());
       BulletinVue vue = new BulletinVue(
           eleve.getId(),
           eleve.getNomComplet(),
@@ -177,6 +201,11 @@ public class BulletinService {
           GradeCalculator.appreciation(moyenne),
           GradeCalculator.sommePoints(lignes),
           GradeCalculator.sommeCoef(lignes),
+          GradeCalculator.sommeCoefProgramme(lignes),
+          GradeCalculator.pointsMax(lignes),
+          GradeCalculator.moyenneDe(moyennesDeLaClasse),
+          GradeCalculator.max(moyennesDeLaClasse),
+          GradeCalculator.min(moyennesDeLaClasse),
           detail
       );
       vues.add(vue);

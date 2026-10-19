@@ -13,9 +13,9 @@ import tg.academiablanc.domain.Ressource;
 import tg.academiablanc.security.PermissionService;
 
 /**
- * Décisions du jury par élève et par session (repêchage, observation, signature du bulletin).
- * Lecture avec BULLETINS:VOIR (affichage du bulletin) ; écriture avec BULLETINS:CREER, le droit
- * qui autorise déjà à générer ou recalculer les bulletins que la délibération modifie.
+ * Décisions du jury par élève et par session (observation du conseil, signature du bulletin) ; elles ne
+ * modifient jamais la moyenne. Lecture avec BULLETINS:VOIR (affichage du bulletin) ; écriture avec
+ * BULLETINS:CREER, le droit qui autorise déjà à générer ou recalculer les bulletins.
  */
 @RestController
 @RequestMapping("/api/deliberations")
