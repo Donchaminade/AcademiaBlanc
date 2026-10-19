@@ -2,6 +2,8 @@ package tg.academiablanc.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -52,6 +54,15 @@ public class SessionExamen implements TenantOwned {
   /** Renseignée quand la session est archivée ou clôturée ; vide tant qu'elle est ouverte. */
   @Column(name = "archivee_le")
   private Instant archiveeLe;
+
+  /** Interne (élèves de l'établissement) ou inter-établissements (l'établissement est le centre d'examen). */
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 30)
+  private ModeSession mode = ModeSession.INTERNE;
+
+  public boolean estInterEtablissements() {
+    return ModeSession.ouDefaut(mode) == ModeSession.INTER_ETABLISSEMENTS;
+  }
 
   /**
    * Deux sessions sont « sœurs » quand elles portent le même examen dans la même année scolaire

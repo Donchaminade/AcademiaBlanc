@@ -14,8 +14,10 @@ import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
 import { TITRE_TITULAIRE, aUnTitulaire, nomTitulaireAffiche } from '../utils/titulaire';
+import { etablissementOrigineAffiche, groupeDeClassement } from '../utils/sessionMode';
 import { BulletinFooter } from './BulletinFooter';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
+import { LigneCentreExamen, SignaturesInter } from './BulletinInterBlocs';
 
 interface BulletinViewProps {
   candidates: Candidate[];
@@ -33,6 +35,13 @@ interface BulletinViewProps {
   selectedSession?: string;
   /** Libellé long du type d'examen de la session active (référentiel de la plateforme) ; absent en démonstration. */
   examTypeLong?: string;
+  /**
+   * Session inter-établissements : relevé sans logo, cachet ni pied de page de l'établissement, ligne
+   * « Centre d'examen », signatures du président du jury et du chef du centre, rang par niveau / série.
+   */
+  sessionInter?: boolean;
+  /** Nom du centre d'examen (établissement hôte) en session inter-établissements. */
+  centreExamen?: string;
 }
 
 export const BulletinView: React.FC<BulletinViewProps> = ({
@@ -49,12 +58,17 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   settings,
   selectedSession,
   examTypeLong,
+  sessionInter = false,
+  centreExamen = '',
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const ministryMarkLabel = ministryMark(settings);
   const regionalAuthority = (settings.regionalAuthority || '').trim();
   const sealCaption = establishmentCaption(settings.institutionName);
   const yearCaption = academicYearCaption(settings.academicYear);
+  // Inter-établissements : aucun sceau ni filigrane de l'établissement hôte sur le relevé.
+  const afficherSceau = !sessionInter && Boolean(settings.sealUrl && settings.sealUrl.trim() !== '');
+  const porteeLibelle = sessionInter ? 'du groupe' : 'de la classe';
 
   // Bandeau : type d'examen et intitulé de la session, puis série (lycée) ou niveau (collège) et année scolaire.
   const entete = useMemo(() => composerEnteteBulletin({
@@ -68,8 +82,14 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   }), [examTypeLong, settings.examType, selectedSession, settings.sessionName, settings.academicYear, selectedCandidate]);
 
   const currentIndex = candidates.findIndex((c) => c.id === selectedCandidate.id);
-  // Camarades de la même classe (même session) : base des notes min / max par matière.
-  const camarades = useMemo(() => camaradesDeClasse(selectedCandidate, candidates), [selectedCandidate, candidates]);
+  // Base des notes min / max par matière : la classe (même session) ; en inter-établissements, le groupe
+  // niveau / série de toute la session (toutes classes du centre confondues).
+  const camarades = useMemo(
+    () => (sessionInter ? groupeDeClassement(selectedCandidate, candidates, true) : camaradesDeClasse(selectedCandidate, candidates)),
+    [selectedCandidate, candidates, sessionInter],
+  );
+  // Rang par matière : toute la session en interne (inchangé), le groupe niveau / série en inter.
+  const cohorteRangMatiere = sessionInter ? camarades : candidates;
   const fmtMoyenne = (value: number | null) => (value == null ? '—' : value.toFixed(2));
 
   const handlePrev = () => {
@@ -253,8 +273,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
           style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top center' }}
           className="bulletin-sheet w-full max-w-[860px] min-w-[800px] bg-white text-[#131b2e] rounded-xs shadow-xl p-8 sm:p-10 relative transition-transform duration-200 border border-[#eaedff]"
         >
-          {/* Watermark Background Emblem (only if seal uploaded) */}
-          {settings.sealUrl && settings.sealUrl.trim() !== '' && (
+          {/* Watermark Background Emblem (only if seal uploaded; never in inter-établissements) */}
+          {afficherSceau && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] select-none overflow-hidden">
               <img
                 alt="Armoiries Officielles"
@@ -272,9 +292,10 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               {regionalAuthority ? <p className="bulletin-ministry-sigle">{regionalAuthority}</p> : null}
             </div>
 
-            {/* Central Academic Seal */}
+            {/* Central Academic Seal — remplacé par la ligne « Centre d'examen » en inter-établissements */}
+            {sessionInter ? <div className="bulletin-seal" aria-hidden="true" /> : (
             <div className="bulletin-seal">
-              {settings.sealUrl && settings.sealUrl.trim() !== '' ? (
+              {afficherSceau ? (
                 <div className="bulletin-seal-mark w-20 h-20 rounded-full bg-[#f2f3ff] flex items-center justify-center p-1.5 shadow-sm border border-[#eaedff] overflow-hidden">
                   <img
                     alt="Sceau Académique Officiel"
@@ -295,12 +316,15 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               )}
               <span className="bulletin-seal-caption">{sealCaption}</span>
             </div>
+            )}
 
             <div className="bulletin-header-right">
               <p className="bulletin-republic-name">{settings.countryName}</p>
               <p className="bulletin-republic-motto">{settings.motto}</p>
             </div>
           </div>
+
+          {sessionInter && <LigneCentreExamen centreExamen={centreExamen} />}
 
           {/* Bande de l'année académique */}
           <div className="bulletin-ribbon relative z-10 py-1.5 px-3 bg-[#eaedff] rounded border border-[#dce1ff]">
@@ -363,8 +387,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 Centre d'Examen
               </span>
 
-              <span className="bulletin-field-value bulletin-field-school text-[13px] text-[#131b2e] font-medium">
-                {selectedCandidate.originSchool}
+              <span className="bulletin-field-value bulletin-field-school text-[13px] text-[#131b2e] font-medium" data-testid="bulletin-origine">
+                {sessionInter ? etablissementOrigineAffiche(selectedCandidate, centreExamen) : selectedCandidate.originSchool}
               </span>
               <span className="bulletin-field-value bulletin-field-center text-[13px] text-[#00236f] font-semibold">
                 {selectedCandidate.examCenterName}
@@ -393,7 +417,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   <th className="py-2 px-2 font-semibold text-center">Coef</th>
                   <th className="py-2 px-2 font-semibold text-right">Total Coef</th>
                   <th className="py-2 px-2 font-semibold text-center">Rang</th>
-                  <th className="py-2 px-2 font-semibold text-center">Min / Max classe</th>
+                  <th className="py-2 px-2 font-semibold text-center">{sessionInter ? 'Min / Max groupe' : 'Min / Max classe'}</th>
                   <th className="py-2 px-3 font-semibold text-left">Appréciation du professeur</th>
                 </tr>
               </thead>
@@ -403,7 +427,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   const coef = coefDuCandidat(selectedCandidate, subj);
                   const scoreTotal = gradeData ? (gradeData.score * coef).toFixed(2) : '—';
                   const isEven = idx % 2 === 0;
-                  const subjectRankValue = computeSubjectRank(selectedCandidate.id, subj.id, candidates);
+                  const subjectRankValue = computeSubjectRank(selectedCandidate.id, subj.id, cohorteRangMatiere);
                   const subjectRank = subjectRankValue === null ? '—' : formatSubjectRank(subjectRankValue);
                   const minMaxClasse = formatMinMax(extremesDeMatiere(subj.id, camarades));
                   const professorAppreciation = appreciationAffichee(gradeData);
@@ -525,7 +549,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   {computedStats.average.toFixed(2)}
                 </span>
                 <span className="font-mono text-[11px] text-[#444651] whitespace-nowrap">
-                  / 20 • classe {fmtMoyenne(computedStats.classAverage)}
+                  / 20 • {sessionInter ? 'groupe' : 'classe'} {fmtMoyenne(computedStats.classAverage)}
                 </span>
               </div>
 
@@ -555,7 +579,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 <span className="font-sans text-[18px] text-[#00236f] font-bold my-0 leading-none">
                   {fmtMoyenne(computedStats.classHighestAverage)}
                 </span>
-                <span className="font-mono text-[11px] text-[#444651]">de la classe</span>
+                <span className="font-mono text-[11px] text-[#444651]">{porteeLibelle}</span>
               </div>
 
               <div className="bulletin-metric bg-white rounded-xs px-2 py-1.5 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
@@ -565,12 +589,13 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 <span className="font-sans text-[18px] text-[#ba1a1a] font-bold my-0 leading-none">
                   {fmtMoyenne(computedStats.classLowestAverage)}
                 </span>
-                <span className="font-mono text-[11px] text-[#444651]">de la classe</span>
+                <span className="font-mono text-[11px] text-[#444651]">{porteeLibelle}</span>
               </div>
             </div>
           </div>
 
-          {/* Signatures & Endorsement Section: Le Titulaire et Le Proviseur */}
+          {/* Signatures : président du jury et chef du centre en inter-établissements ; titulaire et proviseur sinon */}
+          {sessionInter ? <SignaturesInter chefCentre={settings.jurySignerName} /> : (
           <div className="bulletin-signatures relative z-10 pt-1 grid grid-cols-2 gap-2 max-w-2xl mx-auto text-center">
             {/* Signature 1: Le Titulaire — l'enseignant affecté à la classe de l'élève, sinon ligne à compléter */}
             <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[52px] bg-[#f2f3ff]/50 px-2 py-1 rounded-xs border border-[#eaedff]">
@@ -622,6 +647,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               </span>
             </div>
           </div>
+          )}
 
           {/* Visa des parents : avis et observations laissés à la main quand l'élève rapporte le relevé */}
           <div className="bulletin-visa-parents relative z-10 max-w-2xl mx-auto mt-2 bg-[#f2f3ff]/50 px-3 py-2 rounded-xs border border-[#eaedff]">
@@ -645,8 +671,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             </div>
           </div>
 
-          {/* Dernier élément de la page : filet doré puis « NOM DE L'ÉTABLISSEMENT • Devise » */}
-          <BulletinFooter institutionName={settings.institutionName} institutionMotto={settings.institutionMotto} />
+          {/* Dernier élément de la page : filet doré puis « NOM DE L'ÉTABLISSEMENT • Devise » (jamais en inter-établissements) */}
+          {!sessionInter && <BulletinFooter institutionName={settings.institutionName} institutionMotto={settings.institutionMotto} />}
         </div>
       </div>
     </div>

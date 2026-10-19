@@ -5,6 +5,8 @@ import { coefficientEffectif } from '../utils/coefficients';
 import { appliquerDeliberation } from './ecritures';
 import type { DeliberationApi } from './ecritures';
 import { SessionTypeExamen, libelleCourtSession, libelleLongSession } from './typesExamen';
+import { MODE_SESSION_DEFAUT, estSessionInter } from '../utils/sessionMode';
+import type { ModeSession } from '../utils/sessionMode';
 
 /** Une liste refusée (droit VOIR absent) est traitée comme vide : l’écran reste utilisable avec les droits détenus. */
 async function lire<T>(path: string): Promise<T[]> {
@@ -18,7 +20,11 @@ async function lire<T>(path: string): Promise<T[]> {
 
 interface Annee { id: number; libelle: string; courante: boolean; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
-interface SessionApi extends SessionTypeExamen { id: number; nom: string; statut?: string; serie?: string; anneeScolaireId: number; centreId: number; }
+/** `mode` et `centreExamen` (nom de l'établissement hôte en inter-établissements) : absents sur une ancienne API. */
+interface SessionApi extends SessionTypeExamen {
+  id: number; nom: string; statut?: string; serie?: string; anneeScolaireId: number; centreId: number;
+  mode?: ModeSession | null; centreExamen?: string | null;
+}
 interface Matiere { id: number; nom: string; code: string; }
 interface Professeur { id: number; nom: string; }
 /** `titulaireId` : enseignant désigné titulaire dans Administration › Classes ; null ou absent = sans titulaire. */
@@ -41,7 +47,7 @@ interface EleveApi {
 }
 interface NoteApi { eleveId: number; matiereId: number; valeur?: number | null; absent: boolean; appreciation?: string | null; }
 
-export interface ExamOption { id: number; label: string; }
+export interface ExamOption { id: number; label: string; /** Mode de la session (absent pour un centre ou une classe). */ mode?: ModeSession; }
 
 export interface WorkspaceOptions {
   /**
@@ -72,6 +78,10 @@ export interface SchoolWorkspace {
   /** Libellé long du référentiel (« Brevet d'Études du Premier Cycle »), imprimé en tête du bulletin. */
   examTypeLong: string;
   centerLabel: string;
+  /** Mode de la session chargée : interne (défaut) ou inter-établissements. */
+  sessionMode: ModeSession;
+  /** Nom du centre d'examen d'une session inter-établissements (l'établissement hôte) ; vide en mode interne. */
+  centreExamen: string;
   /** Somme des coefficients réellement enregistrés sur l'API (0 si aucune matière). */
   totalCoef: number;
   /** Nombre de coefficients explicitement saisis (les matières sans coefficient comptent 1 par défaut). */
@@ -186,6 +196,9 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
     || annees.find((item) => item.courante)
     || annees[0];
   const centre = centres.find((item) => item.id === session?.centreId) || centres[0];
+  const sessionMode: ModeSession = session?.mode ?? MODE_SESSION_DEFAUT;
+  const inter = estSessionInter(sessionMode);
+  const centreExamen = inter ? (session?.centreExamen || '').trim() : '';
   const teacherName = (matiereId: number, classeId?: number) => {
     const link = affectations.find((item) => item.matiereId === matiereId && (classeId == null || item.classeId === classeId))
       || affectations.find((item) => item.matiereId === matiereId);
@@ -229,7 +242,8 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
       fullName: eleve.nomComplet,
       dob: eleve.dateNaissance || '',
       birthPlace: eleve.lieuNaissance || '',
-      originSchool: eleve.etablissementOrigine || '',
+      // En inter-établissements, un candidat sans origine saisie est un élève du centre d'examen.
+      originSchool: eleve.etablissementOrigine || (inter ? centreExamen : ''),
       gender: eleve.genre === 'M' ? 'M' : 'F',
       // La classe porte le code du référentiel (« D », « G2 ») ; le bulletin attend « Série D ».
       // Au collège (6e–3e) il n'y a pas de série, même si la session en porte une.
@@ -242,7 +256,8 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
       titulaire: titulaireDeClasse(classe, profs),
       sessionId: eleve.sessionId ?? null,
       examCenter: centre?.code || '',
-      examCenterName: centre ? `${centre.nom}${centre.ville ? ` (${centre.ville})` : ''}` : '',
+      // Inter-établissements : le centre d'examen est l'établissement hôte, pas un centre saisi à part.
+      examCenterName: inter && centreExamen ? centreExamen : (centre ? `${centre.nom}${centre.ville ? ` (${centre.ville})` : ''}` : ''),
       parentPhone: '',
       parentEmail: '',
       grades,
@@ -255,7 +270,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
   return {
     sessionId: session?.id ?? null,
     classeId: classes[0]?.id ?? null,
-    sessions: sessions.map((item) => ({ id: item.id, label: item.nom })),
+    sessions: sessions.map((item) => ({ id: item.id, label: item.nom, mode: item.mode ?? MODE_SESSION_DEFAUT })),
     centers: centres.map((item) => ({ id: item.id, label: `${item.nom}${item.code ? ` (${item.code})` : ''}` })),
     classes: classes.map((item) => ({ id: item.id, label: item.nom })),
     elevesEnBase: eleves.length,
@@ -267,6 +282,8 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
     examType: libelleCourtSession(session),
     examTypeLong: libelleLongSession(session),
     centerLabel: centre ? `${centre.nom}${centre.code ? ` (${centre.code})` : ''}` : '',
+    sessionMode,
+    centreExamen,
     totalCoef: subjects.reduce((sum, subject) => sum + subject.coef, 0),
     coefficientsCount: coefficients.length,
   };

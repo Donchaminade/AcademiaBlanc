@@ -50,9 +50,14 @@ import {
 import { Candidate, Subject, ViewMode, AppSettings, SchoolAccount, AdminSection } from './types';
 import { printDocument } from './utils/printDocument';
 import { usePublicRoute } from './utils/router';
+import { MODE_SESSION_DEFAUT, estSessionInter } from './utils/sessionMode';
+import type { ModeSession } from './utils/sessionMode';
 
 // Site vitrine (GSAP, Three.js) chargé à la demande : l’application connectée n’embarque pas ces bibliothèques.
 const LandingPage = lazy(() => import('./components/landing/LandingPage'));
+
+/** Session inter-établissements : uniquement en session API (les données de démonstration restent internes). */
+const usingApiInter = (mode: ModeSession): boolean => Boolean(getToken()) && estSessionInter(mode);
 
 export default function App() {
   // Establishment Multi-Tenant State
@@ -91,6 +96,10 @@ export default function App() {
   const [activeClasseId, setActiveClasseId] = useState<number | null>(null);
   const [activeExamType, setActiveExamType] = useState<string>('');
   const [activeExamTypeLong, setActiveExamTypeLong] = useState<string>('');
+  // Mode de la session active (interne / inter-établissements) et nom du centre d'examen en inter.
+  const [activeSessionMode, setActiveSessionMode] = useState<ModeSession>(MODE_SESSION_DEFAUT);
+  const [activeCentreExamen, setActiveCentreExamen] = useState<string>('');
+  const sessionInter = usingApiInter(activeSessionMode);
   const [usingApi, setUsingApi] = useState<boolean>(() => Boolean(getToken()));
   // Jeton présent au chargement : rien n'est affiché (surtout pas de données de démonstration)
   // tant que la session n'est pas relue et l'espace de l'établissement chargé depuis l'API.
@@ -236,6 +245,8 @@ export default function App() {
     setActiveClasseId(workspace.classeId);
     setActiveExamType(workspace.examType);
     setActiveExamTypeLong(workspace.examTypeLong);
+    setActiveSessionMode(workspace.sessionMode);
+    setActiveCentreExamen(workspace.centreExamen);
     if (charte) setCharteModifieeLe(charte.modifieLe ?? null);
     setSettings((prev) => {
       // En session API, les paramètres viennent du serveur (charte) ou des valeurs par défaut du logiciel :
@@ -288,6 +299,8 @@ export default function App() {
     setActiveSessionId(null);
     setActiveClasseId(null);
     setActiveExamType('');
+    setActiveSessionMode(MODE_SESSION_DEFAUT);
+    setActiveCentreExamen('');
     setSelectedCandidateId('');
     setSelectedSession('');
     setSelectedCenter('');
@@ -369,6 +382,8 @@ export default function App() {
     setActiveSessionId(null);
     setActiveClasseId(null);
     setActiveExamType('');
+    setActiveSessionMode(MODE_SESSION_DEFAUT);
+    setActiveCentreExamen('');
     setSelectedCandidateId('');
     setSelectedSession('');
     setSelectedCenter('');
@@ -475,10 +490,10 @@ export default function App() {
   const allStats = useMemo(() => {
     const map: Record<string, ReturnType<typeof computeCandidateStats>> = {};
     candidates.forEach((cand) => {
-      map[cand.id] = computeCandidateStats(cand, subjects, candidates);
+      map[cand.id] = computeCandidateStats(cand, subjects, candidates, { inter: sessionInter });
     });
     return map;
-  }, [candidates, subjects]);
+  }, [candidates, subjects, sessionInter]);
 
   const selectedCandidate = useMemo(() => {
     return candidates.find((c) => c.id === selectedCandidateId) || candidates[0];
@@ -504,8 +519,8 @@ export default function App() {
         classEvaluatedCount: 0,
       };
     }
-    return allStats[selectedCandidate.id] || computeCandidateStats(selectedCandidate, subjects, candidates);
-  }, [allStats, selectedCandidate, subjects, candidates]);
+    return allStats[selectedCandidate.id] || computeCandidateStats(selectedCandidate, subjects, candidates, { inter: sessionInter });
+  }, [allStats, selectedCandidate, subjects, candidates, sessionInter]);
 
   // L'appréciation reste celle de l'enseignant si elle existe ; vide = automatique selon la note.
   const avecNote = (candidate: Candidate, subjectId: string, score: number, appreciation?: string): Candidate => ({
@@ -886,6 +901,8 @@ export default function App() {
         onOpenSearch={sessionPlateformeSeule ? undefined : () => setIsSearchModalOpen(true)}
         sessionOptions={usingApi ? apiSessions.map((item) => item.label) : undefined}
         examType={usingApi ? activeExamType : undefined}
+        sessionMode={usingApi ? activeSessionMode : undefined}
+        centreExamen={usingApi ? activeCentreExamen : undefined}
         centerOptions={usingApi ? apiCenters : undefined}
         platformOwner={isPlatformAccount(getSession()) || accountRole === 'SUPER_ADMIN' || accountRole === 'GESTIONNAIRE_PLATEFORME'}
         platformOnly={sessionPlateformeSeule}
@@ -966,6 +983,8 @@ export default function App() {
               settings={settings}
               selectedSession={selectedSession}
               examTypeLong={usingApi ? activeExamTypeLong : undefined}
+              sessionInter={sessionInter}
+              centreExamen={activeCentreExamen}
             />
           )}
 
@@ -988,6 +1007,9 @@ export default function App() {
               selectedSession={selectedSession}
               selectedCenter={selectedCenter}
               settings={settings}
+              sessionInter={sessionInter}
+              centreExamen={activeCentreExamen}
+              examType={usingApi ? activeExamType : undefined}
               onRenumberAlphabetically={handleRenumberAlphabetically}
               onBatchAddCandidates={handleBatchAddCandidates}
               onOpenBatchPrint={peutImprimer ? () => setIsBatchPrintModalOpen(true) : undefined}
@@ -1076,6 +1098,8 @@ export default function App() {
               examType={usingApi ? activeExamType : undefined}
               examTypeLong={usingApi ? activeExamTypeLong : undefined}
               settings={settings}
+              sessionInter={sessionInter}
+              centreExamen={activeCentreExamen}
               juryLocked={juryLocked}
               onToggleJuryLock={handleToggleJuryLock}
             />
@@ -1142,6 +1166,8 @@ export default function App() {
           settings={settings}
           selectedSession={selectedSession}
           examTypeLong={usingApi ? activeExamTypeLong : undefined}
+          sessionInter={sessionInter}
+          centreExamen={activeCentreExamen}
           onClose={() => setIsBatchPrintModalOpen(false)}
         />
       )}

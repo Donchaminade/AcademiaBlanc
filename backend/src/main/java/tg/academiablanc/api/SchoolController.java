@@ -34,6 +34,7 @@ import tg.academiablanc.domain.Classe;
 import tg.academiablanc.domain.Coefficient;
 import tg.academiablanc.domain.Eleve;
 import tg.academiablanc.domain.Matiere;
+import tg.academiablanc.domain.ModeSession;
 import tg.academiablanc.domain.Note;
 import tg.academiablanc.domain.Professeur;
 import tg.academiablanc.domain.Ressource;
@@ -123,17 +124,22 @@ public class SchoolController {
   /**
    * {@code typeExamenId} désigne un type actif du référentiel de la plateforme ; {@code typeExamen} (texte) n'est
    * accepté qu'en repli pour les clients antérieurs et est reconnu quand c'est possible (« BAC II » → BAC2).
+   * {@code mode} : INTERNE (défaut) ou INTER_ETABLISSEMENTS ; il ne change plus une fois la session archivée.
    */
   public record SessionRequest(@NotNull Long anneeScolaireId, @NotNull Long centreId, @NotBlank @Size(max = 180) String nom,
                                Long typeExamenId, @Size(max = 120) String typeExamen, @Size(max = 80) String serie,
-                               @NotBlank @Size(max = 40) String statut) {}
+                               @NotBlank @Size(max = 40) String statut, ModeSession mode) {}
   public record MatiereRequest(@NotBlank @Size(max = 180) String nom, @NotBlank @Size(max = 40) String code, @Size(max = 10) String groupeCode) {}
   public record CoefficientRequest(@NotNull Long matiereId, Long classeId, @Size(max = 80) String serie, @NotNull @DecimalMin("0.5") @DecimalMax("20") BigDecimal valeur) {}
   public record ProfesseurRequest(@NotBlank @Size(max = 180) String nom, @Size(max = 180) String email) {}
   public record ClasseRequest(@NotNull Long anneeScolaireId, @NotBlank @Size(max = 120) String nom, @NotBlank @Size(max = 80) String niveau, @Size(max = 80) String serie, Long titulaireId) {}
   public record TitulaireRequest(@NotNull Long professeurId) {}
   public record AffectationRequest(@NotNull Long professeurId, @NotNull Long matiereId, @NotNull Long classeId) {}
-  /** Le matricule n'est jamais fourni par le client : attribué par {@link MatriculeService} à la création, figé ensuite. */
+  /**
+   * Le matricule n'est jamais fourni par le client : attribué par {@link MatriculeService} à la création, figé ensuite.
+   * {@code numeroTable} absent à la création d'un élève rattaché à une session : numéro suivant libre dans la session.
+   * {@code etablissementOrigine} : texte libre (session inter-établissements) ; vide = élève de l'établissement.
+   */
   public record EleveRequest(@NotNull Long classeId, Long sessionId, @NotBlank @Size(max = 180) String nomComplet,
                              @Size(max = 20) String dateNaissance, @Size(max = 120) String lieuNaissance, @NotBlank @Size(min = 1, max = 1) String genre,
                              Integer numeroTable, @Size(max = 180) String etablissementOrigine) {}
@@ -555,6 +561,9 @@ public class SchoolController {
     Eleve eleve = new Eleve();
     eleve.setEtablissementId(Tenant.current().etablissementId());
     remplir(eleve, request);
+    if (eleve.getNumeroTable() == null && eleve.getSessionId() != null) {
+      eleve.setNumeroTable(importEleves.prochainNumeroTable(eleve.getEtablissementId(), eleve.getSessionId()));
+    }
     return matricules.enregistrerNouveau(eleve);
   }
 
@@ -676,6 +685,13 @@ public class SchoolController {
   }
 
   private void remplir(SessionExamen session, SessionRequest request) {
+    ModeSession mode = ModeSession.ouDefaut(request.mode());
+    // Le mode décide de la forme des relevés déjà imprimés : il est figé dès que la session est archivée (PV verrouillé).
+    if (session.getId() != null && SessionStatut.estArchivee(session.getStatut()) && mode != ModeSession.ouDefaut(session.getMode())) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT,
+          "Le mode (interne / inter-établissements) d'une session archivée ne se modifie plus : rouvrez-la d'abord.");
+    }
+    session.setMode(mode);
     session.setAnneeScolaireId(request.anneeScolaireId());
     session.setCentreId(request.centreId());
     session.setNom(request.nom().trim());
@@ -728,7 +744,8 @@ public class SchoolController {
     eleve.setLieuNaissance(request.lieuNaissance());
     eleve.setGenre(genre);
     eleve.setNumeroTable(request.numeroTable());
-    eleve.setEtablissementOrigine(request.etablissementOrigine());
+    String origine = request.etablissementOrigine();
+    eleve.setEtablissementOrigine(origine == null || origine.isBlank() ? null : origine.trim().replaceAll("\\s+", " "));
   }
 
   private void verifierAnnee(Long id) {
