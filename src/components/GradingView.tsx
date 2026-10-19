@@ -553,7 +553,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
                       const manuelle = normaliserAppreciationManuelle(gradeData?.appreciation);
                       const appreciation = appreciationAffichee(gradeData);
                       return (
-                        <td key={s.id} className="py-1 px-1.5 text-center group">
+                        <td key={s.id} className="py-1 px-1.5 text-center">
                           <span className="relative inline-block">
                             <input
                               type="number"
@@ -604,8 +604,8 @@ export const GradingView: React.FC<GradingViewProps> = ({
                                 aria-label={`Appréciation du professeur — ${cand.fullName}, ${s.name} : ${appreciation}`}
                                 title={manuelle ? `Appréciation saisie : « ${manuelle} » (cliquer pour modifier)` : `Appréciation automatique : « ${appreciation} » (cliquer pour saisir un texte libre)`}
                                 onClick={() => setAnnotation({ candidateId: cand.id, subjectId: s.id })}
-                                className={`absolute -bottom-1.5 -right-1.5 material-symbols-outlined text-[13px] leading-none rounded-full bg-white transition-opacity focus:opacity-100 ${
-                                  manuelle ? 'text-[#0051d5] opacity-100' : 'text-[#757682] opacity-0 group-hover:opacity-100'
+                                className={`absolute -bottom-1.5 -right-1.5 material-symbols-outlined text-[13px] leading-none rounded-full bg-white transition-colors hover:text-[#0051d5] focus:text-[#0051d5] ${
+                                  manuelle ? 'text-[#0051d5]' : 'text-[#b9bfd6]'
                                 }`}
                               >
                                 rate_review
