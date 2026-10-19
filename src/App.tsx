@@ -19,7 +19,7 @@ import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, TOGO_SETTINGS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
-import { ApiError, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, refreshSession, roleLabel, setSession } from './api/client';
+import { ApiError, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, isUnavailable, refreshSession, roleLabel, setSession } from './api/client';
 import { cleLocale, parametresDepuisServeur, parametresInitiauxConnecte, purgerSessionLocale } from './api/espaceConnecte';
 import {
   appliquerDeliberation,
@@ -60,6 +60,10 @@ import type { EtatTiroir } from './utils/mobileNav';
 
 // Site vitrine (GSAP, Three.js) chargé à la demande : l’application connectée n’embarque pas ces bibliothèques.
 const LandingPage = lazy(() => import('./components/landing/LandingPage'));
+
+/** Nouvelles tentatives de chargement de l'espace quand le serveur est injoignable ou en cours de réveil. */
+const REPRISES_SERVEUR = 3;
+const DELAI_REPRISE_MS = 5_000;
 
 /** Session inter-établissements : uniquement en session API (les données de démonstration restent internes). */
 const usingApiInter = (mode: ModeSession): boolean => Boolean(getToken()) && estSessionInter(mode);
@@ -335,10 +339,27 @@ export default function App() {
       setCurrentView('plateforme');
     }
     setWorkspaceLoading(true);
-    applyWorkspace()
+    chargerEspaceAvecReprises()
       .catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'))
       .finally(() => setWorkspaceLoading(false));
   };
+
+  /**
+   * Premier chargement de l'espace (connexion, ouverture avec jeton) : un serveur gratuit qui se réveille
+   * peut répondre 502/503 ou ne pas répondre à l'une des lectures. Plutôt que d'abandonner et de laisser
+   * un écran à moitié vide, on réessaie quelques fois pendant que l'écran de chargement reste affiché.
+   */
+  const avecReprises = async <T,>(action: () => Promise<T>): Promise<T> => {
+    for (let essai = 0; ; essai += 1) {
+      try {
+        return await action();
+      } catch (err) {
+        if (!isUnavailable(err) || essai >= REPRISES_SERVEUR || !getToken()) throw err;
+        await new Promise((resolve) => setTimeout(resolve, DELAI_REPRISE_MS));
+      }
+    }
+  };
+  const chargerEspaceAvecReprises = (): Promise<void> => avecReprises(() => applyWorkspace());
 
   const reloadWorkspace = () => {
     if (!getToken()) return;
@@ -414,14 +435,14 @@ export default function App() {
   useEffect(() => {
     if (!getToken()) return;
     // Les droits peuvent avoir changé depuis la connexion : la session est relue sur l’API avant de charger la base.
-    refreshSession()
+    avecReprises(() => refreshSession())
       .then((session) => {
         if (session) setAccountRole(session.role);
         if (isPlatformAccount(session) && !session?.etablissementId) {
           appliquerSessionPlateforme(session);
           return undefined;
         }
-        return applyWorkspace();
+        return chargerEspaceAvecReprises();
       })
       .catch((err: unknown) => {
         if (err instanceof ApiError && err.status === 401) {
