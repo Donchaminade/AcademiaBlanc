@@ -1,3 +1,5 @@
+import { impressionAutorisee } from './verrouImpression';
+
 export type PrintMode =
   | 'all-bulletins'
   | 'single-bulletin'
@@ -7,8 +9,13 @@ export type PrintMode =
   | 'archives'
   | 'page';
 
-/** Ouvre le dialogue d'impression (Enregistrer au format PDF) sur une zone précise. */
-export function printDocument(mode: PrintMode, filename: string): void {
+/**
+ * Ouvre le dialogue d'impression (Enregistrer au format PDF) sur une zone précise.
+ * Résout `false` sans ouvrir le dialogue quand l'abonnement de l'établissement est en lecture seule
+ * (garde `verrouImpression`, posée depuis l'état renvoyé par le serveur).
+ */
+export function printDocument(mode: PrintMode, filename: string): boolean {
+  if (!impressionAutorisee()) return false;
   const previousTitle = document.title;
   document.body.setAttribute('data-print-mode', mode);
   const safe = filename.replace(/[^\p{L}\p{N}\s._-]+/gu, '').trim() || 'document';
@@ -21,4 +28,5 @@ export function printDocument(mode: PrintMode, filename: string): void {
   };
   window.addEventListener('afterprint', cleanup);
   window.print();
+  return true;
 }

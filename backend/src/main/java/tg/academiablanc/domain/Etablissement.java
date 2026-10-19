@@ -2,6 +2,8 @@ package tg.academiablanc.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -98,6 +100,35 @@ public class Etablissement {
 
   @Column(name = "pied_de_page")
   private String piedDePage;
+
+  /* ---- Abonnement (module abonnements, migration V30) : dates UTC, calculs côté serveur ---- */
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "statut_abonnement", nullable = false)
+  private StatutAbonnement statutAbonnement = StatutAbonnement.EN_ATTENTE_PAIEMENT;
+
+  /** Forfait de la période payée en cours ; null en essai ou en attente de paiement. */
+  @Enumerated(EnumType.STRING)
+  private Forfait forfait;
+
+  /** Forfait retenu à l'inscription, proposé par défaut au super admin lors de l'activation. */
+  @Enumerated(EnumType.STRING)
+  @Column(name = "forfait_choisi")
+  private Forfait forfaitChoisi;
+
+  @Column(name = "abonnement_debut")
+  private Instant abonnementDebut;
+
+  /** Fin de la période payée (ou de l'essai). */
+  @Column(name = "abonnement_fin")
+  private Instant abonnementFin;
+
+  /** Fin d'accès en écriture : fin de période + jours de grâce. Au-delà, lecture seule. */
+  @Column(name = "abonnement_echeance")
+  private Instant abonnementEcheance;
+
+  @Column(name = "essai_jusqu_au")
+  private Instant essaiJusquAu;
 
   /** Copie les libellés d'un préréglage dans l'en-tête de l'établissement et mémorise son identifiant. */
   public void appliquer(PrereglageNational prereglage) {
