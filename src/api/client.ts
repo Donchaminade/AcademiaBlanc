@@ -269,6 +269,10 @@ export function signup(payload: {
   telephone?: string;
   region?: string;
   typeEtablissement?: string;
+  /** Case « J’ai lu et j’accepte… » : le serveur refuse (400) toute inscription sans `true`. */
+  acceptationConditions: boolean;
+  /** Version des documents légaux affichée au moment de l’acceptation (`VERSION_CONDITIONS`). */
+  versionConditions: string;
 }): Promise<AuthSession> {
   return request<AuthSession>('/api/auth/signup', {
     method: 'POST',

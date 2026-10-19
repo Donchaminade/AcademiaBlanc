@@ -2,23 +2,54 @@ import { useCallback, useEffect, useState } from 'react';
 
 /**
  * Pages publiques, hors application : site vitrine, connexion et création de compte,
- * plus `/admin`, entrée réservée à la plateforme (non référencée depuis la vitrine).
+ * `/admin`, entrée réservée à la plateforme (non référencée depuis la vitrine), et les trois
+ * documents légaux (`/cgu`, `/confidentialite`, `/conditions`), consultables sans authentification.
  */
-export type PublicRoute = 'vitrine' | 'connexion' | 'inscription' | 'admin';
+export type PublicRoute = 'vitrine' | 'connexion' | 'inscription' | 'admin' | LegalRoute;
+
+export type LegalRoute = 'cgu' | 'confidentialite' | 'conditions';
 
 export const ROUTE_PATHS: Record<PublicRoute, string> = {
   vitrine: '/',
   connexion: '/connexion',
   inscription: '/inscription',
   admin: '/admin',
+  cgu: '/cgu',
+  confidentialite: '/confidentialite',
+  conditions: '/conditions',
 };
+
+export const LEGAL_ROUTES: readonly LegalRoute[] = ['cgu', 'confidentialite', 'conditions'];
+
+export function isLegalRoute(route: PublicRoute): route is LegalRoute {
+  return (LEGAL_ROUTES as readonly string[]).includes(route);
+}
 
 export function routeFromPath(pathname: string): PublicRoute {
   const clean = pathname.replace(/\/+$/, '').toLowerCase() || '/';
   if (clean === ROUTE_PATHS.connexion) return 'connexion';
   if (clean === ROUTE_PATHS.inscription) return 'inscription';
   if (clean === ROUTE_PATHS.admin) return 'admin';
+  for (const legal of LEGAL_ROUTES) {
+    if (clean === ROUTE_PATHS[legal]) return legal;
+  }
   return 'vitrine';
+}
+
+/**
+ * Navigation interne depuis un composant qui ne reçoit pas `navigate` (pieds de page, liens légaux) :
+ * met l’URL à jour puis signale `popstate` pour que `usePublicRoute` relise la route. Un clic avec
+ * modificateur (nouvel onglet, bouton du milieu) est laissé au navigateur par les appelants.
+ */
+export function naviguerVersChemin(path: string): void {
+  if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+  window.scrollTo({ top: 0, left: 0 });
+}
+
+/** Vrai pour un clic gauche simple, sans modificateur : la navigation interne peut remplacer celle du navigateur. */
+export function clicNavigationInterne(event: { defaultPrevented: boolean; button: number; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }): boolean {
+  return !event.defaultPrevented && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 }
 
 export interface NavigateOptions {
@@ -28,7 +59,7 @@ export interface NavigateOptions {
 
 /**
  * Routeur minimal fondé sur l’History API : `pushState` à la navigation, écoute de `popstate`
- * pour les boutons Précédent / Suivant. Suffisant pour quatre URL, sans dépendance supplémentaire.
+ * pour les boutons Précédent / Suivant. Suffisant pour quelques URL, sans dépendance supplémentaire.
  */
 export function usePublicRoute(): [PublicRoute, (route: PublicRoute, options?: NavigateOptions) => void] {
   const [route, setRoute] = useState<PublicRoute>(() =>
