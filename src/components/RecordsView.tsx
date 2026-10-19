@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
 import { AppSettings, Candidate, CandidateComputedStats } from '../types';
 import { decisionBucket } from '../utils/bulletinMetrics';
-import { ligneTitreBulletin } from '../utils/bulletinEntete';
 import { printDocument } from '../utils/printDocument';
 import { titreChefDepuisSettings } from '../utils/titreChef';
 import { CLASSE_BOUTON_VERROUILLE, attributsBoutonVerrouille, useVerrouImpression } from './abonnement/useVerrouImpression';
 import {
   TITRE_CHEF_CENTRE,
-  TITRE_PRESIDENT_JURY,
   etablissementOrigineAffiche,
   libelleNiveauSerie,
-  ligneCentreExamen,
   totauxParEtablissement,
   trierPalmares,
 } from '../utils/sessionMode';
+import { ProcesVerbalSheet } from './print/ProcesVerbalSheet';
 
 type FiltreDecision = 'all' | 'admis' | 'ajourne';
 
@@ -22,18 +20,6 @@ const LIBELLES_FILTRE: Record<FiltreDecision, string> = {
   admis: 'Admis',
   ajourne: 'Ajournés',
 };
-
-/** Décision pour la colonne étroite du PV imprimé : « Admis », « Ajourné », « — » sans note. */
-const decisionCourte = (decision: string | null | undefined): string => {
-  switch (decisionBucket(decision)) {
-    case 'admis': return 'Admis';
-    case 'ajourne': return 'Ajourné';
-    default: return '—';
-  }
-};
-
-const libelleRang = (rank: number): string =>
-  rank === 1 ? '1er' : `${rank}e`;
 
 interface RecordsViewProps {
   candidates: Candidate[];
@@ -49,6 +35,8 @@ interface RecordsViewProps {
   /** Paramètres de l'établissement : nom, année scolaire et signataire officiel du PV imprimé. */
   settings?: AppSettings;
   juryLocked: boolean;
+  /** Date ISO du verrouillage du PV, si connue (mention « PV verrouillé le … » sur la feuille imprimée). */
+  juryLockedAt?: string | null;
   onToggleJuryLock: () => void;
   /**
    * Session inter-établissements : palmarès par niveau / série (rang calculé dans le groupe sur toute la
@@ -73,6 +61,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   examTypeLong,
   settings,
   juryLocked,
+  juryLockedAt,
   onToggleJuryLock,
   sessionInter = false,
   centreExamen = '',
@@ -83,12 +72,6 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   // Abonnement expiré ou suspendu : impression et export CSV grisés avec explication.
   const verrou = useVerrouImpression();
 
-  // En-tête imprimé : mêmes sources que le bandeau du bulletin (type d'examen et intitulé de la session en base).
-  const titreSession = ligneTitreBulletin({
-    typeExamenLibelle: examTypeLong ?? examType ?? settings?.examType,
-    sessionNom: selectedSession || settings?.sessionName,
-  });
-  const anneeScolaire = (settings?.academicYear ?? '').trim();
   const nomEtablissement = (settings?.institutionName ?? '').trim() || selectedCenter;
   const nomCentre = (centreExamen || '').trim() || nomEtablissement;
   // En inter-établissements, le PV est signé par le chef du centre (responsable de l'établissement hôte) ; sinon par le
@@ -158,7 +141,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
 
   return (
     <>
-    <div className="registre-ui p-4 md:p-8 max-w-[1440px] mx-auto space-y-4 md:space-y-6">
+    <div className="pv-ui p-4 md:p-8 max-w-[1440px] mx-auto space-y-4 md:space-y-6">
       {transfertCentre && (
         <div
           className="bg-[#fff3e0] border border-[#ffcc80] rounded px-4 py-2.5 text-[12px] text-[#8a4b00] flex items-center gap-2 no-print"
@@ -465,133 +448,21 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
       </div>
     </div>
 
-    {/* Gabarit imprimé du PV (visible uniquement à l'impression, mode « registre ») */}
-    <div className="registre-sheet">
-      <div className="registre-head">
-        <div>
-          <div className="registre-school">{sessionInter ? ligneCentreExamen(nomCentre) : nomEtablissement}</div>
-          <h1 className="registre-title">Procès-verbal de délibération — Palmarès</h1>
-          <div className="registre-subtitle">
-            {[titreSession, anneeScolaire].filter(Boolean).join(' • ')}
-          </div>
-        </div>
-        <div className="registre-meta">
-          <div>{LIBELLES_FILTRE[filterDecision]} ({filtered.length})</div>
-          <div>Édité le {dateEdition}</div>
-        </div>
-      </div>
-
-      <table className="registre-table">
-        <colgroup>
-          <col style={{ width: '6%' }} />
-          <col style={{ width: '6%' }} />
-          <col style={{ width: '24%' }} />
-          <col style={{ width: '18%' }} />
-          <col style={{ width: '6%' }} />
-          <col style={{ width: '10%' }} />
-          <col style={{ width: '8%' }} />
-          <col style={{ width: '10%' }} />
-          <col style={{ width: '12%' }} />
-        </colgroup>
-        <thead>
-          <tr>
-            <th className="c">Rang</th>
-            <th className="c">Table</th>
-            <th>Candidat &amp; matricule</th>
-            <th>Établissement d'origine</th>
-            <th className="c">Genre</th>
-            <th className="r">Points / max</th>
-            <th className="r">Moyenne</th>
-            <th className="c">Mention</th>
-            <th>Décision</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((cand, idx) => {
-            const s = allStats[cand.id];
-            const groupe = groupeDe(cand);
-            const nouveauGroupe = sessionInter && (idx === 0 || groupeDe(filtered[idx - 1]) !== groupe);
-            return (
-              <React.Fragment key={cand.id}>
-              {nouveauGroupe && (
-                <tr className="registre-groupe">
-                  <td colSpan={9}>{groupe || 'Sans niveau'} — {effectifGroupe(groupe)} candidat{effectifGroupe(groupe) > 1 ? 's' : ''} (rang dans le groupe)</td>
-                </tr>
-              )}
-              <tr>
-                <td className="c">
-                  {s ? (
-                    <span className={s.rank <= 3 ? 'registre-badge registre-podium' : ''}>{libelleRang(s.rank)}</span>
-                  ) : '—'}
-                </td>
-                <td className="c mono">{cand.tableNumber}</td>
-                <td>
-                  <div className="registre-name">{cand.fullName}</div>
-                  <div className="registre-matricule">{cand.matricule}</div>
-                </td>
-                <td>{origine(cand)}</td>
-                <td className="c">{cand.gender === 'M' ? 'M' : 'F'}</td>
-                <td className="r mono">{s?.totalPoints.toFixed(2) ?? '0.00'} / {s?.pointsMax.toFixed(0) ?? '—'}</td>
-                <td className="r mono registre-moyenne">{s?.average.toFixed(2) ?? '0.00'}</td>
-                <td className="c"><span className="registre-badge">{s?.mention || 'EN COURS'}</span></td>
-                <td>{decisionCourte(s?.decision)}</td>
-              </tr>
-              </React.Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-
-      {sessionInter && totauxEtablissements.length > 0 && (
-        <div className="registre-totaux">
-          <div className="registre-subtitle">Résultats par établissement d'origine</div>
-          <table className="registre-table">
-            <colgroup>
-              <col style={{ width: '52%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '12%' }} />
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Établissement</th>
-                <th className="r">Effectif</th>
-                <th className="r">Évalués</th>
-                <th className="r">Admis</th>
-                <th className="r">Taux</th>
-              </tr>
-            </thead>
-            <tbody>
-              {totauxEtablissements.map((t) => (
-                <tr key={t.etablissement}>
-                  <td className="registre-name">{t.etablissement}</td>
-                  <td className="r mono">{t.effectif}</td>
-                  <td className="r mono">{t.evalues}</td>
-                  <td className="r mono">{t.admis}</td>
-                  <td className="r mono">{t.taux == null ? '—' : `${t.taux.toFixed(1)} %`}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <div className="registre-signatures">
-        {sessionInter && (
-          <div className="registre-signature">
-            <div className="registre-signature-title">{TITRE_PRESIDENT_JURY}</div>
-            <div className="registre-signature-space" />
-            <div className="registre-signature-name">Nom et prénoms : ……………………</div>
-          </div>
-        )}
-        <div className="registre-signature">
-          <div className="registre-signature-title">{signataireTitre}</div>
-          <div className="registre-signature-space" />
-          {signataireNom && <div className="registre-signature-name">{signataireNom}</div>}
-        </div>
-      </div>
-    </div>
+    {/* Feuille imprimée du PV (visible uniquement à l'impression, mode « registre ») : gabarit commun A4 paysage décoré */}
+    <ProcesVerbalSheet
+      candidates={candidates}
+      lignes={filtered}
+      libelleFiltre={LIBELLES_FILTRE[filterDecision]}
+      allStats={allStats}
+      sessionInter={sessionInter}
+      centreExamen={nomCentre}
+      selectedSession={selectedSession || settings?.sessionName || ''}
+      examType={examTypeLong ?? examType ?? settings?.examType}
+      academicYear={settings?.academicYear}
+      settings={settings}
+      juryLocked={juryLocked}
+      juryLockedAt={juryLockedAt}
+    />
     </>
   );
 };
