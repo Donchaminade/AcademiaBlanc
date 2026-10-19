@@ -2,6 +2,7 @@ export type PrintMode =
   | 'all-bulletins'
   | 'single-bulletin'
   | 'emargement'
+  | 'candidats'
   | 'registre'
   | 'archives'
   | 'page';

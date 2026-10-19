@@ -4,7 +4,9 @@ import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
 import { confirmDelete } from '../utils/alerts';
 import { getToken } from '../api/client';
+import { csvListeCandidats } from '../utils/sessionMode';
 import { ImportElevesPanel } from './ImportElevesPanel';
+import { ListeCandidatsSheet } from './ListeCandidatsSheet';
 
 interface OptionApi { id: number; label: string; }
 
@@ -47,6 +49,12 @@ interface StudentsListViewProps {
   /** Présent en session API : l'import passe par le serveur. Absent : mode démonstration local. */
   importApi?: ImportApiProps;
   rosterApi?: RosterApiProps;
+  /** Session inter-établissements : liste des candidats avec centre d'examen et établissement d'origine, import avec origine. */
+  sessionInter?: boolean;
+  /** Nom du centre d'examen (établissement hôte) en session inter-établissements. */
+  centreExamen?: string;
+  /** Libellé court du type d'examen de la session active (en-tête de la liste imprimée). */
+  examType?: string;
 }
 
 export const StudentsListView: React.FC<StudentsListViewProps> = ({
@@ -66,6 +74,9 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
   onOpenBatchPrint,
   importApi,
   rosterApi,
+  sessionInter = false,
+  centreExamen = '',
+  examType,
 }) => {
   const [startTableNum, setStartTableNum] = useState<number>(settings?.startTableNumber || 138);
   /** Connecté à l'API : le matricule est attribué par le serveur et n'est pas saisi. */
@@ -95,6 +106,21 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
 
   // Batch CSV Paste Text
   const [batchText, setBatchText] = useState('');
+
+  /** Nom imprimé en tête de la liste des candidats : le centre d'examen en inter, l'établissement sinon. */
+  const nomEnTeteListe = (sessionInter && centreExamen) || settings?.institutionName || selectedCenter;
+
+  const exporterListeCsv = () => {
+    const blob = new Blob([csvListeCandidats(candidates, sessionInter ? centreExamen : '')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Liste_candidats_${selectedSession.replace(/[^\p{L}\p{N}._-]+/gu, '_')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Check if candidate has completed grades
   const isCandidateGradesComplete = (cand: Candidate) => {
@@ -464,6 +490,30 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
           >
             <span className="material-symbols-outlined text-base">print</span>
             <span>Feuille d'Émargement</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => printDocument('candidats', `Liste_candidats_${selectedSession}`)}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded text-[12px] font-semibold transition-colors ${sessionInter ? 'bg-[#fff3e0] text-[#8a4b00] border border-[#ffcc80] hover:bg-[#ffe6c2]' : 'bg-[#f2f3ff] text-[#444651] hover:bg-[#eaedff]'}`}
+            title={sessionInter
+              ? "Liste A4 des candidats du centre d'examen, par classe puis par nom, avec établissement d'origine et colonne d'émargement"
+              : 'Liste A4 des candidats par classe puis par nom, avec colonne d’émargement'}
+            data-testid="bouton-liste-candidats"
+          >
+            <span className="material-symbols-outlined text-base">list_alt</span>
+            <span>Liste des candidats</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={exporterListeCsv}
+            disabled={candidates.length === 0}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#eaedff] transition-colors disabled:opacity-40"
+            title="Exporter la liste des candidats (CSV, séparateur « ; »)"
+          >
+            <span className="material-symbols-outlined text-base">download</span>
+            <span>CSV</span>
           </button>
 
           <button
@@ -882,6 +932,8 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
               classes={importApi.classes.map((item) => ({ id: item.id, nom: item.label }))}
               sessions={importApi.sessions.map((item) => ({ id: item.id, nom: item.label }))}
               defaultSessionId={importApi.sessionId}
+              sessionInter={sessionInter}
+              centreExamen={centreExamen}
               onImported={async () => {
                 setShowBatchModal(false);
                 await importApi.onImported();
@@ -962,6 +1014,14 @@ OUATTARA Fatimata, F, 24/07/2006, Lycée Sainte Marie, +225 05 44 55 66"
         </div>
       )}
     </div>
+    <ListeCandidatsSheet
+      candidates={candidates}
+      sessionInter={sessionInter}
+      centreExamen={nomEnTeteListe}
+      selectedSession={selectedSession}
+      examType={examType}
+      academicYear={settings?.academicYear}
+    />
     <div className="emargement-sheet p-6 text-[#131b2e]">
       <h1 className="text-[18px] font-bold text-center">Feuille d'émargement</h1>
       <p className="text-center text-[12px] mt-1">{selectedSession} • {selectedCenter}</p>

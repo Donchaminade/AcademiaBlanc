@@ -41,6 +41,16 @@ describe('parseLignesImport', () => {
       { nomComplet: 'KOFFI Ama', genre: 'F', dateNaissance: '01/01/2010', lieuNaissance: 'Lomé' });
   });
 
+  it('lit la 5e colonne « Établissement d’origine » (session inter-établissements) quand elle est présente', () => {
+    const { lignes, erreur } = parseLignesImport('KOFFI Ama;F;01/01/2010;Lomé;CEG Agoè-Nyivé\nAYI Koku;M;;;\nDOE Jane\tF\t\t\tCollège Saint-Joseph');
+    assert.equal(erreur, undefined);
+    assert.deepEqual(lignes, [
+      { nomComplet: 'KOFFI Ama', genre: 'F', dateNaissance: '01/01/2010', lieuNaissance: 'Lomé', etablissementOrigine: 'CEG Agoè-Nyivé' },
+      { nomComplet: 'AYI Koku', genre: 'M', dateNaissance: undefined, lieuNaissance: undefined },
+      { nomComplet: 'DOE Jane', genre: 'F', dateNaissance: undefined, lieuNaissance: undefined, etablissementOrigine: 'Collège Saint-Joseph' },
+    ]);
+  });
+
   it('signale la ligne fautive : genre invalide, nom vide, texte vide', () => {
     assert.match(parseLignesImport('KOFFI Ama;X').erreur ?? '', /Ligne 1 \(KOFFI Ama\) : le genre doit être M ou F/);
     assert.match(parseLignesImport('KOFFI Ama;F\n;M').erreur ?? '', /Ligne 2 : le nom est vide/);

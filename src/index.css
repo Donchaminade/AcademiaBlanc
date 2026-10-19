@@ -599,8 +599,29 @@
 
   body[data-print-mode='emargement'] .pl-80,
   body[data-print-mode='archives'] .pl-80,
+  body[data-print-mode='candidats'] .pl-80,
   body[data-print-mode='registre'] .pl-80 {
     padding-left: 0 !important;
+  }
+
+  /* Liste des candidats (émargement par classe) : même gabarit A4 portrait que le PV. */
+  body[data-print-mode='candidats'] .students-ui,
+  body[data-print-mode='candidats'] aside,
+  body[data-print-mode='candidats'] header,
+  body[data-print-mode='candidats'] .no-print {
+    display: none !important;
+  }
+
+  body[data-print-mode='candidats'] .candidats-sheet {
+    display: block !important;
+    width: 194mm;
+    max-width: 194mm;
+    margin: 0 auto;
+    color: #000;
+    font-size: 9px;
+    line-height: 1.2;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   body[data-print-mode='archives'] .settings-chrome {
@@ -628,8 +649,17 @@
   }
 }
 
-.registre-sheet {
+.registre-sheet,
+.candidats-sheet {
   display: none;
+}
+
+.candidats-table td {
+  height: 7mm;
+}
+
+.candidats-table .candidats-emargement {
+  background: #fff;
 }
 
 .registre-head {
@@ -739,6 +769,29 @@
 .registre-podium {
   background: #e5e7eb;
   font-size: 8.5px;
+}
+
+/* PV inter-établissements : ligne de tête de chaque groupe niveau / série, puis totaux par établissement. */
+.registre-table .registre-groupe td {
+  background: #f3f4f6;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 8.5px;
+}
+
+.registre-totaux {
+  margin-top: 5mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.registre-totaux .registre-subtitle {
+  margin-bottom: 1.5mm;
+}
+
+.registre-signatures {
+  gap: 10mm;
 }
 
 .registre-signatures {

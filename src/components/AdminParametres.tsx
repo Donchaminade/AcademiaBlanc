@@ -1491,6 +1491,8 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             classes={classes}
             sessions={sessions}
             defaultSessionId={activeSessionId}
+            sessionInter={estSessionInter(sessions.find((s) => s.id === activeSessionId)?.mode)}
+            centreExamen={etablissement}
             onImported={() => load()
               .then(() => onDataChanged?.())
               .catch((err: Error) => void showError('Rechargement des listes impossible', err.message))}
