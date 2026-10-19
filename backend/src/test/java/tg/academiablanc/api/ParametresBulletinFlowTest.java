@@ -89,7 +89,7 @@ class ParametresBulletinFlowTest {
     mvc.perform(put("/api/etablissement/charte").header("Authorization", "Bearer " + owner)
             .contentType(MediaType.APPLICATION_JSON).content("{\"titreSignataireJury\":\"" + "T".repeat(121) + "\"}"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.message").value("Le titre du signataire ne doit pas dépasser 120 caractères."));
+        .andExpect(jsonPath("$.message").value("Le titre du chef d'établissement ne doit pas dépasser 120 caractères."));
 
     // Un autre établissement garde ses propres valeurs (toutes vides ici).
     String autre = inscrire("params-autre@ecole.tg", "Lycee Voisin Params");
