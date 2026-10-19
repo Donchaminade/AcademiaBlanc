@@ -72,14 +72,19 @@ export function tauxFr(taux: number | null | undefined): string {
   return taux == null ? '—' : `${nombreFr(taux, 1)} %`;
 }
 
-/** Ligne de synthèse du bandeau : « Admis 8 • Ajournés 3 • Taux 72,7 % • Moyenne de la session 11,78 ». */
-export function resumePalmares(stats: StatistiquesPalmares): string {
+/** Segments de la synthèse du bandeau (chacun imprimé insécable) : « Admis 8 », « Ajournés 3 », « Taux 72,7 % », « Moyenne de la session 11,78 ». */
+export function partiesResumePalmares(stats: StatistiquesPalmares): string[] {
   return [
     `Admis ${stats.admis}`,
     `Ajournés ${stats.ajournes}`,
     `Taux ${tauxFr(stats.taux)}`,
     `Moyenne de la session ${nombreFr(stats.moyenneSession)}`,
-  ].join(' • ');
+  ];
+}
+
+/** Ligne de synthèse du bandeau : « Admis 8 • Ajournés 3 • Taux 72,7 % • Moyenne de la session 11,78 ». */
+export function resumePalmares(stats: StatistiquesPalmares): string {
+  return partiesResumePalmares(stats).join(' • ');
 }
 
 /** « Très bien 1 • Bien 1 • Assez bien 3 • Passable 3 • Ajourné 3 » ; « — » sans candidat noté. */

@@ -9,8 +9,8 @@ import {
   libelleRangImprime,
   mentionVerrouillage,
   nombreFr,
+  partiesResumePalmares,
   repartitionMentions,
-  resumePalmares,
   statistiquesPalmares,
   tauxFr,
 } from '../../utils/procesVerbal';
@@ -100,11 +100,20 @@ export const ProcesVerbalSheet: React.FC<ProcesVerbalSheetProps> = ({
         emplacementLogo
         meta={[
           { label: 'Palmarès', value: `${libelleFiltre} (${lignes.length})` },
-          { label: 'Résultats', value: resumePalmares(stats), multiligne: true },
+          {
+            label: 'Résultats',
+            multiligne: true,
+            value: partiesResumePalmares(stats).map((partie, i) => (
+              <React.Fragment key={partie}>
+                {i > 0 && <span className="document-paysage-sep"> • </span>}
+                <span className="pv-resume-partie">{partie}</span>
+              </React.Fragment>
+            )),
+          },
         ]}
       />
 
-      <table className="document-paysage-table pv-table">
+      <table className="document-paysage-table pv-table pv-palmares">
         <colgroup>
           <col style={{ width: '15mm' }} />
           <col style={{ width: '14mm' }} />
