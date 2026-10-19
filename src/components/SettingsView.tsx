@@ -12,7 +12,8 @@ interface SettingsViewProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: AppSettings) => void;
   onNavigate: (view: 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings') => void;
-  onOpenAuth?: () => void;
+  /** Ouvre la page « Profil de l’établissement » (fiche officielle, charte, compte). */
+  onOpenProfil?: () => void;
   candidates?: Candidate[];
   allStats?: Record<string, CandidateComputedStats>;
   /** Recharge l'espace de travail (matières, élèves…) après une saisie dans l'onglet Administration (API). */
@@ -31,7 +32,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
   onUpdateSettings,
   onNavigate,
-  onOpenAuth,
+  onOpenProfil,
   candidates = [],
   allStats = {},
   onAdminDataChanged,
@@ -583,14 +584,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <span className="text-[11px] text-[#444651] block">
                     Ce nom officiel apparaît sur tous les bulletins, bordereaux et procès-verbaux de votre établissement.
                   </span>
-                  {onOpenAuth && (
+                  {onOpenProfil && (
                     <button
                       type="button"
-                      onClick={onOpenAuth}
+                      onClick={onOpenProfil}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#0051d5] hover:bg-[#003cb3] text-white text-[11px] font-bold shrink-0 shadow-xs transition-colors"
                     >
-                      <span className="material-symbols-outlined text-sm">manage_accounts</span>
-                      <span>Créer ou changer de compte établissement</span>
+                      <span className="material-symbols-outlined text-sm">account_balance</span>
+                      <span>Profil de l’établissement</span>
                     </button>
                   )}
                 </div>
