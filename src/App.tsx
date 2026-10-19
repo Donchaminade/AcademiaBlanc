@@ -1216,6 +1216,8 @@ export default function App() {
               centreExamen={activeCentreExamen}
               juryLocked={juryLocked}
               onToggleJuryLock={handleToggleJuryLock}
+              onOpenTransferts={peutVoirTransferts && sessionInter ? () => openTransferts('envois') : undefined}
+              transfertCentre={sessionTransferee ? activeTransfertCentre : undefined}
             />
           )}
 
