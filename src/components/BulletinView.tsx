@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
-import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministryMark } from '../utils/bulletinHeader';
+import { composerEnteteBulletin } from '../utils/bulletinEntete';
+import { academicYearCaption, establishmentCaption, ministryMark } from '../utils/bulletinHeader';
 import {
   appreciationFromAverage,
   camaradesDeClasse,
@@ -55,13 +56,16 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   const sealCaption = establishmentCaption(settings.institutionName);
   const yearCaption = academicYearCaption(settings.academicYear);
 
-  const headerInfo = useMemo(() => {
-    return getBulletinHeaderInfo(
-      selectedSession || settings.sessionName,
-      selectedCandidate.serie,
-      examTypeLong
-    );
-  }, [selectedSession, settings.sessionName, selectedCandidate.serie, examTypeLong]);
+  // Bandeau : type d'examen et intitulé de la session, puis série (lycée) ou niveau (collège) et année scolaire.
+  const entete = useMemo(() => composerEnteteBulletin({
+    typeExamenLibelle: examTypeLong ?? settings.examType,
+    sessionNom: selectedSession || settings.sessionName,
+    anneeScolaire: settings.academicYear,
+    niveau: selectedCandidate.niveau,
+    classeNom: selectedCandidate.classeNom,
+    serieCode: selectedCandidate.serie,
+    serieLibelle: selectedCandidate.serieLibelle,
+  }), [examTypeLong, settings.examType, selectedSession, settings.sessionName, settings.academicYear, selectedCandidate]);
 
   const currentIndex = candidates.findIndex((c) => c.id === selectedCandidate.id);
   // Camarades de la même classe (même session) : base des notes min / max par matière.
@@ -303,14 +307,16 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             <span className="bulletin-ribbon-year">{yearCaption}</span>
           </div>
 
-          {/* Institutional Title Badge - Dynamic according to exam session (BEPC, BAC, etc.) */}
+          {/* Bandeau : type d'examen et intitulé de la session (base), série ou niveau de la classe, année scolaire */}
           <div className="bulletin-title relative z-10 mb-4 bg-[#00236f] text-white py-2.5 px-4 text-center rounded-xs shadow-xs">
-            <h1 className="text-[15px] font-bold uppercase tracking-wide">
-              {headerInfo.mainTitle}
+            <h1 className="text-[15px] font-bold uppercase tracking-wide line-clamp-2" title={entete.ligne1}>
+              {entete.ligne1}
             </h1>
-            <p className="text-[11px] text-[#90a8ff] tracking-wider uppercase font-semibold mt-0.5">
-              {headerInfo.subTitle}
-            </p>
+            {entete.ligne2 && (
+              <p className="text-[11px] text-[#90a8ff] tracking-wider font-semibold mt-0.5 truncate" title={entete.ligne2}>
+                {entete.ligne2}
+              </p>
+            )}
           </div>
 
           {/* Candidate Identity Card */}

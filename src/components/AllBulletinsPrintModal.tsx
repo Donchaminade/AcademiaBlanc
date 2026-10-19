@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
-import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministryMark } from '../utils/bulletinHeader';
+import { composerEnteteBulletin } from '../utils/bulletinEntete';
+import { academicYearCaption, establishmentCaption, ministryMark } from '../utils/bulletinHeader';
 import {
   appreciationFromAverage,
   camaradesDeClasse,
@@ -143,7 +144,15 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
         {filteredCandidates.map((candidate, idx) => {
           const stats = allStats[candidate.id];
           const isLast = idx === filteredCandidates.length - 1;
-          const headerInfo = getBulletinHeaderInfo(selectedSession || settings.sessionName, candidate.serie, examTypeLong);
+          const entete = composerEnteteBulletin({
+            typeExamenLibelle: examTypeLong ?? settings.examType,
+            sessionNom: selectedSession || settings.sessionName,
+            anneeScolaire: settings.academicYear,
+            niveau: candidate.niveau,
+            classeNom: candidate.classeNom,
+            serieCode: candidate.serie,
+            serieLibelle: candidate.serieLibelle,
+          });
           const ministryMarkLabel = ministryMark(settings);
           const regionalAuthority = (settings.regionalAuthority || '').trim();
           const camarades = camaradesDeClasse(candidate, candidates);
@@ -210,14 +219,16 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                 <span className="bulletin-ribbon-year">{yearCaption}</span>
               </div>
 
-              {/* Institutional Title Badge - Dynamic */}
+              {/* Bandeau : type d'examen et intitulé de la session (base), série ou niveau de la classe, année scolaire */}
               <div className="bulletin-title relative z-10 my-3 bg-[#00236f] text-white py-2 px-4 text-center rounded-xs shadow-xs">
-                <h1 className="text-[14px] font-bold uppercase tracking-wide">
-                  {headerInfo.mainTitle}
+                <h1 className="text-[14px] font-bold uppercase tracking-wide line-clamp-2" title={entete.ligne1}>
+                  {entete.ligne1}
                 </h1>
-                <p className="text-[10.5px] text-[#90a8ff] tracking-wider uppercase font-semibold mt-0.5">
-                  {headerInfo.subTitle}
-                </p>
+                {entete.ligne2 && (
+                  <p className="text-[10.5px] text-[#90a8ff] tracking-wider font-semibold mt-0.5 truncate" title={entete.ligne2}>
+                    {entete.ligne2}
+                  </p>
+                )}
               </div>
 
               {/* Candidate Identity Card */}
