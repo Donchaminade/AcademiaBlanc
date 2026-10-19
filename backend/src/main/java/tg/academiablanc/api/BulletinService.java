@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,10 @@ import tg.academiablanc.domain.Etablissement;
 import tg.academiablanc.domain.Matiere;
 import tg.academiablanc.domain.Note;
 import tg.academiablanc.domain.Professeur;
+import tg.academiablanc.domain.Serie;
+import tg.academiablanc.domain.SessionExamen;
+import tg.academiablanc.domain.TypeExamen;
+import tg.academiablanc.repo.AnneeScolaireRepository;
 import tg.academiablanc.repo.BulletinRepository;
 import tg.academiablanc.repo.ClasseRepository;
 import tg.academiablanc.repo.CoefficientRepository;
@@ -28,7 +33,9 @@ import tg.academiablanc.repo.EtablissementRepository;
 import tg.academiablanc.repo.MatiereRepository;
 import tg.academiablanc.repo.NoteRepository;
 import tg.academiablanc.repo.ProfesseurRepository;
+import tg.academiablanc.repo.SerieRepository;
 import tg.academiablanc.repo.SessionExamenRepository;
+import tg.academiablanc.repo.TypeExamenRepository;
 import tg.academiablanc.security.Tenant;
 
 @Service
@@ -42,6 +49,9 @@ public class BulletinService {
   private final ClasseRepository classes;
   private final ProfesseurRepository professeurs;
   private final EtablissementRepository etablissements;
+  private final TypeExamenRepository typesExamen;
+  private final AnneeScolaireRepository annees;
+  private final SerieRepository series;
 
   public BulletinService(
       SessionExamenRepository sessions,
@@ -52,7 +62,10 @@ public class BulletinService {
       BulletinRepository bulletins,
       ClasseRepository classes,
       ProfesseurRepository professeurs,
-      EtablissementRepository etablissements
+      EtablissementRepository etablissements,
+      TypeExamenRepository typesExamen,
+      AnneeScolaireRepository annees,
+      SerieRepository series
   ) {
     this.sessions = sessions;
     this.eleves = eleves;
@@ -63,6 +76,9 @@ public class BulletinService {
     this.classes = classes;
     this.professeurs = professeurs;
     this.etablissements = etablissements;
+    this.typesExamen = typesExamen;
+    this.annees = annees;
+    this.series = series;
   }
 
   /**
@@ -85,13 +101,31 @@ public class BulletinService {
    * {@code etablissementNom} et {@code etablissementDevise} alimentent le pied de page du relevé
    * (« NOM DE L'ÉTABLISSEMENT • Devise ») ; la devise est celle propre à l'établissement
    * ({@code etablissement.devise}), pas la devise nationale de l'en-tête, et vaut null si aucune n'est saisie.
+   * {@code entete} : données du bandeau de titre du bulletin, toutes lues en base (voir {@link EnteteBulletin}).
    */
   public record BulletinVue(Long eleveId, String nomComplet, String matricule, String titulaireNom, BigDecimal moyenne,
                             Integer rang, String mention, String appreciation, BigDecimal totalPoints,
                             BigDecimal totalCoef, BigDecimal totalCoefProgramme, BigDecimal pointsMax,
                             BigDecimal moyenneClasse, BigDecimal moyenneClasseMax, BigDecimal moyenneClasseMin,
                             List<LigneBulletin> lignes,
-                            String etablissementNom, String etablissementDevise) {}
+                            String etablissementNom, String etablissementDevise,
+                            EnteteBulletin entete) {}
+
+  /**
+   * Bandeau de titre du bulletin : rien n'y est figé, chaque champ vient de la base et vaut null s'il manque.
+   * <ul>
+   *   <li>{@code sessionNom} : intitulé saisi de la session ({@code session_examen.nom}) ;</li>
+   *   <li>{@code typeExamenLibelle} : libellé long du type rattaché ({@code type_examen.libelle_long}), sinon son
+   *       libellé court, sinon le texte conservé sur la session ; null si la session n'a aucun type ;</li>
+   *   <li>{@code typeExamenCode} : code du référentiel (BEPC, BAC2…), null hors référentiel ;</li>
+   *   <li>{@code anneeScolaire} : libellé de l'année de la session ({@code annee_scolaire.libelle}) ;</li>
+   *   <li>{@code classeNom}, {@code classeNiveau} : classe de l'élève ({@code classe.nom}, {@code classe.niveau}) ;</li>
+   *   <li>{@code classeSerie}, {@code classeSerieLibelle} : série de la classe au lycée ({@code classe.serie},
+   *       {@code serie.libelle}) ; toujours null au collège (6e–3e), même si la session porte une série.</li>
+   * </ul>
+   */
+  public record EnteteBulletin(String sessionNom, String typeExamenLibelle, String typeExamenCode, String anneeScolaire,
+                               String classeNom, String classeNiveau, String classeSerie, String classeSerieLibelle) {}
 
   /** Calcule les bulletins de la session et les enregistre (table {@code bulletin}). */
   @Transactional
@@ -194,6 +228,7 @@ public class BulletinService {
     Etablissement etablissement = etablissements.findById(user.etablissementId()).orElse(null);
     String etablissementNom = etablissement == null ? null : etablissement.getNom();
     String etablissementDevise = etablissement == null ? null : vide(etablissement.getDevise());
+    Map<Long, EnteteBulletin> enteteParClasse = entetesParClasse(session, user.etablissementId());
 
     List<BulletinVue> vues = new ArrayList<>();
     for (Eleve eleve : roster) {
@@ -236,7 +271,8 @@ public class BulletinService {
           GradeCalculator.min(moyennesDeLaClasse),
           detail,
           etablissementNom,
-          etablissementDevise
+          etablissementDevise,
+          enteteParClasse.computeIfAbsent(eleve.getClasseId(), ignored -> enteteSession(session, user.etablissementId()))
       );
       vues.add(vue);
     }
@@ -256,6 +292,55 @@ public class BulletinService {
     bulletin.setTotalCoef(vue.totalCoef());
     bulletin.setGenereLe(Instant.now());
     bulletins.save(bulletin);
+  }
+
+  /** Bandeau du bulletin pour chaque classe de l'établissement : la partie session est commune, la partie classe varie. */
+  private Map<Long, EnteteBulletin> entetesParClasse(SessionExamen session, Long etablissementId) {
+    EnteteBulletin commun = enteteSession(session, etablissementId);
+    Map<String, String> libelleParSerie = new HashMap<>();
+    for (Serie serie : series.findByEtablissementIdOrderByFamilleAscOrdreAscCodeAsc(etablissementId)) {
+      libelleParSerie.put(serie.getCode().toUpperCase(Locale.ROOT), serie.getLibelle());
+    }
+    Map<Long, EnteteBulletin> entetes = new HashMap<>();
+    for (Classe classe : classes.findByEtablissementIdOrderByNomAsc(etablissementId)) {
+      entetes.put(classe.getId(), avecClasse(commun, classe, libelleParSerie));
+    }
+    return entetes;
+  }
+
+  /**
+   * Partie « session » du bandeau : libellé long du type d'examen rattaché (sinon libellé court, code, ou le
+   * texte conservé sur la session ; null sans type), intitulé de la session et libellé de son année scolaire.
+   */
+  private EnteteBulletin enteteSession(SessionExamen session, Long etablissementId) {
+    TypeExamen type = session.getTypeExamenId() == null ? null : typesExamen.findById(session.getTypeExamenId()).orElse(null);
+    String typeLibelle = type != null ? premierNonVide(type.getLibelleLong(), type.getLibelleCourt(), type.getCode()) : vide(session.getTypeExamen());
+    String anneeScolaire = annees.findById(session.getAnneeScolaireId())
+        .filter(annee -> etablissementId.equals(annee.getEtablissementId()))
+        .map(annee -> vide(annee.getLibelle()))
+        .orElse(null);
+    return new EnteteBulletin(vide(session.getNom()), typeLibelle, type == null ? null : type.getCode(), anneeScolaire, null, null, null, null);
+  }
+
+  /**
+   * Partie « classe » du bandeau : niveau canonique et nom de la classe, série et libellé de série au lycée.
+   * Au collège la série est ignorée ; une série absente du référentiel garde son code sans libellé.
+   */
+  private static EnteteBulletin avecClasse(EnteteBulletin commun, Classe classe, Map<String, String> libelleParSerie) {
+    String niveau = ClasseNiveauUtil.canonique(classe.getNiveau()).orElse(vide(classe.getNiveau()));
+    boolean college = ClasseNiveauUtil.cycleDe(classe.getNiveau()).filter(ClasseNiveauUtil.Cycle.COLLEGE::equals).isPresent();
+    String serie = college ? null : vide(classe.getSerie());
+    String serieLibelle = serie == null ? null : vide(libelleParSerie.get(serie.toUpperCase(Locale.ROOT)));
+    return new EnteteBulletin(commun.sessionNom(), commun.typeExamenLibelle(), commun.typeExamenCode(), commun.anneeScolaire(),
+        vide(classe.getNom()), niveau, serie, serieLibelle);
+  }
+
+  private static String premierNonVide(String... valeurs) {
+    for (String valeur : valeurs) {
+      String nettoyee = vide(valeur);
+      if (nettoyee != null) return nettoyee;
+    }
+    return null;
   }
 
   /** Nom du titulaire de chaque classe de l'établissement (classe → professeur affecté) ; les classes sans titulaire sont absentes. */
