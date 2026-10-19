@@ -76,12 +76,14 @@ public final class GradeCalculator {
     return rangs;
   }
 
-  /** moyenne &gt; 16 Très bien ; 12 ≤ moyenne ≤ 16 Bien ; moyenne &lt; 12 Assez bien. */
+  /**
+   * Appréciation générale portée sur la moyenne : même barème que les matières
+   * ({@link Appreciation#selonNote}), cohérent avec {@link #mention} (Passable 10, Assez bien 12,
+   * Bien 14, Très bien 16). Sans moyenne : {@code null}.
+   */
   public static String appreciation(BigDecimal moyenne) {
     if (moyenne == null) return null;
-    if (moyenne.compareTo(new BigDecimal("16")) > 0) return "Très bien";
-    if (moyenne.compareTo(new BigDecimal("12")) >= 0) return "Bien";
-    return "Assez bien";
+    return Appreciation.selonNote(moyenne);
   }
 
   public static String mention(BigDecimal moyenne) {

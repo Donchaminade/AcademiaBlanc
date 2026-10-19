@@ -49,10 +49,21 @@ class GradeCalculatorTest {
 
   @Test
   void appreciationSelonLesSeuils() {
-    assertEquals("Très bien", GradeCalculator.appreciation(new BigDecimal("16.01")));
-    assertEquals("Bien", GradeCalculator.appreciation(new BigDecimal("16")));
-    assertEquals("Bien", GradeCalculator.appreciation(new BigDecimal("12")));
-    assertEquals("Assez bien", GradeCalculator.appreciation(new BigDecimal("11.99")));
+    // Même barème que les matières, aligné sur les seuils de la mention (10, 12, 14, 16).
+    assertEquals("Excellent", GradeCalculator.appreciation(new BigDecimal("18")));
+    assertEquals("Très bien", GradeCalculator.appreciation(new BigDecimal("16")));
+    assertEquals("Bien", GradeCalculator.appreciation(new BigDecimal("14")));
+    assertEquals("Assez bien", GradeCalculator.appreciation(new BigDecimal("12")));
+    assertEquals("Passable", GradeCalculator.appreciation(new BigDecimal("10")));
+    assertEquals("Médiocre", GradeCalculator.appreciation(new BigDecimal("9.99")));
+    assertEquals("Insuffisant", GradeCalculator.appreciation(new BigDecimal("7")));
+    assertEquals("Très insuffisant", GradeCalculator.appreciation(new BigDecimal("4")));
+    assertEquals("TRÈS BIEN", GradeCalculator.mention(new BigDecimal("16")));
+    assertEquals("BIEN", GradeCalculator.mention(new BigDecimal("14")));
+    assertEquals("ASSEZ BIEN", GradeCalculator.mention(new BigDecimal("12")));
+    assertEquals("PASSABLE", GradeCalculator.mention(new BigDecimal("10")));
+    assertEquals("RATTRAPAGE", GradeCalculator.mention(new BigDecimal("8")));
+    assertEquals("AJOURNÉ", GradeCalculator.mention(new BigDecimal("7.99")));
     assertNull(GradeCalculator.appreciation(null));
   }
 }

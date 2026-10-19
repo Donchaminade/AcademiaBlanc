@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import tg.academiablanc.calc.Appreciation;
 import tg.academiablanc.calc.GradeCalculator;
 import tg.academiablanc.calc.GradeCalculator.Ligne;
 import tg.academiablanc.domain.Bulletin;
@@ -55,8 +56,9 @@ public class BulletinService {
     this.deliberations = deliberations;
   }
 
+  /** {@code appreciation} : texte libre de l'enseignant s'il existe, sinon barème {@link Appreciation} sur la note. */
   public record LigneBulletin(Long matiereId, String matiere, BigDecimal note, BigDecimal coefficient,
-                              BigDecimal total, Integer rang, boolean absent) {}
+                              BigDecimal total, Integer rang, boolean absent, String appreciation) {}
 
   public record BulletinVue(Long eleveId, String nomComplet, String matricule, BigDecimal moyenne,
                             Integer rang, String mention, String appreciation, BigDecimal totalPoints,
@@ -157,6 +159,7 @@ public class BulletinService {
       for (Ligne ligne : lignes) {
         Matiere matiere = matiereParId.get(ligne.matiereId());
         Integer rangMatiere = rangsMatieres.get(matiere.getId()).get(eleve.getId());
+        Note note = notesByEleve.getOrDefault(eleve.getId(), Map.of()).get(matiere.getId());
         detail.add(new LigneBulletin(
             matiere.getId(),
             matiere.getNom(),
@@ -164,7 +167,8 @@ public class BulletinService {
             ligne.coef(),
             GradeCalculator.totalPondere(ligne.note(), ligne.coef()),
             rangMatiere,
-            ligne.absent()
+            ligne.absent(),
+            Appreciation.pourLigne(ligne.note(), note != null && note.isAbsent(), note == null ? null : note.getAppreciation())
         ));
       }
       BulletinVue vue = new BulletinVue(
