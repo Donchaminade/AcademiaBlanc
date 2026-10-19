@@ -12,13 +12,14 @@ export interface Subject {
   coefParClasse?: Record<string, number>;
 }
 
-export type MentionType = 'TRÈS BIEN' | 'BIEN' | 'ASSEZ BIEN' | 'PASSABLE' | 'RATTRAPAGE' | 'AJOURNÉ';
+/** Mention portée sur la moyenne affichée ; « AJOURNÉ » en dessous de 10/20. */
+export type MentionType = 'TRÈS BIEN' | 'BIEN' | 'ASSEZ BIEN' | 'PASSABLE' | 'AJOURNÉ';
 
-/** Décision déduite de la seule moyenne réelle Σ(note × coef) / Σ coef : aucun point n'est jamais ajouté. */
-export type DecisionType =
-  | "ADMIS D'OFFICE À L'EXAMEN BLANC"
-  | "ADMISSIBLE AU SECOND TOUR (RATTRAPAGE)"
-  | "AJOURNÉ À L'EXAMEN BLANC";
+/**
+ * Décision unique, déduite de la seule moyenne réelle Σ(note × coef) / Σ coef arrondie au centième :
+ * ≥ 10/20 → ADMIS, sinon AJOURNÉ. Aucun point n'est jamais ajouté.
+ */
+export type DecisionType = 'ADMIS' | 'AJOURNÉ';
 
 export interface CandidateGrade {
   score: number;
@@ -85,8 +86,10 @@ export interface CandidateComputedStats {
   evaluated: boolean;
   rank: number;
   totalCandidates: number;
-  mention: MentionType;
-  decision: DecisionType;
+  /** Mention de la moyenne affichée ; null tant qu'aucune note n'est saisie. */
+  mention: MentionType | null;
+  /** ADMIS (moyenne affichée ≥ 10) ou AJOURNÉ ; null tant qu'aucune note n'est saisie — jamais ajourné par défaut. */
+  decision: DecisionType | null;
   differenceToPromo: number;
   /** Moyenne des moyennes des élèves notés de la même classe (même session) ; null sans élève noté. */
   classAverage: number | null;
@@ -168,10 +171,9 @@ export interface ArchivedSession {
   statut?: string;
   archivedAt: string;
   candidatesCount: number;
+  /** Admis : moyenne affichée ≥ 10/20. Les taux portent sur les élèves classés (au moins une note). */
   admittedCount: number;
   admittedRate: number;
-  catchupCount: number;
-  catchupRate: number;
   failedCount: number;
   failedRate: number;
   promoAverage: number;

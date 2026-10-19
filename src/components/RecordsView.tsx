@@ -4,22 +4,20 @@ import { decisionBucket } from '../utils/bulletinMetrics';
 import { ligneTitreBulletin } from '../utils/bulletinEntete';
 import { printDocument } from '../utils/printDocument';
 
-type FiltreDecision = 'all' | 'admis' | 'rattrapage' | 'ajourne';
+type FiltreDecision = 'all' | 'admis' | 'ajourne';
 
 const LIBELLES_FILTRE: Record<FiltreDecision, string> = {
   all: 'Tous les candidats',
-  admis: "Admis d'office & délibérés",
-  rattrapage: 'Second tour (admissibles)',
+  admis: 'Admis',
   ajourne: 'Ajournés',
 };
 
-/** Décision courte et non tronquée pour la colonne étroite du PV imprimé. */
-const decisionCourte = (decision: string | undefined): string => {
+/** Décision pour la colonne étroite du PV imprimé : « Admis », « Ajourné », « — » sans note. */
+const decisionCourte = (decision: string | null | undefined): string => {
   switch (decisionBucket(decision)) {
-    case 'admis': return "Admis d'office";
-    case 'rattrapage': return 'Admissible (2nd tour)';
+    case 'admis': return 'Admis';
     case 'ajourne': return 'Ajourné';
-    default: return decision || '—';
+    default: return '—';
   }
 };
 
@@ -75,10 +73,13 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
     return sB - sA;
   });
 
+  // Compteurs des filtres : admis (moyenne affichée ≥ 10) et ajournés ; un élève sans note n'est dans aucun des deux.
+  const nbAdmis = sorted.filter((c) => decisionBucket(allStats[c.id]?.decision) === 'admis').length;
+  const nbAjournes = sorted.filter((c) => decisionBucket(allStats[c.id]?.decision) === 'ajourne').length;
+
   const filtered = sorted.filter((c) => {
     const stats = allStats[c.id];
     if (filterDecision === 'admis') return decisionBucket(stats?.decision) === 'admis';
-    if (filterDecision === 'rattrapage') return decisionBucket(stats?.decision) === 'rattrapage';
     if (filterDecision === 'ajourne') return decisionBucket(stats?.decision) === 'ajourne';
     return true;
   });
@@ -189,22 +190,11 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
             onClick={() => setFilterDecision('admis')}
             className={`px-3 py-1 rounded font-semibold transition-colors ${
               filterDecision === 'admis'
-                ? 'bg-[#0051d5] text-white'
+                ? 'bg-emerald-600 text-white'
                 : 'bg-[#f2f3ff] text-[#444651] hover:text-[#131b2e]'
             }`}
           >
-            Admis d'office &amp; Délibérés
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterDecision('rattrapage')}
-            className={`px-3 py-1 rounded font-semibold transition-colors ${
-              filterDecision === 'rattrapage'
-                ? 'bg-[#fc922b] text-white'
-                : 'bg-[#f2f3ff] text-[#444651] hover:text-[#131b2e]'
-            }`}
-          >
-            Second Tour (Admissibles)
+            Admis ({nbAdmis})
           </button>
           <button
             type="button"
@@ -215,7 +205,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
                 : 'bg-[#f2f3ff] text-[#444651] hover:text-[#131b2e]'
             }`}
           >
-            Ajournés
+            Ajournés ({nbAjournes})
           </button>
         </div>
 
@@ -238,7 +228,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
                 <th className="py-2.5 px-2 font-semibold text-right">Points / max</th>
                 <th className="py-2.5 px-2 font-semibold text-right">Moyenne</th>
                 <th className="py-2.5 px-3 font-semibold text-center">Mention</th>
-                <th className="py-2.5 px-3 font-semibold">Décision du Jury</th>
+                <th className="py-2.5 px-3 font-semibold">Décision</th>
                 <th className="py-2.5 px-3 font-semibold text-center">Visa &amp; Bulletin</th>
               </tr>
             </thead>
@@ -297,9 +287,9 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
                             ? 'bg-[#eaedff] text-[#00236f]'
                             : s?.mention === 'PASSABLE'
                             ? 'bg-[#eaedff] text-[#0051d5]'
-                            : s?.mention === 'RATTRAPAGE'
-                            ? 'bg-[#ffdcc3] text-[#442100]'
-                            : 'bg-[#ffdad6] text-[#ba1a1a]'
+                            : s?.mention === 'AJOURNÉ'
+                            ? 'bg-[#ffdad6] text-[#ba1a1a]'
+                            : 'bg-[#f2f3ff] text-[#444651]'
                         }`}
                       >
                         {s?.mention || 'EN COURS'}
@@ -308,14 +298,14 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
                     <td className="py-2.5 px-3 font-semibold text-[11px]">
                       <span
                         className={
-                          s?.decision.includes('ADMIS')
-                            ? 'text-[#0051d5]'
-                            : s?.decision.includes('SECOND')
-                            ? 'text-[#fc922b]'
-                            : 'text-[#ba1a1a]'
+                          s?.decision === 'ADMIS'
+                            ? 'text-emerald-700'
+                            : s?.decision === 'AJOURNÉ'
+                            ? 'text-[#ba1a1a]'
+                            : 'text-[#444651]'
                         }
                       >
-                        {s?.decision}
+                        {s?.decision ?? '—'}
                       </span>
                     </td>
                     <td className="py-2.5 px-3 text-center">
@@ -397,7 +387,7 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
             <th className="r">Points / max</th>
             <th className="r">Moyenne</th>
             <th className="c">Mention</th>
-            <th>Décision du jury</th>
+            <th>Décision</th>
           </tr>
         </thead>
         <tbody>
