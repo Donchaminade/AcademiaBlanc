@@ -474,12 +474,13 @@ export const GradingView: React.FC<GradingViewProps> = ({
                   Candidat &amp; Matricule
                 </th>
                 {subjects.map((s) => {
-                  // Avec des programmes de classe, le coefficient dépend de la classe : il est affiché dans chaque cellule.
+                  // Avec des programmes de classe, le coefficient dépend de la classe : il n'est affiché que dans
+                  // chaque cellule, jamais en en-tête.
                   const parClasse = Object.keys(s.coefParClasse ?? {}).length > 0;
                   return (
-                    <th key={s.id} className="py-2.5 px-2 font-semibold text-center min-w-[70px]" title={s.name}>
-                      <div className="truncate text-[11px]">{s.name.slice(0, 7)}.</div>
-                      <div className="text-[10px] text-[#90a8ff] font-mono">{parClasse ? 'c. selon classe' : `c.${s.coef}`}</div>
+                    <th key={s.id} className="py-2.5 px-2 font-semibold text-center min-w-[70px] max-w-[110px]" title={s.name}>
+                      <div className="truncate text-[11px]">{s.name}</div>
+                      {!parClasse && <div className="text-[10px] text-[#90a8ff] font-mono">c.{s.coef}</div>}
                     </th>
                   );
                 })}
