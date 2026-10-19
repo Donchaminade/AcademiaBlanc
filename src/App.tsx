@@ -14,6 +14,8 @@ import { AuthPage } from './components/AuthPage';
 import { EtablissementProfilView } from './components/EtablissementProfilView';
 import { AdminLoginPage } from './components/AdminLoginPage';
 import { PlateformeView } from './components/PlateformeView';
+import { TransfertsView } from './components/TransfertsView';
+import type { OngletTransferts } from './components/TransfertsView';
 import { AllBulletinsPrintModal } from './components/AllBulletinsPrintModal';
 import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
@@ -36,6 +38,7 @@ import {
 } from './api/ecritures';
 import type { AuthSession } from './api/client';
 import { loadProfil } from './api/etablissement';
+import { compterRecusEnAttente, regrouperParOrigine } from './api/transferts';
 import type { ProfilEtablissement } from './api/etablissement';
 import { appliquerEnTeteAuxSettings, enTeteChanged, enTeteDepuisSettings } from './utils/prereglages';
 import { usePermissions } from './api/permissions';
@@ -111,7 +114,13 @@ export default function App() {
   // Mode de la session active (interne / inter-établissements) et nom du centre d'examen en inter.
   const [activeSessionMode, setActiveSessionMode] = useState<ModeSession>(MODE_SESSION_DEFAUT);
   const [activeCentreExamen, setActiveCentreExamen] = useState<string>('');
+  // Session issue d'un transfert reçu : nom du centre émetteur (bandeau, verrou de la saisie des notes) ; vide sinon.
+  const [activeTransfertCentre, setActiveTransfertCentre] = useState<string>('');
   const sessionInter = usingApiInter(activeSessionMode);
+  const sessionTransferee = Boolean(getToken()) && activeTransfertCentre !== '';
+  // Transferts reçus en attente (badge de la barre latérale) et onglet demandé à l'ouverture de l'écran Transferts.
+  const [transfertsEnAttente, setTransfertsEnAttente] = useState(0);
+  const [ongletTransferts, setOngletTransferts] = useState<OngletTransferts | undefined>(undefined);
   const [usingApi, setUsingApi] = useState<boolean>(() => Boolean(getToken()));
   // Jeton présent au chargement : rien n'est affiché (surtout pas de données de démonstration)
   // tant que la session n'est pas relue et l'espace de l'établissement chargé depuis l'API.
@@ -270,6 +279,7 @@ export default function App() {
     setActiveExamTypeLong(workspace.examTypeLong);
     setActiveSessionMode(workspace.sessionMode);
     setActiveCentreExamen(workspace.centreExamen);
+    setActiveTransfertCentre(workspace.transfertCentre);
     setCharteModifieeLe(charte?.modifieLe ?? null);
     // Paramètres reconstruits intégralement depuis le serveur (session, espace, charte, fiche) : l'état
     // précédent — démonstration ou compte connecté juste avant sur ce navigateur — n'est jamais fusionné,
@@ -307,6 +317,8 @@ export default function App() {
     setActiveExamType('');
     setActiveSessionMode(MODE_SESSION_DEFAUT);
     setActiveCentreExamen('');
+    setActiveTransfertCentre('');
+    setTransfertsEnAttente(0);
     setSelectedCandidateId('');
     setSelectedSession('');
     setSelectedCenter('');
@@ -380,6 +392,32 @@ export default function App() {
     setCurrentView('admin');
   };
 
+  const peutVoirTransferts = usingApi && !sessionPlateformeSeule && can('TRANSFERTS', 'VOIR');
+
+  /** Compteur des transferts reçus en attente (badge) ; silencieux si le droit manque ou l'API est ancienne. */
+  const rafraichirTransfertsEnAttente = useCallback(() => {
+    if (!getToken() || !peutVoirTransferts) {
+      setTransfertsEnAttente(0);
+      return;
+    }
+    compterRecusEnAttente().then(setTransfertsEnAttente).catch(() => setTransfertsEnAttente(0));
+  }, [peutVoirTransferts]);
+
+  useEffect(() => {
+    rafraichirTransfertsEnAttente();
+  }, [rafraichirTransfertsEnAttente, activeSessionId]);
+
+  const openTransferts = (onglet?: OngletTransferts) => {
+    setOngletTransferts(onglet);
+    setCurrentView('transferts');
+  };
+
+  // Nombre d'établissements d'origine distincts (hors centre) dans la session inter active : libellé du bouton « Transferts ».
+  const originesCount = useMemo(
+    () => (sessionInter ? regrouperParOrigine(candidates, activeCentreExamen).length : 0),
+    [sessionInter, candidates, activeCentreExamen],
+  );
+
   // « Consulter » une archive : charge la session réelle correspondante et ouvre son procès-verbal.
   const openArchivedSession = (sessionId: number) => {
     if (!getToken()) return;
@@ -419,6 +457,8 @@ export default function App() {
     setActiveExamType('');
     setActiveSessionMode(MODE_SESSION_DEFAUT);
     setActiveCentreExamen('');
+    setActiveTransfertCentre('');
+    setTransfertsEnAttente(0);
     setSelectedCandidateId('');
     setSelectedSession('');
     setSelectedCenter('');
@@ -927,6 +967,8 @@ export default function App() {
     usingApi,
     apiUser: usingApi ? apiUser : null,
     onOpenAdmin: usingApi && adminAccess && !sessionPlateformeSeule ? () => openAdmin() : undefined,
+    onOpenTransferts: peutVoirTransferts ? () => openTransferts(sessionInter ? undefined : 'recus') : undefined,
+    transfertsEnAttente,
     onLogout: usingApi ? handleLogout : undefined,
   };
   // Une fenêtre plein écran (recherche, signature, SMS, impression groupée) couvre la barre du bas.
@@ -958,6 +1000,7 @@ export default function App() {
           onToggleOffline={handleToggleOffline}
           onLogout={depuisTiroir(sidebarProps.onLogout)}
           onConnexion={depuisTiroir(sidebarProps.onConnexion)}
+          onOpenTransferts={depuisTiroir(sidebarProps.onOpenTransferts)}
         />
       </MobileDrawer>
 
@@ -1034,6 +1077,7 @@ export default function App() {
               examTypeLong={usingApi ? activeExamTypeLong : undefined}
               sessionInter={sessionInter}
               centreExamen={activeCentreExamen}
+              transfertCentre={sessionTransferee ? activeTransfertCentre : undefined}
             />
           )}
 
@@ -1059,6 +1103,8 @@ export default function App() {
               sessionInter={sessionInter}
               centreExamen={activeCentreExamen}
               examType={usingApi ? activeExamType : undefined}
+              onOpenTransferts={peutVoirTransferts && sessionInter ? () => openTransferts('envois') : undefined}
+              originesCount={originesCount}
               onRenumberAlphabetically={handleRenumberAlphabetically}
               onAssignMissingTableNumbers={handleAssignMissingTableNumbers}
               onBatchAddCandidates={handleBatchAddCandidates}
@@ -1080,6 +1126,23 @@ export default function App() {
           )}
 
           {currentView === 'plateforme' && <PlateformeView />}
+
+          {currentView === 'transferts' && peutVoirTransferts && (
+            <TransfertsView
+              sessionId={activeSessionId}
+              sessionName={selectedSession}
+              sessionInter={sessionInter}
+              centreExamen={activeCentreExamen}
+              ongletInitial={ongletTransferts}
+              aUnLogo={Boolean(settings.logoUrl && settings.logoUrl.trim() !== '')}
+              onRecusChanged={() => {
+                rafraichirTransfertsEnAttente();
+                reloadWorkspace();
+              }}
+              onOpenSession={openArchivedSession}
+              onOpenProfil={() => setCurrentView('profil')}
+            />
+          )}
 
           {currentView === 'profil' && !sessionPlateformeSeule && (
             <EtablissementProfilView
@@ -1122,7 +1185,7 @@ export default function App() {
               allStats={allStats}
               onUpdateGrade={handleUpdateGrade}
               onUpdateAppreciation={handleUpdateAppreciation}
-              peutAnnoter={!usingApi || can('NOTES', 'CREER') || can('NOTES', 'MODIFIER')}
+              peutAnnoter={!sessionTransferee && (!usingApi || can('NOTES', 'CREER') || can('NOTES', 'MODIFIER'))}
               usingApi={usingApi}
               onSelectCandidate={(c) => setSelectedCandidateId(c.id)}
               onNavigateToBulletin={(c) => {
@@ -1130,7 +1193,8 @@ export default function App() {
                 setCurrentView('bulletin');
               }}
               onAddNewCandidate={handleAddNewCandidate}
-              juryLocked={juryLocked}
+              juryLocked={juryLocked || sessionTransferee}
+              transfertCentre={sessionTransferee ? activeTransfertCentre : undefined}
             />
           )}
 
