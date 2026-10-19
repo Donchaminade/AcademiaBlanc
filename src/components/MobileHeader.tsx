@@ -10,6 +10,8 @@ interface MobileHeaderProps {
   onOpenMenu: () => void;
   /** Recherche rapide d'un élève (Ctrl+K) ; absent pour une session plateforme. */
   onOpenSearch?: () => void;
+  /** Élément supplémentaire à droite du titre (badge d'abonnement compact). */
+  extra?: React.ReactNode;
 }
 
 /**
@@ -23,6 +25,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   menuOpen,
   onOpenMenu,
   onOpenSearch,
+  extra,
 }) => (
   <header
     className="mobile-header lg:hidden fixed inset-x-0 top-0 z-40 h-14 bg-white/95 backdrop-blur-md border-b border-[#eaedff] shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-[env(safe-area-inset-top)] no-print"
@@ -59,6 +62,8 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           )}
         </div>
       </div>
+
+      {extra && <div className="shrink-0 max-w-[40%] flex items-center">{extra}</div>}
 
       {onOpenSearch && (
         <button

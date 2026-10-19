@@ -119,7 +119,7 @@ export interface CandidateComputedStats {
   classEvaluatedCount: number;
 }
 
-export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth' | 'plateforme' | 'profil' | 'transferts';
+export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth' | 'plateforme' | 'profil' | 'transferts' | 'abonnement' | 'abonnements';
 
 export type AdminSection =
   | 'annees'

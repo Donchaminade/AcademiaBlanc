@@ -21,6 +21,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import tg.academiablanc.abonnement.AbonnementService;
+import tg.academiablanc.abonnement.VerrouAbonnementFilter;
 
 @Configuration
 public class SecurityConfig {
@@ -30,7 +32,7 @@ public class SecurityConfig {
   }
 
   @Bean
-  SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService) throws Exception {
+  SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService, AbonnementService abonnements) throws Exception {
     return http
         .csrf(AbstractHttpConfigurer::disable)
         .cors(Customizer.withDefaults())
@@ -50,6 +52,8 @@ public class SecurityConfig {
             .authenticationEntryPoint((request, response, ex) -> refuser(response, "Authentification requise. Reconnectez-vous."))
             .accessDeniedHandler((request, response, ex) -> refuser(response, "Action non autorisée")))
         .addFilterBefore(new JwtAuthFilter(jwtService), UsernamePasswordAuthenticationFilter.class)
+        // Abonnement expiré / suspendu / en attente : écritures métier refusées en 423 (lecture seule).
+        .addFilterAfter(new VerrouAbonnementFilter(abonnements), JwtAuthFilter.class)
         .build();
   }
 

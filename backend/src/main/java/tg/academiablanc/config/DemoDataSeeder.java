@@ -12,6 +12,7 @@ import tg.academiablanc.domain.CentreExamen;
 import tg.academiablanc.domain.Classe;
 import tg.academiablanc.domain.Coefficient;
 import tg.academiablanc.domain.Eleve;
+import tg.academiablanc.abonnement.AbonnementService;
 import tg.academiablanc.domain.Etablissement;
 import tg.academiablanc.domain.Matiere;
 import tg.academiablanc.domain.Note;
@@ -49,6 +50,7 @@ public class DemoDataSeeder implements CommandLineRunner {
   private final NoteRepository notes;
   private final TypeExamenRepository typesExamen;
   private final PasswordEncoder passwordEncoder;
+  private final AbonnementService abonnements;
 
   public DemoDataSeeder(
       EtablissementRepository etablissements,
@@ -63,8 +65,10 @@ public class DemoDataSeeder implements CommandLineRunner {
       EleveRepository eleves,
       NoteRepository notes,
       TypeExamenRepository typesExamen,
-      PasswordEncoder passwordEncoder
+      PasswordEncoder passwordEncoder,
+      AbonnementService abonnements
   ) {
+    this.abonnements = abonnements;
     this.etablissements = etablissements;
     this.utilisateurs = utilisateurs;
     this.annees = annees;
@@ -130,6 +134,8 @@ public class DemoDataSeeder implements CommandLineRunner {
     school.setNomResponsable(responsable);
     school.setCreeLe(java.time.Instant.now());
     school = etablissements.save(school);
+    // Données de démonstration : essai gratuit, comme les établissements déjà inscrits lors du déploiement.
+    abonnements.demarrerEssai(school, AbonnementService.ACTEUR_SYSTEME, "Essai accordé aux données de démonstration.");
     Utilisateur user = new Utilisateur();
     user.setEtablissementId(school.getId());
     user.setEmail(email);

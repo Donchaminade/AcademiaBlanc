@@ -53,5 +53,9 @@ app:
   jwt:
     secret: ${JWT_SECRET:dev-only-local-secret-change-me-32}
     expiration-hours: 12
+  abonnement:
+    # Statut d'un établissement qui s'inscrit lui-même : EN_ATTENTE_PAIEMENT (accès après activation par le
+    # super admin) ou ESSAI (essai immédiat de la durée paramétrée). Les tests utilisent ESSAI.
+    statut-inscription: ${ABONNEMENT_STATUT_INSCRIPTION:EN_ATTENTE_PAIEMENT}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}

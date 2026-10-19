@@ -4,6 +4,7 @@ import { decisionBucket } from '../utils/bulletinMetrics';
 import { ligneTitreBulletin } from '../utils/bulletinEntete';
 import { printDocument } from '../utils/printDocument';
 import { titreChefDepuisSettings } from '../utils/titreChef';
+import { CLASSE_BOUTON_VERROUILLE, attributsBoutonVerrouille, useVerrouImpression } from './abonnement/useVerrouImpression';
 import {
   TITRE_CHEF_CENTRE,
   TITRE_PRESIDENT_JURY,
@@ -79,6 +80,8 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   transfertCentre,
 }) => {
   const [filterDecision, setFilterDecision] = useState<FiltreDecision>('all');
+  // Abonnement expiré ou suspendu : impression et export CSV grisés avec explication.
+  const verrou = useVerrouImpression();
 
   // En-tête imprimé : mêmes sources que le bandeau du bulletin (type d'examen et intitulé de la session en base).
   const titreSession = ligneTitreBulletin({
@@ -192,7 +195,9 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
           <button
             type="button"
             onClick={exportCSV}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#eaedff] text-[#00236f] text-[12px] font-semibold hover:bg-[#dce1ff] transition-colors"
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#eaedff] text-[#00236f] text-[12px] font-semibold hover:bg-[#dce1ff] transition-colors ${CLASSE_BOUTON_VERROUILLE}`}
+            {...attributsBoutonVerrouille(verrou, 'Exporter le procès-verbal en CSV')}
+            data-testid="bouton-csv-pv"
           >
             <span className="material-symbols-outlined text-base">download</span>
             <span>Exporter en CSV</span>
@@ -214,7 +219,9 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
           <button
             type="button"
             onClick={() => printDocument('registre', `PV_${selectedSession}`)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#eaedff] text-[#00236f] text-[12px] font-semibold hover:bg-[#dce1ff] transition-colors"
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#eaedff] text-[#00236f] text-[12px] font-semibold hover:bg-[#dce1ff] transition-colors ${CLASSE_BOUTON_VERROUILLE}`}
+            {...attributsBoutonVerrouille(verrou, 'Imprimer le registre / procès-verbal')}
+            data-testid="bouton-imprimer-pv"
           >
             <span className="material-symbols-outlined text-base">print</span>
             <span>Imprimer le Registre</span>

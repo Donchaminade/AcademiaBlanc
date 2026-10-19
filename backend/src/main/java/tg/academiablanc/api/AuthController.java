@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import tg.academiablanc.domain.Etablissement;
+import tg.academiablanc.domain.Forfait;
 import tg.academiablanc.domain.Role;
 import tg.academiablanc.domain.Utilisateur;
 import tg.academiablanc.repo.EtablissementRepository;
@@ -67,6 +68,8 @@ public class AuthController {
       @Size(max = 40) String telephone,
       @Size(max = 120) String region,
       @Size(max = 160) String typeEtablissement,
+      /** Forfait choisi à l'étape « Forfait » de l'inscription (MENSUEL / ANNUEL) ; ANNUEL par défaut. */
+      Forfait forfait,
       /** Case « J’ai lu et j’accepte… » : doit valoir {@code true}, sinon 400. */
       Boolean acceptationConditions,
       /** Version des conditions affichée par le client (repli : {@code app.conditions.version}). */
@@ -114,7 +117,8 @@ public class AuthController {
     AcceptationConditionsService.exigerAcceptation(request.acceptationConditions());
     EtablissementService.Creation created = creation.creer(
         request.nom(), request.ville(), request.email(), request.motDePasse(), request.nomResponsable(),
-        request.telephone(), request.region(), request.typeEtablissement(), null);
+        request.telephone(), request.region(), request.typeEtablissement(), null,
+        request.forfait() == null ? Forfait.ANNUEL : request.forfait());
     acceptations.enregistrer(created.owner(), request.versionConditions(), requete);
     return reponse(created.owner(), created.etablissement());
   }

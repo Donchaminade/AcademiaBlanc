@@ -36,6 +36,9 @@ export class ApiError extends Error {
 
 export const isForbidden = (err: unknown): err is ApiError => err instanceof ApiError && err.status === 403;
 
+/** 423 Locked : abonnement expiré, suspendu ou en attente de paiement — l'espace est en lecture seule. */
+export const isLocked = (err: unknown): err is ApiError => err instanceof ApiError && err.status === 423;
+
 /**
  * Serveur injoignable ou pas encore prêt : aucune réponse, délai dépassé, ou passerelle en 502/503/504
  * (cas typique d’un hébergement gratuit qui redémarre après une période d’inactivité).
@@ -178,6 +181,7 @@ const STATUS_MESSAGES: Record<number, string> = {
   403: 'Vous n’avez pas le droit d’effectuer cette action.',
   404: 'Élément introuvable.',
   409: 'Suppression impossible : des données y sont encore rattachées.',
+  423: 'Abonnement expiré ou suspendu : l’espace est en lecture seule.',
   500: 'Erreur du serveur.',
   502: MESSAGE_SERVEUR_INDISPONIBLE,
   503: MESSAGE_SERVEUR_INDISPONIBLE,
@@ -269,6 +273,8 @@ export function signup(payload: {
   telephone?: string;
   region?: string;
   typeEtablissement?: string;
+  /** Forfait choisi à l’étape « Forfait » (MENSUEL / ANNUEL). */
+  forfait?: 'MENSUEL' | 'ANNUEL';
   /** Case « J’ai lu et j’accepte… » : le serveur refuse (400) toute inscription sans `true`. */
   acceptationConditions: boolean;
   /** Version des documents légaux affichée au moment de l’acceptation (`VERSION_CONDITIONS`). */
