@@ -30,7 +30,7 @@ class ParametresBulletinFlowTest {
   void parametresEnregistresPuisRelusEtCloisonnes() throws Exception {
     String owner = inscrire("params-owner@ecole.tg", "Lycee Parametres");
 
-    // Jamais renseignés : tous à null (le client applique alors ses valeurs par défaut).
+    // Jamais renseignés : tous à null (le client applique alors ses valeurs par défaut ; titre du chef d'établissement automatique).
     mvc.perform(get("/api/etablissement/charte").header("Authorization", "Bearer " + owner))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.logoUrl").isEmpty())
@@ -43,14 +43,14 @@ class ParametresBulletinFlowTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"sceauUrl\":null,\"signatureProviseurUrl\":null,\"signatureTitulaireUrl\":null,"
                 + "\"logoUrl\":\"https://cdn.example.org/logo.png\",\"sceauOfficielUrl\":\"\","
-                + "\"titreSignataireJury\":\"  Le Proviseur  \","
+                + "\"titreSignataireJury\":\"  La Proviseure  \","
                 + "\"nomSignataireJury\":\"M. AGBODJI Koffi\",\"titreTitulaire\":\"Le Titulaire\",\"nomTitulaire\":\"Mme LAWSON Ayélé\","
                 + "\"premierNumeroTable\":201,\"numerotationAutomatique\":false}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.logoUrl").value("https://cdn.example.org/logo.png"))
         // Chaîne vide conservée : l'établissement a choisi de laisser l'emplacement du sceau vierge.
         .andExpect(jsonPath("$.sceauOfficielUrl").value(""))
-        .andExpect(jsonPath("$.titreSignataireJury").value("Le Proviseur"))
+        .andExpect(jsonPath("$.titreSignataireJury").value("La Proviseure"))
         // L'en-tête officiel n'est pas porté par la charte.
         .andExpect(jsonPath("$.ministere").doesNotExist())
         // Les noms des signataires non plus : titulaire de la classe, responsable de la fiche de l'établissement.
@@ -64,7 +64,7 @@ class ParametresBulletinFlowTest {
     mvc.perform(get("/api/etablissement/charte").header("Authorization", "Bearer " + owner))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.sceauOfficielUrl").value(""))
-        .andExpect(jsonPath("$.titreSignataireJury").value("Le Proviseur"))
+        .andExpect(jsonPath("$.titreSignataireJury").value("La Proviseure"))
         .andExpect(jsonPath("$.nomTitulaire").doesNotExist())
         .andExpect(jsonPath("$.premierNumeroTable").value(201));
 
@@ -89,7 +89,7 @@ class ParametresBulletinFlowTest {
     mvc.perform(put("/api/etablissement/charte").header("Authorization", "Bearer " + owner)
             .contentType(MediaType.APPLICATION_JSON).content("{\"titreSignataireJury\":\"" + "T".repeat(121) + "\"}"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.message").value("Le titre du signataire ne doit pas dépasser 120 caractères."));
+        .andExpect(jsonPath("$.message").value("Le titre du chef d'établissement ne doit pas dépasser 120 caractères."));
 
     // Un autre établissement garde ses propres valeurs (toutes vides ici).
     String autre = inscrire("params-autre@ecole.tg", "Lycee Voisin Params");

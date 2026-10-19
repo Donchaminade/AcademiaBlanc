@@ -113,7 +113,7 @@ class LogoEtablissementFlowTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(("{\"signatureProviseurUrl\":\"" + dataUrl("image/jpeg", CharteService.MAX_OCTETS + 1024) + "\"}")))
         .andExpect(status().isPayloadTooLarge())
-        .andExpect(jsonPath("$.message").value(String.format(CharteService.MESSAGE_TROP_LOURDE, "signature du proviseur")));
+        .andExpect(jsonPath("$.message").value(String.format(CharteService.MESSAGE_TROP_LOURDE, "signature du chef d'établissement")));
 
     // Rien n'a été enregistré.
     mvc.perform(get("/api/etablissement/charte").header("Authorization", "Bearer " + owner))

@@ -68,7 +68,7 @@ public class Etablissement {
   @Column(name = "charte_modifiee_le")
   private Instant charteModifieeLe;
 
-  /** Cachet affiché dans la carte « Le Proviseur » du bulletin ; null = cachet physique. */
+  /** Cachet affiché dans la carte du chef d'établissement (Directeur / Proviseur) du bulletin ; null = cachet physique. */
   @Column(name = "sceau_url", columnDefinition = "TEXT")
   private String sceauUrl;
 

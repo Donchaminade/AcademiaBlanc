@@ -15,6 +15,7 @@ import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
 import { TITRE_TITULAIRE, aUnTitulaire, nomTitulaireAffiche } from '../utils/titulaire';
+import { titreChefDepuisSettings } from '../utils/titreChef';
 import { etablissementOrigineAffiche, groupeDeClassement } from '../utils/sessionMode';
 import { BulletinFooter } from './BulletinFooter';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
@@ -471,7 +472,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                 </div>
               )}
 
-              {/* Signatures : président du jury et chef du centre en inter-établissements ; titulaire et proviseur sinon */}
+              {/* Signatures : président du jury et chef du centre en inter-établissements ; titulaire et chef d'établissement sinon */}
               {sessionInter ? <SignaturesInter chefCentre={settings.jurySignerName} compact /> : (
               <div className="bulletin-signatures relative z-10 pt-0.5 grid grid-cols-2 gap-1.5 max-w-xl mx-auto text-center">
                 {/* Le Titulaire */}
@@ -492,11 +493,11 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                   <span className="text-[9px] text-[#444651] italic leading-tight">Visa du titulaire</span>
                 </div>
 
-                {/* Le Proviseur / Le Directeur / Le Principal */}
+                {/* Le chef d'établissement : Le Directeur (collège) / Le Proviseur (lycée), ou le titre saisi dans le profil */}
                 <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[46px] bg-[#f2f3ff]/50 px-2 py-0.5 rounded-xs relative border border-[#eaedff]">
                   <div>
-                    <span className="text-[10px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
-                      {settings.jurySignerTitle || 'Le Proviseur'}
+                    <span className="text-[10px] text-[#444651] uppercase tracking-wider font-bold block leading-tight" data-testid="bulletin-titre-chef">
+                      {titreChefDepuisSettings(settings, [candidate])}
                     </span>
                     <span className="text-[12px] text-[#00236f] font-bold mt-0.5 block leading-tight">
                       {candidate.digitalSignature?.signer || settings.jurySignerName}
@@ -506,7 +507,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                     stampUrl={settings.sceauUrl}
                     signatureUrl={settings.signatureProviseurUrl}
                     stampAlt={`Cachet — ${settings.institutionName}`}
-                    signatureAlt={`Signature — ${settings.jurySignerTitle || 'Le Proviseur'}`}
+                    signatureAlt={`Signature — ${titreChefDepuisSettings(settings, [candidate])}`}
                     className="h-11"
                   />
                   <span className="text-[9px] text-[#444651] italic leading-tight">Sceau officiel</span>

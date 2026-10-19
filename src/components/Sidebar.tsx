@@ -108,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const sessionChoices = usingApi ? (sessionOptions || []) : (sessionOptions && sessionOptions.length > 0 ? sessionOptions : DEMO_SESSIONS);
   const centerChoices = usingApi ? (centerOptions || []) : (centerOptions && centerOptions.length > 0 ? centerOptions : DEMO_CENTERS);
   const footerName = apiUser?.name || settings.jurySignerName;
-  const footerRole = apiUser ? apiUser.role : 'Proviseure & Jury';
+  const footerRole = apiUser ? apiUser.role : 'Chef d’établissement & Jury';
   const drawer = variant === 'drawer';
   // Bureau : barre fixe à partir de `lg` (masquée en dessous, remplacée par le tiroir et la barre du bas).
   // Tiroir : en flux dans le panneau mobile, défilement interne, pied de panneau au-dessus de la zone sûre iOS.

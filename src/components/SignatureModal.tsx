@@ -7,6 +7,7 @@ interface SignatureModalProps {
   onSign: (signedAt: string, signer: string, shaHash: string) => void;
   /** Signataire proposé : le responsable de l'établissement (paramètres), jamais un nom de démonstration en session connectée. */
   signataireParDefaut?: string;
+  /** Titre proposé : « Le Directeur » (collège) / « Le Proviseur » (lycée) ou le titre saisi dans le profil. */
   titreParDefaut?: string;
 }
 

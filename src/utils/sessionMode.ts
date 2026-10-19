@@ -25,7 +25,7 @@ export function libelleModeSession(mode: ModeSession | string | null | undefined
 
 /** Intitulé de la carte de signature de gauche du relevé inter-établissements (à la place du titulaire). */
 export const TITRE_PRESIDENT_JURY = 'Le Président du jury';
-/** Intitulé de la carte de signature de droite du relevé inter-établissements (à la place du proviseur). */
+/** Intitulé de la carte de signature de droite du relevé inter-établissements (à la place du chef d'établissement). */
 export const TITRE_CHEF_CENTRE = 'Le Chef du centre';
 
 const propre = (valeur: string | null | undefined): string => (valeur ?? '').replace(/\s+/g, ' ').trim();

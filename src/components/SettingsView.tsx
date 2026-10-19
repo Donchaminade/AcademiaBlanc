@@ -321,7 +321,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <p className="text-[11px] text-[#444651] leading-snug">
               {usingApi
                 ? 'Ces images sont celles de la fiche de l’établissement : enregistrées dans sa base, elles sont relues à chaque connexion, depuis tout poste. Elles se gèrent aussi depuis « Profil de l’établissement › Charte graphique ».'
-                : 'Logo de la barre latérale, sceau officiel du bulletin, cachet et signatures des cartes « Le Titulaire » et « Le Proviseur ».'}
+                : 'Logo de la barre latérale, sceau officiel du bulletin, cachet et signatures des cartes « Le Titulaire » et du chef d’établissement (« Le Directeur » au collège, « Le Proviseur » au lycée).'}
             </p>
 
             <CharteImagesPanel
@@ -581,10 +581,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 )}
               </div>
 
-              {/* Signataire officiel : en session API, le responsable de la fiche de l'établissement (page Profil). */}
+              {/* Signataire officiel : en session API, le responsable de la fiche de l'établissement (page Profil). Son titre
+                  (Le Directeur au collège, Le Proviseur au lycée, ou le titre saisi dans le profil) suit la classe de chaque élève. */}
               <div>
                 <label className="block font-bold text-[#444651] uppercase text-[11px] mb-1">
-                  {formData.jurySignerTitle || 'Le Proviseur'} (Signataire officiel)
+                  {formData.jurySignerTitle?.trim() || 'Chef d’établissement'} (Signataire officiel)
                 </label>
                 <input
                   type="text"
@@ -594,9 +595,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   onChange={(e) => setFormData({ ...formData, jurySignerName: e.target.value })}
                   className={`w-full py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5] ${usingApi ? 'bg-[#faf8ff] text-[#757682] cursor-not-allowed' : 'bg-[#f2f3ff]'}`}
                 />
+                {!usingApi && (
+                  <span className="block text-[10.5px] text-[#757682] mt-1">
+                    Titre imprimé : « Le Directeur » pour une classe de collège, « Le Proviseur » au lycée.
+                  </span>
+                )}
                 {usingApi && (
                   <span className="block text-[10.5px] text-[#757682] mt-1">
-                    Responsable de la fiche de l’établissement.
+                    Responsable de la fiche de l’établissement ; son titre (Directeur au collège, Proviseur au lycée) se règle aussi dans le profil.
                     {onOpenProfil && (
                       <>
                         {' '}

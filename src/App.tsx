@@ -40,6 +40,7 @@ import type { ProfilEtablissement } from './api/etablissement';
 import { appliquerEnTeteAuxSettings, enTeteChanged, enTeteDepuisSettings } from './utils/prereglages';
 import { usePermissions } from './api/permissions';
 import { confirmAction, showError, toastSuccess } from './utils/alerts';
+import { titreChefDepuisSettings } from './utils/titreChef';
 import { loadSchoolWorkspace, ExamOption, WorkspaceOptions } from './api/workspace';
 import { horsProgramme } from './utils/programme';
 import { APPRECIATION_LONGUEUR_MAX, appreciationManuelleValide, normaliserAppreciationManuelle } from './utils/appreciation';
@@ -835,7 +836,7 @@ export default function App() {
   // Fiche enregistrée depuis le profil : le nom et le signataire officiel suivent dans la barre latérale, les bulletins
   // et la session ; la devise propre alimente le pied de page du bulletin.
   const handleProfilChanged = (profil: ProfilEtablissement) => {
-    setSettings((prev) => ({ ...prev, institutionName: profil.nom, jurySignerName: profil.nomResponsable, institutionMotto: profil.devise ?? '' }));
+    setSettings((prev) => ({ ...prev, institutionName: profil.nom, jurySignerName: profil.nomResponsable, institutionMotto: profil.devise ?? '', typeEtablissement: profil.typeEtablissement ?? '' }));
     const session = getSession();
     if (session) setSession({ ...session, nomEtablissement: profil.nom });
   };
@@ -1191,7 +1192,7 @@ export default function App() {
           onClose={() => setIsSignatureModalOpen(false)}
           onSign={handleSign}
           signataireParDefaut={settings.jurySignerName}
-          titreParDefaut={settings.jurySignerTitle || 'Chef d’établissement'}
+          titreParDefaut={titreChefDepuisSettings(settings, [selectedCandidate])}
         />
       )}
 

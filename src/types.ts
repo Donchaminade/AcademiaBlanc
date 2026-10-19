@@ -141,17 +141,22 @@ export interface AppSettings {
   academicYear: string;
   sessionName: string;
   examType: string;
-  /** Titre du signataire officiel (« Le Proviseur », « Le Directeur »…) ; vide = « Le Proviseur ». */
+  /**
+   * Titre du chef d'établissement saisi dans le profil (« La Directrice », « Le Principal »…) ; vide = automatique :
+   * « Le Directeur » au collège (6e–3e), « Le Proviseur » au lycée (2nde–Tle), voir `utils/titreChef.ts`.
+   */
   jurySignerTitle?: string;
+  /** Type de la fiche de l'établissement (« Lycée public… », « Collège… », « Complexe scolaire… ») ; vide si non renseigné. */
+  typeEtablissement?: string;
   /**
    * Nom du signataire officiel. En session API, c'est le responsable de la fiche de l'établissement
    * (`nomResponsable` de `GET /api/etablissement`, modifiable dans la page Profil) ; en démonstration, saisi localement.
    * Le titulaire n'est pas un paramètre : il vient de la classe de chaque élève (`Candidate.titulaire`).
    */
   jurySignerName: string;
-  /** Cachet affiché dans la carte « Le Proviseur » ; vide = emplacement libre pour le cachet physique. */
+  /** Cachet affiché dans la carte du chef d'établissement ; vide = emplacement libre pour le cachet physique. */
   sceauUrl?: string;
-  /** Signature manuscrite du proviseur ; vide = signature à la main sur le papier. */
+  /** Signature manuscrite du chef d'établissement (Directeur / Proviseur) ; vide = signature à la main sur le papier. */
   signatureProviseurUrl?: string;
   /** Signature manuscrite du titulaire ; vide = signature à la main sur le papier. */
   signatureTitulaireUrl?: string;
