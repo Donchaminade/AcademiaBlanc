@@ -63,7 +63,7 @@ export function entreeActive(view: ViewMode, entrees: readonly EntreeBas[] = ent
 /** Vues qui n'ont pas d'entrée directe dans la barre : proposées dans le tiroir. */
 export function vuesDuTiroir(entrees: readonly EntreeBas[] = entreesBas()): ViewMode[] {
   const directes = new Set(entrees.map((entree) => entree.view).filter(Boolean));
-  const toutes: ViewMode[] = ['dashboard', 'students', 'grading', 'bulletin', 'records', 'settings', 'admin', 'profil', 'plateforme'];
+  const toutes: ViewMode[] = ['dashboard', 'students', 'grading', 'bulletin', 'records', 'settings', 'admin', 'profil', 'abonnement', 'plateforme', 'abonnements'];
   return toutes.filter((vue) => !directes.has(vue));
 }
 

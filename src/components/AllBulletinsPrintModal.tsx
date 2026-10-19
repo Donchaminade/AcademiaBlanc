@@ -20,6 +20,7 @@ import { etablissementOrigineAffiche, groupeDeClassement } from '../utils/sessio
 import { BulletinFooter } from './BulletinFooter';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
 import { LigneCentreExamen, SignaturesInter } from './BulletinInterBlocs';
+import { CLASSE_BOUTON_VERROUILLE, attributsBoutonVerrouille, useVerrouImpression } from './abonnement/useVerrouImpression';
 
 interface AllBulletinsPrintModalProps {
   candidates: Candidate[];
@@ -48,6 +49,8 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
   centreExamen = '',
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'admis' | 'ajourne'>('all');
+  // Abonnement expiré ou suspendu : bouton d'impression grisé avec explication.
+  const verrou = useVerrouImpression();
   const sealCaption = establishmentCaption(settings.institutionName);
   const yearCaption = academicYearCaption(settings.academicYear);
   // Inter-établissements : aucun sceau ni filigrane de l'établissement hôte sur les relevés.
@@ -131,8 +134,10 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
           <button
             type="button"
             onClick={handlePrintAll}
-            disabled={filteredCandidates.length === 0}
-            className="inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 md:px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] shadow-lg hover:shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 md:px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[13px] shadow-lg hover:shadow-xl transition-all active:scale-95 ${CLASSE_BOUTON_VERROUILLE}`}
+            {...attributsBoutonVerrouille(verrou, 'Télécharger tous les bulletins en PDF')}
+            disabled={verrou.verrouille || filteredCandidates.length === 0}
+            data-testid="bouton-imprimer-tous-modale"
           >
             <span className="material-symbols-outlined text-xl">print</span>
             <span><span className="hidden sm:inline">Télécharger tous les bulletins</span><span className="sm:hidden">Télécharger</span> ({filteredCandidates.length})</span>

@@ -19,6 +19,7 @@ import { etablissementOrigineAffiche, groupeDeClassement } from '../utils/sessio
 import { BulletinFooter } from './BulletinFooter';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
 import { LigneCentreExamen, SignaturesInter } from './BulletinInterBlocs';
+import { CLASSE_BOUTON_VERROUILLE, attributsBoutonVerrouille, useVerrouImpression } from './abonnement/useVerrouImpression';
 
 interface BulletinViewProps {
   candidates: Candidate[];
@@ -66,6 +67,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   centreExamen = '',
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  // Abonnement expiré ou suspendu : boutons d'impression / téléchargement grisés avec explication.
+  const verrou = useVerrouImpression();
   // Écrans étroits : la feuille (800 px) est réduite pour tenir dans la largeur disponible ; sa hauteur
   // réelle est mesurée pour que le conteneur n'occupe que la place de la feuille réduite.
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -243,8 +246,9 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded bg-[#eaedff] hover:bg-[#dce1ff] text-[#131b2e] text-[12px] transition-colors shadow-xs font-medium"
-              title="Imprimer ce bulletin individuel"
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded bg-[#eaedff] hover:bg-[#dce1ff] text-[#131b2e] text-[12px] transition-colors shadow-xs font-medium ${CLASSE_BOUTON_VERROUILLE}`}
+              {...attributsBoutonVerrouille(verrou, 'Imprimer ce bulletin individuel')}
+              data-testid="bouton-imprimer-bulletin"
             >
               <span className="material-symbols-outlined text-base">print</span>
               <span>Ce bulletin</span>
@@ -256,8 +260,9 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             <button
               type="button"
               onClick={onPrintAll}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#0051d5] hover:bg-[#003cb3] text-white text-[12px] transition-all shadow-md active:scale-95 font-bold"
-              title="Ouvrir l'aperçu puis télécharger tous les bulletins en PDF"
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#0051d5] hover:bg-[#003cb3] text-white text-[12px] transition-all shadow-md active:scale-95 font-bold ${CLASSE_BOUTON_VERROUILLE}`}
+              {...attributsBoutonVerrouille(verrou, "Ouvrir l'aperçu puis télécharger tous les bulletins en PDF")}
+              data-testid="bouton-imprimer-tous"
             >
               <span className="material-symbols-outlined text-base">print_connect</span>
               <span>Télécharger tous les bulletins ({candidates.length})</span>
@@ -289,7 +294,9 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
             <button
               type="button"
               onClick={onDownloadPdf}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded bg-[#00236f] text-white text-[12px] hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95 font-semibold"
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded bg-[#00236f] text-white text-[12px] hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95 font-semibold ${CLASSE_BOUTON_VERROUILLE}`}
+              {...attributsBoutonVerrouille(verrou, 'Télécharger le bulletin en PDF A4')}
+              data-testid="bouton-telecharger-pdf"
             >
               <span className="material-symbols-outlined text-base">download</span>
               <span>Télécharger PDF A4</span>

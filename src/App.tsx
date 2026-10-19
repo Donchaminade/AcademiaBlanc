@@ -59,6 +59,14 @@ import { MODE_SESSION_DEFAUT, estSessionInter } from './utils/sessionMode';
 import type { ModeSession } from './utils/sessionMode';
 import { TIROIR_FERME, fermerTiroir, ouvrirTiroir, tiroirApresChangementDeVue } from './utils/mobileNav';
 import type { EtatTiroir } from './utils/mobileNav';
+import { INTERVALLE_RAFRAICHISSEMENT_MS, rafraichirAbonnement, setEtatAbonnement, useAbonnement } from './api/abonnement';
+import { isLocked } from './api/client';
+import { AbonnementBadge } from './components/abonnement/AbonnementBadge';
+import { BandeauVerrou } from './components/abonnement/BandeauVerrou';
+import { AbonnementView } from './components/abonnement/AbonnementView';
+import { PaiementActivationScreen } from './components/abonnement/PaiementActivationScreen';
+import { useVerrouImpression } from './components/abonnement/useVerrouImpression';
+import { AbonnementsPlateformeView } from './components/plateforme/AbonnementsPlateformeView';
 
 // Site vitrine (GSAP, Three.js) chargé à la demande : l’application connectée n’embarque pas ces bibliothèques.
 const LandingPage = lazy(() => import('./components/landing/LandingPage'));
@@ -185,8 +193,18 @@ export default function App() {
     }, 4000);
   };
 
+  // Abonnement de l'établissement connecté (statut calculé par le serveur) et garde d'impression associée.
+  const etatAbonnement = useAbonnement();
+  const verrouImpression = useVerrouImpression();
+
   /** Un refus du serveur (403) s’affiche en fenêtre avec son message ; les autres erreurs en toast. */
   const signalerErreur = (err: unknown, fallback: string) => {
+    if (isLocked(err)) {
+      // 423 : l'abonnement est verrouillé côté serveur ; le statut est relu pour aligner badge et bandeau.
+      void showError('Abonnement verrouillé', err.message);
+      void rafraichirAbonnement().catch(() => null);
+      return;
+    }
     if (isForbidden(err)) {
       void showError('Action non autorisée', err.message);
       return;
@@ -252,6 +270,8 @@ export default function App() {
       // Une charte ou une fiche indisponible (ancienne API) ne doit pas bloquer le chargement de l'espace.
       loadCharte().catch(() => null),
       loadProfil().catch(() => null),
+      // Statut d'abonnement (badge, bandeau, verrou d'impression) : relu à chaque chargement de l'espace.
+      rafraichirAbonnement().catch(() => null),
     ]);
     const session = getSession();
     setUsingApi(true);
@@ -316,6 +336,7 @@ export default function App() {
     setIsSmsModalOpen(false);
     setIsSearchModalOpen(false);
     setIsBatchPrintModalOpen(false);
+    setEtatAbonnement(null);
     setCurrentView('plateforme');
   };
 
@@ -430,9 +451,19 @@ export default function App() {
     setIsSmsModalOpen(false);
     setIsSearchModalOpen(false);
     setIsBatchPrintModalOpen(false);
+    setEtatAbonnement(null);
     setCurrentView('auth');
     navigate(comptePlateforme ? 'admin' : 'vitrine');
   };
+
+  // Le statut d'abonnement est recalculé par le serveur : relecture toutes les 30 minutes pendant la session.
+  useEffect(() => {
+    if (!usingApi || sessionPlateformeSeule) return undefined;
+    const minuterie = setInterval(() => {
+      void rafraichirAbonnement().catch(() => null);
+    }, INTERVALLE_RAFRAICHISSEMENT_MS);
+    return () => clearInterval(minuterie);
+  }, [usingApi, sessionPlateformeSeule]);
 
   useEffect(() => {
     if (!getToken()) return;
@@ -452,6 +483,7 @@ export default function App() {
           clearToken();
           setUsingApi(false);
           setApiUser(null);
+          setEtatAbonnement(null);
           setCurrentView('auth');
           navigate('connexion', { replace: true });
         }
@@ -469,7 +501,7 @@ export default function App() {
 
   // Un compte plateforme sans établissement n'a aucune vue d'établissement : tout écart revient sur la vue Plateforme.
   useEffect(() => {
-    if (sessionPlateformeSeule && currentView !== 'plateforme' && currentView !== 'auth') setCurrentView('plateforme');
+    if (sessionPlateformeSeule && currentView !== 'plateforme' && currentView !== 'abonnements' && currentView !== 'auth') setCurrentView('plateforme');
   }, [sessionPlateformeSeule, currentView]);
 
   // Compte d'établissement créé sur le serveur : `handleApiReady` charge son espace (vide), l'accueil est le tableau de bord.
@@ -794,6 +826,10 @@ export default function App() {
           void showError('Action non autorisée', 'Votre compte ne détient pas le droit IMPRIMER sur BULLETINS.');
           return;
         }
+        if (verrouImpression.verrouille) {
+          void showError('Impression désactivée', verrouImpression.motif);
+          return;
+        }
         if (isBatchPrintModalOpen) {
           printDocument('all-bulletins', `Bulletins_${settings.institutionName}`);
         } else if (currentView === 'bulletin' && selectedCandidate) {
@@ -822,10 +858,13 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [candidates, selectedCandidateId, currentView, isBatchPrintModalOpen, selectedCandidate, settings.institutionName, selectedSession, usingApi, can, sessionPlateformeSeule]);
+  }, [candidates, selectedCandidateId, currentView, isBatchPrintModalOpen, selectedCandidate, settings.institutionName, selectedSession, usingApi, can, sessionPlateformeSeule, verrouImpression]);
 
-  // Impression des bulletins : libre hors API, soumise à BULLETINS:IMPRIMER une fois connecté.
+  // Impression des bulletins : libre hors API, soumise à BULLETINS:IMPRIMER une fois connecté. Les boutons eux-mêmes
+  // se grisent (avec explication) quand l'abonnement est en lecture seule : voir `useVerrouImpression`.
   const peutImprimer = !usingApi || can('BULLETINS', 'IMPRIMER');
+  // Déclaration de paiement : responsable ou administrateur de l'établissement.
+  const peutDeclarerPaiement = accountRole === 'OWNER' || accountRole === 'ADMIN' || accountRole === 'SUPER_ADMIN';
 
   // Hors connexion : la page de connexion remplace l'ancienne modale du portail d'authentification.
   const ouvrirConnexion = () => {
@@ -893,7 +932,23 @@ export default function App() {
     );
   }
 
+  // Compte en attente de paiement (ou dont l'accès n'est pas ouvert) : seul l'écran Paiement / Activation est
+  // proposé tant que le serveur n'a pas activé l'abonnement ou accordé un essai. Jamais pour un compte plateforme.
+  if (usingApi && etatAbonnement && !etatAbonnement.plateforme && !etatAbonnement.acces) {
+    return (
+      <PaiementActivationScreen
+        etat={etatAbonnement}
+        nomEtablissement={settings.institutionName}
+        peutDeclarer={peutDeclarerPaiement}
+        onActive={() => setCurrentView('dashboard')}
+        onLogout={() => void handleLogout()}
+      />
+    );
+  }
+
   const platformOwner = isPlatformAccount(getSession()) || accountRole === 'SUPER_ADMIN' || accountRole === 'GESTIONNAIRE_PLATEFORME';
+  const abonnementVisible = usingApi && !sessionPlateformeSeule && etatAbonnement != null && !etatAbonnement.plateforme;
+  const ouvrirAbonnement = () => setCurrentView('abonnement');
   // Depuis le tiroir mobile, une action qui n'est pas un changement de vue doit aussi refermer le tiroir.
   const depuisTiroir = (action?: () => void) => (action ? () => { fermerMenuMobile(); action(); } : undefined);
   const sidebarProps = {
@@ -928,6 +983,8 @@ export default function App() {
     apiUser: usingApi ? apiUser : null,
     onOpenAdmin: usingApi && adminAccess && !sessionPlateformeSeule ? () => openAdmin() : undefined,
     onLogout: usingApi ? handleLogout : undefined,
+    onOpenAbonnement: abonnementVisible ? ouvrirAbonnement : undefined,
+    abonnementBadge: abonnementVisible ? <AbonnementBadge etat={etatAbonnement} onClick={ouvrirAbonnement} /> : undefined,
   };
   // Une fenêtre plein écran (recherche, signature, SMS, impression groupée) couvre la barre du bas.
   const fenetreOuverte = isSignatureModalOpen || isSmsModalOpen || isSearchModalOpen || isBatchPrintModalOpen;
@@ -942,6 +999,7 @@ export default function App() {
         menuOpen={tiroir.ouvert}
         onOpenMenu={ouvrirMenuMobile}
         onOpenSearch={sessionPlateformeSeule ? undefined : () => setIsSearchModalOpen(true)}
+        extra={abonnementVisible ? <AbonnementBadge etat={etatAbonnement} onClick={ouvrirAbonnement} compact /> : undefined}
       />
 
       {/* Sidebar Navigation (bureau, à partir de lg) */}
@@ -963,8 +1021,19 @@ export default function App() {
 
       {/* Main Content Area - Navigated via Sidebar (bureau) ou barre du bas + tiroir (mobile) */}
       <div className="app-chrome w-full min-h-dvh flex flex-col pt-14 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pl-80 lg:pt-0 lg:pb-0">
+        {/* Abonnement expiré ou suspendu : bandeau rouge persistant, sur toutes les vues de l'établissement */}
+        {abonnementVisible && (
+          <BandeauVerrou etat={etatAbonnement} nomEtablissement={settings.institutionName} onOuvrirAbonnement={ouvrirAbonnement} />
+        )}
+
         {/* View Routing */}
         <main className="relative bg-[#faf8ff] flex-1 min-w-0">
+          {currentView === 'abonnement' && (
+            <AbonnementView etat={etatAbonnement} nomEtablissement={settings.institutionName} peutDeclarer={peutDeclarerPaiement} />
+          )}
+
+          {currentView === 'abonnements' && platformOwner && <AbonnementsPlateformeView />}
+
           {currentView === 'bulletin' && !selectedCandidate && (
             <div className="p-4 md:p-10 text-[14px] text-[#444651] space-y-3">
               <p>

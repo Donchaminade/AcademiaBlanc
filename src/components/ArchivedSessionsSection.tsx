@@ -9,6 +9,7 @@ import { archiverSession, loadArchives, retirerArchive } from '../api/archives';
 import { printDocument } from '../utils/printDocument';
 import { confirmDelete } from '../utils/alerts';
 import { BilanArchivesSheet } from './print/BilanArchivesSheet';
+import { CLASSE_BOUTON_VERROUILLE, attributsBoutonVerrouille, useVerrouImpression } from './abonnement/useVerrouImpression';
 
 interface ArchivedSessionsSectionProps {
   settings: AppSettings;
@@ -44,6 +45,8 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
   );
   const [loading, setLoading] = useState<boolean>(usingApi);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Abonnement expiré ou suspendu : impression du bilan grisée avec explication.
+  const verrou = useVerrouImpression();
   const [archiving, setArchiving] = useState(false);
 
   const refreshFromApi = async () => {
@@ -422,8 +425,8 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
           <button
             type="button"
             onClick={() => printDocument('archives', `Bilan_sessions_${settings.institutionName}`)}
-            className="inline-flex max-w-full shrink-0 items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold text-[12px] text-left transition-all border border-white/20"
-            title="Imprimer le bilan des sessions d'examen (A4 paysage : tableau comparatif et graphique)"
+            className={`inline-flex max-w-full shrink-0 items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold text-[12px] text-left transition-all border border-white/20 ${CLASSE_BOUTON_VERROUILLE}`}
+            {...attributsBoutonVerrouille(verrou, "Imprimer le bilan des sessions d'examen (A4 paysage : tableau comparatif et graphique)")}
             data-testid="bouton-imprimer-bilan"
           >
             <span className="material-symbols-outlined text-base shrink-0">print</span>

@@ -101,7 +101,7 @@ export interface CandidateComputedStats {
   classEvaluatedCount: number;
 }
 
-export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth' | 'plateforme' | 'profil';
+export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth' | 'plateforme' | 'profil' | 'abonnement' | 'abonnements';
 
 export type AdminSection =
   | 'annees'
