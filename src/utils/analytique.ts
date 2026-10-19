@@ -172,6 +172,96 @@ export function hauteurPct(valeur: number, echelle: Echelle): number {
 }
 
 /* ------------------------------------------------------------------ */
+/* Revenus : périodes et comparaison                                   */
+/* ------------------------------------------------------------------ */
+
+export interface RevenusMois {
+  mois: string;
+  /** Déclarations de paiement saisies dans le mois (à vérifier ou traitées). */
+  declares: number;
+  nbDeclarations: number;
+  /** Activations et prolongations enregistrées par le propriétaire dans le mois. */
+  confirmes: number;
+  nbConfirmations: number;
+}
+
+export type PeriodeRevenus = 'mois-courant' | 'mois-precedent' | '3-mois';
+
+export const PERIODES_REVENUS: { id: PeriodeRevenus; label: string }[] = [
+  { id: 'mois-courant', label: 'Mois courant' },
+  { id: 'mois-precedent', label: 'Mois précédent' },
+  { id: '3-mois', label: '3 derniers mois' },
+];
+
+export interface TotalRevenus {
+  declares: number;
+  nbDeclarations: number;
+  confirmes: number;
+  nbConfirmations: number;
+}
+
+export interface ResumeRevenus {
+  periode: PeriodeRevenus;
+  /** Mois couverts par la période, du plus ancien au plus récent. */
+  mois: string[];
+  libelle: string;
+  total: TotalRevenus;
+  /** Période de comparaison de même longueur, juste avant. */
+  moisReference: string[];
+  libelleReference: string;
+  reference: TotalRevenus;
+  variationDeclares: number | null;
+  variationConfirmes: number | null;
+}
+
+const TOTAL_VIDE: TotalRevenus = { declares: 0, nbDeclarations: 0, confirmes: 0, nbConfirmations: 0 };
+
+/** Somme des mois demandés ; un mois absent de la série compte 0 (jamais inventé). */
+export function totaliserRevenus(serie: RevenusMois[], mois: string[]): TotalRevenus {
+  const parMois = new Map(serie.map((m) => [m.mois, m]));
+  return mois.reduce<TotalRevenus>((acc, m) => {
+    const point = parMois.get(m);
+    if (!point) return acc;
+    return {
+      declares: acc.declares + point.declares,
+      nbDeclarations: acc.nbDeclarations + point.nbDeclarations,
+      confirmes: acc.confirmes + point.confirmes,
+      nbConfirmations: acc.nbConfirmations + point.nbConfirmations,
+    };
+  }, TOTAL_VIDE);
+}
+
+function libellePeriode(mois: string[]): string {
+  if (mois.length === 0) return '—';
+  if (mois.length === 1) return libelleMoisLong(mois[0]);
+  return `${libelleMoisLong(mois[0])} → ${libelleMoisLong(mois[mois.length - 1])}`;
+}
+
+/**
+ * Totaux d'une période et de la période précédente de même longueur, avec variation en % :
+ * mois courant (vs mois précédent), mois précédent (vs celui d'avant), 3 derniers mois (vs les 3 précédents).
+ */
+export function resumerRevenus(serie: RevenusMois[], periode: PeriodeRevenus, moisCourant: string): ResumeRevenus {
+  const longueur = periode === '3-mois' ? 3 : 1;
+  const fin = periode === 'mois-precedent' ? decalerMois(moisCourant, -1) : moisCourant;
+  const mois = moisGlissants(fin, longueur);
+  const moisReference = moisGlissants(decalerMois(fin, -longueur), longueur);
+  const total = totaliserRevenus(serie, mois);
+  const reference = totaliserRevenus(serie, moisReference);
+  return {
+    periode,
+    mois,
+    libelle: libellePeriode(mois),
+    total,
+    moisReference,
+    libelleReference: libellePeriode(moisReference),
+    reference,
+    variationDeclares: variationPct(total.declares, reference.declares),
+    variationConfirmes: variationPct(total.confirmes, reference.confirmes),
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* Séries                                                              */
 /* ------------------------------------------------------------------ */
 

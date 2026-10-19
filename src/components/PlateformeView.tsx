@@ -201,8 +201,9 @@ export const PlateformeView: React.FC<PlateformeViewProps> = ({ ongletDemande = 
           <>
             <h2 className="text-[22px] font-bold text-[#00236f] mt-1.5">Tableau de bord analytique</h2>
             <p className="text-[13px] text-[#444651] mt-0.5 max-w-3xl">
-              Indicateurs de la plateforme réservés au propriétaire du logiciel : établissements inscrits et évolution des inscriptions
-              sur 12 mois glissants. Lecture seule, calculée par le serveur en temps universel (UTC).
+              Indicateurs de la plateforme réservés au propriétaire du logiciel : établissements par statut d’abonnement, revenus
+              déclarés et encaissés, churn sur 30 jours et évolution des inscriptions sur 12 mois glissants. Lecture seule, calculée
+              par le serveur en temps universel (UTC).
             </p>
           </>
         ) : (

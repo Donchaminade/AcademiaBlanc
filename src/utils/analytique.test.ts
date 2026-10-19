@@ -16,6 +16,8 @@ import {
   libelleMoisLong,
   moisDepuisInstant,
   moisGlissants,
+  resumerRevenus,
+  totaliserRevenus,
   variationPct,
 } from './analytique';
 
@@ -124,6 +126,55 @@ describe('analytique : échelle du graphique', () => {
     assert.equal(hauteurPct(50, echelle), 100);
     assert.equal(hauteurPct(75, echelle), 100);
     assert.equal(hauteurPct(0, echelle), 0);
+  });
+});
+
+describe('analytique : revenus par période et comparaison', () => {
+  const serie = [
+    { mois: '2026-05', declares: 0, nbDeclarations: 0, confirmes: 0, nbConfirmations: 0 },
+    { mois: '2026-06', declares: 0, nbDeclarations: 0, confirmes: 0, nbConfirmations: 0 },
+    { mois: '2026-07', declares: 0, nbDeclarations: 0, confirmes: 0, nbConfirmations: 0 },
+    { mois: '2026-08', declares: 15000, nbDeclarations: 1, confirmes: 180000, nbConfirmations: 3 },
+    { mois: '2026-09', declares: 165000, nbDeclarations: 2, confirmes: 315000, nbConfirmations: 3 },
+    { mois: '2026-10', declares: 180000, nbDeclarations: 3, confirmes: 30000, nbConfirmations: 2 },
+  ];
+
+  it('mois courant comparé au mois précédent', () => {
+    const r = resumerRevenus(serie, 'mois-courant', '2026-10');
+    assert.deepEqual(r.mois, ['2026-10']);
+    assert.deepEqual(r.moisReference, ['2026-09']);
+    assert.equal(r.libelle, 'octobre 2026');
+    assert.equal(r.libelleReference, 'septembre 2026');
+    assert.deepEqual(r.total, { declares: 180000, nbDeclarations: 3, confirmes: 30000, nbConfirmations: 2 });
+    assert.deepEqual(r.reference, { declares: 165000, nbDeclarations: 2, confirmes: 315000, nbConfirmations: 3 });
+    assert.equal(r.variationDeclares, 9.1);
+    assert.equal(r.variationConfirmes, -90.5);
+  });
+
+  it('mois précédent comparé à celui d’avant', () => {
+    const r = resumerRevenus(serie, 'mois-precedent', '2026-10');
+    assert.deepEqual(r.mois, ['2026-09']);
+    assert.deepEqual(r.moisReference, ['2026-08']);
+    assert.equal(r.total.declares, 165000);
+    assert.equal(r.reference.declares, 15000);
+    assert.equal(r.variationDeclares, 1000);
+    assert.equal(r.variationConfirmes, 75);
+  });
+
+  it('3 derniers mois comparés aux 3 précédents, variation indéfinie sans base', () => {
+    const r = resumerRevenus(serie, '3-mois', '2026-10');
+    assert.deepEqual(r.mois, ['2026-08', '2026-09', '2026-10']);
+    assert.deepEqual(r.moisReference, ['2026-05', '2026-06', '2026-07']);
+    assert.equal(r.libelle, 'août 2026 → octobre 2026');
+    assert.deepEqual(r.total, { declares: 360000, nbDeclarations: 6, confirmes: 525000, nbConfirmations: 8 });
+    assert.deepEqual(r.reference, { declares: 0, nbDeclarations: 0, confirmes: 0, nbConfirmations: 0 });
+    assert.equal(r.variationDeclares, null);
+    assert.equal(r.variationConfirmes, null);
+  });
+
+  it('un mois absent de la série vaut 0', () => {
+    assert.deepEqual(totaliserRevenus(serie, ['2025-01', '2026-10']), { declares: 180000, nbDeclarations: 3, confirmes: 30000, nbConfirmations: 2 });
+    assert.deepEqual(totaliserRevenus([], ['2026-10']), { declares: 0, nbDeclarations: 0, confirmes: 0, nbConfirmations: 0 });
   });
 });
 
