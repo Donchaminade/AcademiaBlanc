@@ -8,6 +8,7 @@ import {
   formatSubjectRank,
 } from '../utils/bulletinMetrics';
 import { printDocument } from '../utils/printDocument';
+import { subjectsFor } from '../utils/programme';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
 
 interface AllBulletinsPrintModalProps {
@@ -240,7 +241,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                     {candidate.dob} à {candidate.birthPlace}
                   </span>
                   <span className="bulletin-field-value bulletin-field-genre text-[12px] text-[#131b2e] font-medium">
-                    {candidate.gender === 'M' ? 'Masculin (M)' : 'Féminin (F)'} • {candidate.serie}
+                    {candidate.gender === 'M' ? 'Masculin (M)' : 'Féminin (F)'}{candidate.serie ? ` • ${candidate.serie}` : ''}
                   </span>
 
                   <span className="bulletin-field-label bulletin-field-school text-[9.5px] text-[#444651] uppercase font-bold tracking-wider">
@@ -283,7 +284,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y-0 text-[#131b2e]">
-                    {subjects.map((subj, sIdx) => {
+                    {subjectsFor(candidate, subjects).map((subj, sIdx) => {
                       const gradeData = candidate.grades[subj.id];
                       const scoreTotal = gradeData ? (gradeData.score * subj.coef).toFixed(2) : '—';
                       const isEven = sIdx % 2 === 0;

@@ -7,13 +7,15 @@ import { UtilisateursSection } from './UtilisateursSection';
 import { FamilleBadge, SerieForm, SeriesPanel } from './SeriesPanel';
 import { Serie, grouperSeries } from '../api/series';
 import { AdminSection } from '../types';
+import { CoefPill, ProgrammeClassePanel, matieresParClasse } from './ProgrammeClassePanel';
+import { Cycle, NIVEAUX, cycleDeNiveau, niveauCanonique, nomClasseSuggere } from '../utils/niveaux';
 
 interface Annee { id: number; libelle: string; courante: boolean; dateDebut?: string; dateFin?: string; }
 interface Centre { id: number; nom: string; code: string; ville?: string; }
 interface Session { id: number; nom: string; typeExamen: string; statut: string; serie?: string; anneeScolaireId: number; centreId: number; }
 interface Matiere { id: number; nom: string; code: string; groupeCode?: string | null; groupeLibelle?: string | null; }
-/** Compte rendu du chargement du référentiel des matières principales (POST /api/matieres/referentiel). */
-interface ReferentielResultat { matieresCreees: number; matieresExistantes: number; coefficientsCrees: number; coefficientsExistants: number; }
+/** Compte rendu du chargement des matières de base (POST /api/matieres/referentiel) : matières seulement, aucun coefficient. */
+interface ReferentielResultat { matieresCreees: number; matieresExistantes: number; }
 interface Professeur { id: number; nom: string; email?: string; }
 interface Classe { id: number; nom: string; niveau: string; serie?: string; titulaireId?: number; anneeScolaireId: number; }
 interface Affectation { id: number; professeurId: number; matiereId: number; classeId: number; }
@@ -26,9 +28,10 @@ export const ADMIN_STEPS: { section: AdminSection; label: string }[] = [
   { section: 'annees', label: 'Année scolaire' },
   { section: 'centres', label: 'Centre' },
   { section: 'sessions', label: 'Session' },
-  { section: 'matieres', label: 'Matières & coefficients' },
+  { section: 'matieres', label: 'Matières' },
   { section: 'enseignants', label: 'Enseignants' },
   { section: 'classes', label: 'Classes' },
+  { section: 'programme', label: 'Programme des classes' },
   { section: 'affectations', label: 'Affectations' },
   { section: 'eleves', label: 'Élèves' },
   { section: 'notes', label: 'Notes' },
@@ -37,11 +40,12 @@ export const ADMIN_STEPS: { section: AdminSection; label: string }[] = [
 export const adminSectionAnchor = (section: AdminSection) => `admin-section-${section}`;
 
 /** Onglets de l’écran : chaque onglet regroupe plusieurs sections fines. */
-type AdminGroup = 'annees' | 'matieres' | 'enseignants' | 'eleves' | 'notes' | 'utilisateurs';
+type AdminGroup = 'annees' | 'matieres' | 'programme' | 'enseignants' | 'eleves' | 'notes' | 'utilisateurs';
 
 const GROUPS: { key: AdminGroup; label: string; icon: string; sections: AdminSection[] }[] = [
   { key: 'annees', label: 'Année & Sessions', icon: 'calendar_month', sections: ['annees', 'centres', 'sessions'] },
-  { key: 'matieres', label: 'Matières & Coefficients', icon: 'menu_book', sections: ['matieres', 'coefficients'] },
+  { key: 'matieres', label: 'Matières', icon: 'menu_book', sections: ['matieres'] },
+  { key: 'programme', label: 'Programme des classes', icon: 'checklist', sections: ['programme', 'coefficients'] },
   { key: 'enseignants', label: 'Enseignants & Classes', icon: 'groups', sections: ['enseignants', 'classes', 'series', 'affectations'] },
   { key: 'eleves', label: 'Élèves', icon: 'school', sections: ['eleves'] },
   { key: 'notes', label: 'Notes', icon: 'grading', sections: ['notes'] },
@@ -54,6 +58,7 @@ const RESSOURCE_DE: Record<AdminSection, Ressource> = {
   centres: 'CENTRES',
   sessions: 'SESSIONS',
   matieres: 'MATIERES',
+  programme: 'COEFFICIENTS',
   coefficients: 'COEFFICIENTS',
   enseignants: 'ENSEIGNANTS',
   classes: 'CLASSES',
@@ -88,60 +93,21 @@ const GROUPES_MATIERES: { code: string; libelle: string }[] = [
   { code: 'SC', libelle: 'Enseignements Scientifiques' },
 ];
 
-/** Matières principales chargées en un clic ; miroir de ReferentielMatieres.MATIERES côté API (affichage seulement). */
+/** Matières de base chargées en un clic ; miroir de ReferentielMatieres.MATIERES côté API (affichage seulement). */
 const MATIERES_PRINCIPALES = 'Français, Anglais, Histoire-Géographie, ECM, Sciences Physiques, Mathématiques, SVT';
 
 const EMPTY = {
   centre: { nom: '', code: '', ville: 'Lomé' },
-  session: { nom: '', typeExamen: 'BACCALAURÉAT II', statut: 'OUVERTE', serie: 'Série D', anneeScolaireId: '', centreId: '' },
+  // Pas de série sur la session : la série est portée par la classe (lycée uniquement).
+  session: { nom: '', typeExamen: 'BACCALAURÉAT II', statut: 'OUVERTE', serie: '', anneeScolaireId: '', centreId: '' },
   matiere: { nom: '', code: '', groupeCode: '' },
   prof: { nom: '', email: '' },
   classe: { nom: '', cycle: 'LYCEE' as Cycle, niveau: 'Tle', serie: '', titulaireId: '', anneeScolaireId: '' },
   affectation: { professeurId: '', matiereId: '', classeId: '' },
-  coefficient: { matiereId: '', classeId: '', serie: '', valeur: '2' },
+  coefficient: { matiereId: '', classeId: '', valeur: '2' },
   eleve: { nomComplet: '', genre: 'F', classeId: '', sessionId: '', numeroTable: '' },
   note: { eleveId: '', matiereId: '', sessionId: '', valeur: '', absent: false },
 };
-
-/** Cycle d’une classe : collège (6e–3e, sans série) ou lycée (2nde–Tle, avec série). */
-type Cycle = 'COLLEGE' | 'LYCEE';
-
-const NIVEAUX: Record<Cycle, { code: string; label: string }[]> = {
-  COLLEGE: [
-    { code: '6e', label: '6e — Sixième' },
-    { code: '5e', label: '5e — Cinquième' },
-    { code: '4e', label: '4e — Quatrième' },
-    { code: '3e', label: '3e — Troisième' },
-  ],
-  LYCEE: [
-    { code: '2nde', label: '2nde — Seconde' },
-    { code: '1ère', label: '1ère — Première' },
-    { code: 'Tle', label: 'Tle — Terminale' },
-  ],
-};
-
-const NIVEAU_ALIAS: Record<string, string> = {
-  '6E': '6e', '6EME': '6e', SIXIEME: '6e',
-  '5E': '5e', '5EME': '5e', CINQUIEME: '5e',
-  '4E': '4e', '4EME': '4e', QUATRIEME: '4e',
-  '3E': '3e', '3EME': '3e', TROISIEME: '3e',
-  '2NDE': '2nde', '2DE': '2nde', SECONDE: '2nde',
-  '1ERE': '1ère', '1RE': '1ère', PREMIERE: '1ère',
-  TLE: 'Tle', TERMINALE: 'Tle',
-};
-
-/** Code canonique d’un niveau saisi librement (« Troisième » → « 3e »), ou la valeur d’origine. */
-const niveauCanonique = (niveau: string): string => {
-  const compact = niveau.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  return NIVEAU_ALIAS[compact] ?? niveau;
-};
-
-const cycleDeNiveau = (niveau: string): Cycle =>
-  NIVEAUX.COLLEGE.some((n) => n.code === niveauCanonique(niveau)) ? 'COLLEGE' : 'LYCEE';
-
-/** Nom de classe proposé : « 3e », « Tle D », « 1ère G2 ». */
-const nomClasseSuggere = (niveau: string, serie: string): string =>
-  serie ? `${niveau} ${serie}` : niveau;
 
 /** Valeur spéciale du sélecteur de série qui ouvre le formulaire « Nouvelle série ». */
 const NOUVELLE_SERIE = '__nouvelle__';
@@ -352,6 +318,8 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   const [noteEdit, setNoteEdit] = useState<Note | null>(null);
   const [sessionNotes, setSessionNotes] = useState('');
   const sessionNotesRef = useRef('');
+  /** Classe affichée dans « Programme des classes » (aussi ciblée depuis le tableau des classes). */
+  const [programmeClasseId, setProgrammeClasseId] = useState('');
 
   /**
    * Vide un formulaire et revient en mode « Nouvelle fiche ».
@@ -467,29 +435,25 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   };
 
   /**
-   * Charge les 7 matières principales et leurs coefficients par défaut (selon le niveau et la série de chaque classe).
-   * L’API ne crée que ce qui manque : relancer le chargement n’écrase aucun coefficient déjà saisi.
+   * Charge les 7 matières de base dans le catalogue (avec leur groupe). Aucun coefficient n’est créé :
+   * l’affectation aux classes se fait dans « Programme des classes ». Relancer ne duplique rien.
    */
   const chargerReferentiel = async () => {
     const ok = await confirmAction({
-      title: 'Charger les matières principales ?',
-      text: classes.length
-        ? `${MATIERES_PRINCIPALES}. Un coefficient par défaut sera proposé pour chacune des ${classes.length} classe${classes.length > 1 ? 's' : ''} (collège, lycée A, C ou D). Les matières et coefficients déjà présents sont conservés.`
-        : `${MATIERES_PRINCIPALES}. Aucune classe n’est encore créée : seules les matières seront ajoutées ; relancez le chargement après avoir créé vos classes pour obtenir les coefficients.`,
+      title: 'Charger les matières de base ?',
+      text: `${MATIERES_PRINCIPALES}. Les matières déjà présentes (même code) sont conservées. Vous affecterez ensuite ces matières à chaque classe, avec leurs coefficients, dans « Programme des classes ».`,
       confirmText: 'Charger',
       icon: 'info',
     });
     if (!ok) return;
     setChargementReferentiel(true);
     try {
-      const r = await apiSend<ReferentielResultat>('/api/matieres/referentiel', 'POST', { appliquerCoefficientsParDefaut: true });
+      const r = await apiSend<ReferentielResultat>('/api/matieres/referentiel', 'POST', {});
       reset.matiere();
-      reset.coefficient();
       onDataChanged?.();
-      await showSuccess('Référentiel chargé',
-        `${r.matieresCreees} matière${r.matieresCreees > 1 ? 's' : ''} créée${r.matieresCreees > 1 ? 's' : ''} (${r.matieresExistantes} déjà présente${r.matieresExistantes > 1 ? 's' : ''}), `
-        + `${r.coefficientsCrees} coefficient${r.coefficientsCrees > 1 ? 's' : ''} ajouté${r.coefficientsCrees > 1 ? 's' : ''} (${r.coefficientsExistants} conservé${r.coefficientsExistants > 1 ? 's' : ''}). `
-        + 'Vous pouvez ajuster chaque coefficient dans la section Coefficients.');
+      await showSuccess('Matières de base chargées',
+        `${r.matieresCreees} matière${r.matieresCreees > 1 ? 's' : ''} créée${r.matieresCreees > 1 ? 's' : ''} (${r.matieresExistantes} déjà présente${r.matieresExistantes > 1 ? 's' : ''}). `
+        + 'Passez à l’onglet « Programme des classes » pour cocher les matières de chaque classe.');
       await load();
     } catch (err) {
       await showError('Chargement impossible', err instanceof Error ? err.message : 'Une erreur inattendue est survenue.');
@@ -553,14 +517,27 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
   }
 
   const etablissement = getSession()?.nomEtablissement;
+  const matieresParClasseCompte = matieresParClasse(coefficients);
+  const classesAvecProgramme = classes.filter((c) => (matieresParClasseCompte[c.id] ?? 0) > 0).length;
+  /** La colonne « Série » n’a de sens que si au moins une classe du lycée existe. */
+  const colonneSerie = classes.some((c) => cycleDeNiveau(c.niveau) === 'LYCEE');
+  const voirProgramme = (classeId: number) => { setProgrammeClasseId(String(classeId)); setGroup('programme'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const counts: Record<AdminGroup, number> = {
     annees: annees.length + centres.length + sessions.length,
-    matieres: matieres.length + coefficients.length,
+    matieres: matieres.length,
+    programme: classesAvecProgramme,
     enseignants: profs.length + classes.length + affectations.length,
     eleves: eleves.length,
     notes: notes.length,
     utilisateurs: 0,
   };
+  /** Matières proposées pour une note : celles du programme de la classe de l’élève choisi, toutes si la classe n’a pas de programme. */
+  const matieresDeLEleve = (() => {
+    const eleveChoisi = eleves.find((item) => String(item.id) === note.eleveId);
+    const programme = eleveChoisi ? coefficients.filter((c) => c.classeId === eleveChoisi.classeId).map((c) => c.matiereId) : [];
+    if (!programme.length) return { restreint: false, liste: matieres };
+    return { restreint: true, liste: matieres.filter((m) => programme.includes(m.id)) };
+  })();
   const groupesVisibles = GROUPS.filter((item) => groupeVisible(item.key));
   const groupeCourant: AdminGroup | null = groupeVisible(group) ? group : (groupesVisibles[0]?.key ?? null);
 
@@ -782,24 +759,24 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
       {groupeCourant === 'matieres' && (
         <div className="space-y-5">
           {droits('matieres').voir && (
-          <SectionCard id="matieres" icon="menu_book" title="Matières" description="Catalogue des disciplines évaluées, avec un code court pour les bulletins." count={matieres.length}>
+          <SectionCard id="matieres" icon="menu_book" title="Matières" description="Catalogue des disciplines de l’établissement (code court, nom, groupe). Les matières ne dépendent d’aucune série : elles sont ensuite affectées en groupe à chaque classe." count={matieres.length}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded border border-dashed border-[#c7d2fe] bg-[#f8f9ff] px-4 py-3">
               <div className="flex items-start gap-3 min-w-0">
                 <span className="shrink-0 w-9 h-9 rounded bg-[#eaedff] text-[#0051d5] flex items-center justify-center">
                   <span className="material-symbols-outlined text-xl">auto_awesome</span>
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[13px] font-bold text-[#00236f]">Référentiel des matières principales</p>
+                  <p className="text-[13px] font-bold text-[#00236f]">Matières de base</p>
                   <p className="text-[12px] text-[#444651] mt-0.5">
-                    {MATIERES_PRINCIPALES}, avec leur groupe (Littératures / Scientifiques) et un coefficient par défaut pour chaque classe selon son niveau et sa série.
-                    Les éléments déjà présents sont conservés ; tout reste modifiable ensuite.
+                    {MATIERES_PRINCIPALES}, avec leur groupe (Littératures / Scientifiques). Les matières déjà présentes sont conservées.
+                    Les coefficients se définissent ensuite classe par classe dans « Programme des classes ».
                   </p>
                 </div>
               </div>
               {droits('matieres').creer && (
               <button type="button" onClick={() => void chargerReferentiel()} disabled={chargementReferentiel} className={`${primary} shrink-0 disabled:opacity-60 disabled:cursor-not-allowed`}>
                 <span className={`material-symbols-outlined text-base ${chargementReferentiel ? 'animate-spin' : ''}`}>{chargementReferentiel ? 'progress_activity' : 'download'}</span>
-                {chargementReferentiel ? 'Chargement…' : 'Charger le référentiel'}
+                {chargementReferentiel ? 'Chargement…' : 'Charger les matières de base'}
               </button>
               )}
             </div>
@@ -817,9 +794,9 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 { header: 'Groupe', render: (r) => r.groupeCode
                   ? <Badge tone={r.groupeCode === 'SC' ? 'green' : 'grey'}>{r.groupeLibelle || r.groupeCode}</Badge>
                   : <span className="text-[#757682]">—</span> },
-                { header: 'Coefficients', render: (r) => {
-                  const n = coefficients.filter((c) => c.matiereId === r.id).length;
-                  return n ? `${n} défini${n > 1 ? 's' : ''}` : <span className="text-[#757682]">—</span>;
+                { header: 'Au programme de', render: (r) => {
+                  const n = coefficients.filter((c) => c.matiereId === r.id && c.classeId != null).length;
+                  return n ? `${n} classe${n > 1 ? 's' : ''}` : <span className="text-[#757682]">aucune classe</span>;
                 } },
               ]}
               onEdit={(r) => void open<Matiere>(`/api/matieres/${r.id}`, (detail) => { setMatiereEdit(detail); setMatiere({ nom: detail.nom, code: detail.code, groupeCode: detail.groupeCode || '' }); })}
@@ -851,9 +828,37 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             )}
           </SectionCard>
           )}
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------- */}
+      {groupeCourant === 'programme' && (
+        <div className="space-y-5">
+          {droits('programme').voir && (
+          <SectionCard id="programme" icon="checklist" title="Programme des classes" description="On choisit la classe, on coche ses matières, on fixe les coefficients et on valide. Le bulletin et la saisie des notes de la classe ne portent que sur ce programme." count={classesAvecProgramme}>
+            <ProgrammeClassePanel
+              classes={classes}
+              matieres={matieres}
+              coefficients={coefficients}
+              classeId={programmeClasseId}
+              onSelectClasse={setProgrammeClasseId}
+              onChanged={() => load().then(() => onDataChanged?.())}
+              canEdit={droits('programme').modifier}
+            />
+          </SectionCard>
+          )}
 
           {droits('coefficients').voir && (
-          <SectionCard id="coefficients" icon="functions" title="Coefficients" description="Pondération d’une matière, pour toutes les classes ou pour une classe précise." count={coefficients.length}>
+          <details className="group bg-white rounded border border-[#eaedff] shadow-xs">
+            <summary className="flex items-center justify-between gap-3 cursor-pointer select-none px-5 py-3 text-[12px] font-bold uppercase tracking-wide text-[#444651] hover:text-[#00236f]">
+              <span className="inline-flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">tune</span>
+                Mode avancé : coefficients globaux et ligne par ligne ({coefficients.length})
+              </span>
+              <span className="material-symbols-outlined text-base transition-transform group-open:rotate-180">expand_more</span>
+            </summary>
+            <div className="px-5 pb-5">
+          <SectionCard id="coefficients" icon="functions" title="Coefficients" description="Un coefficient « toutes les classes » sert de repli aux classes sans programme. Les lignes rattachées à une classe sont son programme : préférez l’écran ci-dessus pour les modifier." count={coefficients.length}>
             <DataTable<Coefficient>
               rows={coefficients}
               editingId={coefficientEdit?.id}
@@ -865,22 +870,21 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
               columns={[
                 { header: 'Matière', render: (r) => <span className="font-semibold">{nom(matieres, r.matiereId)}</span> },
                 { header: 'Classe', render: (r) => r.classeId ? nom(classes, r.classeId) : <Badge>Toutes les classes</Badge> },
-                { header: 'Série', render: (r) => r.serie || <span className="text-[#757682]">—</span> },
-                { header: 'Coefficient', render: (r) => <span className="font-mono font-bold text-[#00236f]">{r.valeur}</span>, className: 'w-28' },
+                { header: 'Coefficient', render: (r) => <CoefPill value={Number(r.valeur)} />, className: 'w-28' },
               ]}
               onEdit={(r) => void open<Coefficient>(`/api/coefficients/${r.id}`, (detail) => {
                 setCoefficientEdit(detail);
-                setCoefficient({ matiereId: String(detail.matiereId), classeId: detail.classeId ? String(detail.classeId) : '', serie: detail.serie || '', valeur: String(detail.valeur) });
+                setCoefficient({ matiereId: String(detail.matiereId), classeId: detail.classeId ? String(detail.classeId) : '', valeur: String(detail.valeur) });
               })}
               onDelete={(r) => void remove(`/api/coefficients/${r.id}`, `coefficient ${r.valeur} — ${nom(matieres, r.matiereId)}`, reset.coefficient)}
             />
-            {coefficientEdit && <EditBanner id={coefficientEdit.id} summary={<>valeur {coefficientEdit.valeur} · série {coefficientEdit.serie || '—'}</>} />}
+            {coefficientEdit && <EditBanner id={coefficientEdit.id} summary={<>valeur {coefficientEdit.valeur} · {coefficientEdit.classeId ? nom(classes, coefficientEdit.classeId) : 'toutes les classes'}</>} />}
             {(droits('coefficients').creer || (coefficientEdit && droits('coefficients').modifier)) && (
             <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" onSubmit={(e) => {
               e.preventDefault();
               const valeur = Number(coefficient.valeur);
               if (!Number.isFinite(valeur) || valeur < 0.5 || valeur > 20) { toastError('Le coefficient doit être compris entre 0,5 et 20.'); return; }
-              const body = { matiereId: Number(coefficient.matiereId), classeId: coefficient.classeId ? Number(coefficient.classeId) : null, serie: coefficient.serie, valeur };
+              const body = { matiereId: Number(coefficient.matiereId), classeId: coefficient.classeId ? Number(coefficient.classeId) : null, valeur };
               void run(() => coefficientEdit
                 ? apiSend(`/api/coefficients/${coefficientEdit.id}`, 'PUT', body).then(() => undefined)
                 : apiSend('/api/coefficients', 'POST', body).then(() => undefined), coefficientEdit ? 'Coefficient mis à jour.' : 'Coefficient ajouté.',
@@ -906,6 +910,8 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
             </form>
             )}
           </SectionCard>
+            </div>
+          </details>
           )}
         </div>
       )}
@@ -968,12 +974,22 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 { header: 'Classe', render: (r) => <span className="font-semibold">{r.nom}</span> },
                 { header: 'Cycle', render: (r) => <Badge tone={cycleDeNiveau(r.niveau) === 'LYCEE' ? 'blue' : 'grey'}>{cycleDeNiveau(r.niveau) === 'LYCEE' ? 'Lycée' : 'Collège'}</Badge>, className: 'w-24' },
                 { header: 'Niveau', render: (r) => niveauCanonique(r.niveau) },
-                { header: 'Série', render: (r) => r.serie ? (
+                // Série : lycée uniquement ; la colonne disparaît quand l’établissement n’a que des classes de collège.
+                ...(colonneSerie ? [{ header: 'Série', render: (r: Classe) => r.serie && cycleDeNiveau(r.niveau) === 'LYCEE' ? (
                   <span className="inline-flex items-center gap-1.5">
                     <span className="font-mono font-bold text-[#00236f]">{r.serie}</span>
                     <FamilleBadge famille={serieParCode(r.serie)?.famille} />
                   </span>
-                ) : <span className="text-[#757682]">—</span> },
+                ) : <span className="sr-only">sans série</span> }] : []),
+                { header: 'Programme', render: (r) => {
+                  const n = matieresParClasseCompte[r.id] ?? 0;
+                  return (
+                    <button type="button" onClick={() => voirProgramme(r.id)} className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] font-semibold hover:bg-[#eaedff] ${n ? 'text-[#00236f]' : 'text-[#9a3412]'}`} title={n ? 'Voir le programme de la classe' : 'Aucun programme : définir les matières de la classe'}>
+                      <span className="material-symbols-outlined text-base">{n ? 'checklist' : 'warning'}</span>
+                      {n ? `${n} matière${n > 1 ? 's' : ''}` : 'à définir'}
+                    </button>
+                  );
+                } },
                 { header: 'Titulaire', render: (r) => r.titulaireId ? nom(profs, r.titulaireId) : <span className="text-[#757682]">non désigné</span> },
                 { header: 'Année', render: (r) => nom(annees, r.anneeScolaireId) },
               ]}
@@ -1297,10 +1313,10 @@ export const AdminParametres: React.FC<AdminParametresProps> = ({ section: reque
                 {eleves.map((item) => <option key={item.id} value={item.id}>{item.nomComplet}</option>)}
               </select>
             </Field>
-            <Field label="Matière">
+            <Field label={matieresDeLEleve.restreint ? 'Matière (programme de la classe)' : 'Matière'}>
               <select required value={note.matiereId} onChange={(e) => setNote({ ...note, matiereId: e.target.value })} className={field}>
                 <option value="">Choisir une matière</option>
-                {matieres.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}
+                {matieresDeLEleve.liste.map((item) => <option key={item.id} value={item.id}>{item.nom}</option>)}
               </select>
             </Field>
             <Field label="Session">

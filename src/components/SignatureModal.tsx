@@ -64,7 +64,7 @@ export const SignatureModal: React.FC<SignatureModalProps> = ({
               Relevé de notes - Table {candidate.tableNumber} : {candidate.fullName}
             </p>
             <p className="font-mono text-[11px] text-[#444651] mt-0.5">
-              Matricule : {candidate.matricule} • {candidate.serie}
+              Matricule : {candidate.matricule}{candidate.serie ? ` • ${candidate.serie}` : ''}
             </p>
           </div>
 
