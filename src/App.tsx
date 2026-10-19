@@ -186,6 +186,15 @@ export default function App() {
     }
   };
   const [juryLocked, setJuryLocked] = useState<boolean>(() => lireVerrouJury(getCurrentSchoolId()));
+  // Date du verrouillage (mention « PV verrouillé le … » sur le PV imprimé) ; null pour un verrou posé avant son enregistrement.
+  const lireDateVerrouJury = (schoolId: string): string | null => {
+    try {
+      return localStorage.getItem(cleLocale('jury_lock_at', getToken() ? getSession() : null, schoolId));
+    } catch {
+      return null;
+    }
+  };
+  const [juryLockedAt, setJuryLockedAt] = useState<string | null>(() => lireDateVerrouJury(getCurrentSchoolId()));
 
   // Modals state
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
@@ -315,6 +324,7 @@ export default function App() {
     // même quand la charte ou la fiche n'ont pas pu être lues (droit absent, serveur en cours de réveil).
     setSettings(parametresDepuisServeur({ session, workspace, charte, profil }));
     setJuryLocked(lireVerrouJury(currentSchoolId));
+    setJuryLockedAt(lireDateVerrouJury(currentSchoolId));
     // Les libellés viennent exclusivement de l'API : vide tant qu'aucune session / aucun centre n'existe.
     setSelectedSession(workspace.sessionName);
     setSelectedCenter(workspace.centerLabel);
@@ -494,6 +504,7 @@ export default function App() {
     setSelectedCenter('');
     setSettings(getSchoolData(currentSchoolId).settings);
     setJuryLocked(lireVerrouJury(currentSchoolId));
+    setJuryLockedAt(lireDateVerrouJury(currentSchoolId));
     setCharteModifieeLe(null);
     setAdminTarget({ section: null, nonce: 0 });
     setIsSignatureModalOpen(false);
@@ -847,9 +858,13 @@ export default function App() {
 
   const handleToggleJuryLock = () => {
     const next = !juryLocked;
+    const quand = next ? new Date().toISOString() : null;
     setJuryLocked(next);
+    setJuryLockedAt(quand);
     try {
       localStorage.setItem(cleLocale('jury_lock', usingApi ? getSession() : null, currentSchoolId), next ? '1' : '0');
+      const cleDate = cleLocale('jury_lock_at', usingApi ? getSession() : null, currentSchoolId);
+      if (quand) localStorage.setItem(cleDate, quand); else localStorage.removeItem(cleDate);
     } catch {
       // quota ignore
     }
@@ -1325,6 +1340,7 @@ export default function App() {
               sessionInter={sessionInter}
               centreExamen={activeCentreExamen}
               juryLocked={juryLocked}
+              juryLockedAt={juryLockedAt}
               onToggleJuryLock={handleToggleJuryLock}
               onOpenTransferts={peutVoirTransferts && sessionInter ? () => openTransferts('envois') : undefined}
               transfertCentre={sessionTransferee ? activeTransfertCentre : undefined}

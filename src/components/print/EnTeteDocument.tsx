@@ -4,11 +4,18 @@ import { composerEnTeteDocument, dateEditionDocument, type SourcesEnTeteDocument
 export interface MetaDocument {
   label: string;
   value: React.ReactNode;
+  /** Valeur longue (résumé des résultats) : autorisée à passer à la ligne au lieu de déborder. */
+  multiligne?: boolean;
 }
 
 interface EnTeteDocumentProps extends SourcesEnTeteDocument {
   /** Colonne de droite : date d'édition (ajoutée automatiquement), effectif, classe ou filtre… */
   meta?: MetaDocument[];
+  /**
+   * Sans logo affichable (inter-établissements, ou aucun logo enregistré), réserver quand même sa place par un
+   * cadre vide discret : le décor du document reste identique, seule l'image manque (procès-verbal).
+   */
+  emplacementLogo?: boolean;
 }
 
 /**
@@ -16,24 +23,28 @@ interface EnTeteDocumentProps extends SourcesEnTeteDocument {
  * logo + nom + devise à gauche, république / ministère / titre au centre, repères d'édition à droite,
  * filet doré en dessous. En inter-établissements : ni logo ni devise, « CENTRE D'EXAMEN : … ».
  */
-export const EnTeteDocument: React.FC<EnTeteDocumentProps> = ({ meta = [], ...sources }) => {
+export const EnTeteDocument: React.FC<EnTeteDocumentProps> = ({ meta = [], emplacementLogo = false, ...sources }) => {
   const entete = composerEnTeteDocument(sources);
   const lignesMeta: MetaDocument[] = [{ label: 'Édité le', value: dateEditionDocument() }, ...meta];
   // Logo illisible (ancienne URL distante disparue) : la colonne garde le nom seul plutôt qu'une image cassée.
   const [logoIllisible, setLogoIllisible] = useState(false);
   useEffect(() => setLogoIllisible(false), [entete.logoUrl]);
+  const logoAffiche = Boolean(entete.logoUrl) && !logoIllisible;
 
   return (
     <div className="document-paysage-entete" data-testid="entete-document">
       <div className="document-paysage-etab">
-        {entete.logoUrl && !logoIllisible && (
+        {logoAffiche && (
           <img
-            src={entete.logoUrl}
+            src={entete.logoUrl ?? undefined}
             alt=""
             className="document-paysage-logo"
             data-testid="entete-document-logo"
             onError={() => setLogoIllisible(true)}
           />
+        )}
+        {!logoAffiche && emplacementLogo && (
+          <div className="document-paysage-logo document-paysage-logo-vide" data-testid="entete-document-logo-vide" aria-hidden="true" />
         )}
         <div className="document-paysage-etab-texte">
           {entete.nomEtablissement && <div className="document-paysage-etab-nom">{entete.nomEtablissement}</div>}
@@ -67,7 +78,7 @@ export const EnTeteDocument: React.FC<EnTeteDocumentProps> = ({ meta = [], ...so
 
       <dl className="document-paysage-meta">
         {lignesMeta.map((ligne) => (
-          <div key={ligne.label} className="document-paysage-meta-ligne">
+          <div key={ligne.label} className={`document-paysage-meta-ligne${ligne.multiligne ? ' document-paysage-meta-ligne-multiligne' : ''}`}>
             <dt>{ligne.label}</dt>
             <dd>{ligne.value}</dd>
           </div>
