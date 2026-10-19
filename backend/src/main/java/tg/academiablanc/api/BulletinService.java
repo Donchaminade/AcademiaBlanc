@@ -16,12 +16,14 @@ import tg.academiablanc.domain.Bulletin;
 import tg.academiablanc.domain.Coefficient;
 import tg.academiablanc.domain.DeliberationJury;
 import tg.academiablanc.domain.Eleve;
+import tg.academiablanc.domain.Etablissement;
 import tg.academiablanc.domain.Matiere;
 import tg.academiablanc.domain.Note;
 import tg.academiablanc.repo.BulletinRepository;
 import tg.academiablanc.repo.CoefficientRepository;
 import tg.academiablanc.repo.DeliberationJuryRepository;
 import tg.academiablanc.repo.EleveRepository;
+import tg.academiablanc.repo.EtablissementRepository;
 import tg.academiablanc.repo.MatiereRepository;
 import tg.academiablanc.repo.NoteRepository;
 import tg.academiablanc.repo.SessionExamenRepository;
@@ -36,6 +38,7 @@ public class BulletinService {
   private final NoteRepository notes;
   private final BulletinRepository bulletins;
   private final DeliberationJuryRepository deliberations;
+  private final EtablissementRepository etablissements;
 
   public BulletinService(
       SessionExamenRepository sessions,
@@ -44,7 +47,8 @@ public class BulletinService {
       CoefficientRepository coefficients,
       NoteRepository notes,
       BulletinRepository bulletins,
-      DeliberationJuryRepository deliberations
+      DeliberationJuryRepository deliberations,
+      EtablissementRepository etablissements
   ) {
     this.sessions = sessions;
     this.eleves = eleves;
@@ -53,14 +57,21 @@ public class BulletinService {
     this.notes = notes;
     this.bulletins = bulletins;
     this.deliberations = deliberations;
+    this.etablissements = etablissements;
   }
 
   public record LigneBulletin(Long matiereId, String matiere, BigDecimal note, BigDecimal coefficient,
                               BigDecimal total, Integer rang, boolean absent) {}
 
+  /**
+   * {@code etablissementNom} et {@code etablissementDevise} alimentent le pied de page du relevé
+   * (« NOM DE L'ÉTABLISSEMENT • Devise ») ; la devise est celle propre à l'établissement
+   * ({@code etablissement.devise}), pas la devise nationale de l'en-tête, et vaut null si aucune n'est saisie.
+   */
   public record BulletinVue(Long eleveId, String nomComplet, String matricule, BigDecimal moyenne,
                             Integer rang, String mention, String appreciation, BigDecimal totalPoints,
-                            BigDecimal totalCoef, List<LigneBulletin> lignes) {}
+                            BigDecimal totalCoef, List<LigneBulletin> lignes,
+                            String etablissementNom, String etablissementDevise) {}
 
   /** Calcule les bulletins de la session et les enregistre (table {@code bulletin}). */
   @Transactional
@@ -149,6 +160,10 @@ public class BulletinService {
       rangsMatieres.put(matiere.getId(), GradeCalculator.rangsCompetition(valeurs));
     }
 
+    Etablissement etablissement = etablissements.findById(user.etablissementId()).orElse(null);
+    String etablissementNom = etablissement == null ? null : etablissement.getNom();
+    String etablissementDevise = etablissement == null ? null : vide(etablissement.getDevise());
+
     List<BulletinVue> vues = new ArrayList<>();
     for (Eleve eleve : roster) {
       List<Ligne> lignes = lignesParEleve.get(eleve.getId());
@@ -177,7 +192,9 @@ public class BulletinService {
           GradeCalculator.appreciation(moyenne),
           GradeCalculator.sommePoints(lignes),
           GradeCalculator.sommeCoef(lignes),
-          detail
+          detail,
+          etablissementNom,
+          etablissementDevise
       );
       vues.add(vue);
     }
@@ -211,6 +228,13 @@ public class BulletinService {
       if (programme.containsKey(matiere.getId())) retenues.add(matiere);
     }
     return retenues;
+  }
+
+  /** Devise facultative : une chaîne vide ou faite d'espaces vaut « aucune devise ». */
+  private static String vide(String valeur) {
+    if (valeur == null) return null;
+    String nettoyee = valeur.trim();
+    return nettoyee.isEmpty() ? null : nettoyee;
   }
 
   private static BigDecimal coefDe(List<Coefficient> coefs, Map<Long, Map<Long, BigDecimal>> programmes, Long matiereId, Long classeId) {
