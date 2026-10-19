@@ -102,7 +102,7 @@ export const AppreciationModal: React.FC<AppreciationModalProps> = ({ candidate,
         </div>
 
         <p className="text-[11px] text-[#444651] italic leading-snug">
-          Vide, l’appréciation suit la note : [0;5[ Très insuffisant · [5;8[ Insuffisant · [8;10[ Médiocre · [10;12[ Passable ·
+          Vide, l’appréciation suit la note : [0;5[ Très insuffisant · [5;8[ Insuffisant · [8;10[ Mauvais · [10;12[ Passable ·
           [12;14[ Assez bien · [14;16[ Bien · [16;18[ Très bien · [18;20] Excellent.
         </p>
 

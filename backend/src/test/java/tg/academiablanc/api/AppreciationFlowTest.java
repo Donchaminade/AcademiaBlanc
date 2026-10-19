@@ -47,7 +47,7 @@ class AppreciationFlowTest {
 
     String[] codes = {"M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9"};
     String[] notes = {"4", "7", "9", "11", "13", "15", "17", "19", null};
-    String[] attendues = {"Très insuffisant", "Insuffisant", "Médiocre", "Passable", "Assez bien", "Bien", "Très bien", "Excellent", "Absent"};
+    String[] attendues = {"Très insuffisant", "Insuffisant", "Mauvais", "Passable", "Assez bien", "Bien", "Très bien", "Excellent", "Absent"};
     long[] matieres = new long[codes.length];
     for (int i = 0; i < codes.length; i++) {
       matieres[i] = id(envoyer(token, post("/api/matieres"), "{\"nom\":\"Matière " + codes[i] + "\",\"code\":\"" + codes[i] + "\"}"));

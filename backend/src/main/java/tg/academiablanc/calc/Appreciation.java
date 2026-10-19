@@ -24,7 +24,7 @@ public final class Appreciation {
       new Palier(new BigDecimal("14"), "Bien"),
       new Palier(new BigDecimal("12"), "Assez bien"),
       new Palier(new BigDecimal("10"), "Passable"),
-      new Palier(new BigDecimal("8"), "Médiocre"),
+      new Palier(new BigDecimal("8"), "Mauvais"),
       new Palier(new BigDecimal("5"), "Insuffisant"),
       new Palier(BigDecimal.ZERO, "Très insuffisant"),
   };

@@ -11,7 +11,7 @@ export const BAREME_APPRECIATION: ReadonlyArray<{ min: number; libelle: string }
   { min: 14, libelle: 'Bien' },
   { min: 12, libelle: 'Assez bien' },
   { min: 10, libelle: 'Passable' },
-  { min: 8, libelle: 'Médiocre' },
+  { min: 8, libelle: 'Mauvais' },
   { min: 5, libelle: 'Insuffisant' },
   { min: 0, libelle: 'Très insuffisant' },
 ];
