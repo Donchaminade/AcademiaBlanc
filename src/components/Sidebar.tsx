@@ -1,6 +1,7 @@
 import React from 'react';
 import { ViewMode, AppSettings } from '../types';
 import { DEMO_EXAM_LABEL } from '../utils/bulletinHeader';
+import { LogoEtablissement } from './LogoEtablissement';
 
 interface SidebarProps {
   currentView: ViewMode;
@@ -154,10 +155,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex flex-col">
           <div className="px-6 pt-6 pb-5 bg-[#f2f3ff] border-b border-[#eaedff]">
             <div className="flex items-center gap-3">
-              <img
-                alt="Logo AcademiaBlanc"
-                className="h-8 w-auto max-w-[40px] object-contain rounded-xs"
+              <LogoEtablissement
                 src={settings.logoUrl}
+                nom={settings.institutionName}
+                alt="Logo AcademiaBlanc"
+                className="h-9 w-9 shrink-0 rounded-xs"
               />
               <div className="flex flex-col min-w-0">
                 <span className="font-bold text-[#00236f] tracking-tight truncate text-[16px] leading-[22px]">
@@ -207,10 +209,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Brand & PWA badge */}
         <div className="px-6 pt-6 pb-4 bg-[#f2f3ff]">
           <div className="flex items-center gap-3">
-            <img
-              alt="Logo Académie Examens Blancs"
-              className="h-8 w-auto max-w-[40px] object-contain rounded-xs"
+            <LogoEtablissement
               src={settings.logoUrl}
+              nom={settings.institutionName}
+              alt={`Logo de ${settings.institutionName}`}
+              className="h-9 w-9 shrink-0 rounded-xs"
             />
             <div className="flex flex-col min-w-0">
               <span className="font-bold text-[#00236f] tracking-tight truncate text-[16px] leading-[22px]">

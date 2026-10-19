@@ -198,7 +198,8 @@ describe('ecritures : écritures de l’espace de travail', () => {
     const envoye = appels[0].body as Record<string, unknown>;
     assert.equal(envoye.sceauUrl, 'data:image/png;base64,AAAA');
     assert.equal(envoye.signatureProviseurUrl, null);
-    assert.equal(envoye.logoUrl, DEFAULT_SETTINGS.logoUrl);
+    // Le logo de démonstration du logiciel ne part jamais au serveur : sans logo propre, emplacement libre (null).
+    assert.equal(envoye.logoUrl, null);
     // Sceau officiel volontairement vide : chaîne vide (zone vierge), pas null (valeur par défaut).
     assert.equal(envoye.sceauOfficielUrl, '');
     assert.equal(envoye.nomSignataireJury, DEFAULT_SETTINGS.jurySignerName);
