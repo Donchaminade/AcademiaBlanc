@@ -13,17 +13,21 @@ import org.springframework.web.server.ResponseStatusException;
 import tg.academiablanc.calc.GradeCalculator;
 import tg.academiablanc.calc.GradeCalculator.Ligne;
 import tg.academiablanc.domain.Bulletin;
+import tg.academiablanc.domain.Classe;
 import tg.academiablanc.domain.Coefficient;
 import tg.academiablanc.domain.DeliberationJury;
 import tg.academiablanc.domain.Eleve;
 import tg.academiablanc.domain.Matiere;
 import tg.academiablanc.domain.Note;
+import tg.academiablanc.domain.Professeur;
 import tg.academiablanc.repo.BulletinRepository;
+import tg.academiablanc.repo.ClasseRepository;
 import tg.academiablanc.repo.CoefficientRepository;
 import tg.academiablanc.repo.DeliberationJuryRepository;
 import tg.academiablanc.repo.EleveRepository;
 import tg.academiablanc.repo.MatiereRepository;
 import tg.academiablanc.repo.NoteRepository;
+import tg.academiablanc.repo.ProfesseurRepository;
 import tg.academiablanc.repo.SessionExamenRepository;
 import tg.academiablanc.security.Tenant;
 
@@ -36,6 +40,8 @@ public class BulletinService {
   private final NoteRepository notes;
   private final BulletinRepository bulletins;
   private final DeliberationJuryRepository deliberations;
+  private final ClasseRepository classes;
+  private final ProfesseurRepository professeurs;
 
   public BulletinService(
       SessionExamenRepository sessions,
@@ -44,7 +50,9 @@ public class BulletinService {
       CoefficientRepository coefficients,
       NoteRepository notes,
       BulletinRepository bulletins,
-      DeliberationJuryRepository deliberations
+      DeliberationJuryRepository deliberations,
+      ClasseRepository classes,
+      ProfesseurRepository professeurs
   ) {
     this.sessions = sessions;
     this.eleves = eleves;
@@ -53,12 +61,19 @@ public class BulletinService {
     this.notes = notes;
     this.bulletins = bulletins;
     this.deliberations = deliberations;
+    this.classes = classes;
+    this.professeurs = professeurs;
   }
 
   public record LigneBulletin(Long matiereId, String matiere, BigDecimal note, BigDecimal coefficient,
                               BigDecimal total, Integer rang, boolean absent) {}
 
-  public record BulletinVue(Long eleveId, String nomComplet, String matricule, BigDecimal moyenne,
+  /**
+   * {@code titulaireNom} : nom de l'enseignant affecté comme titulaire à la classe de l'élève
+   * ({@code classe.titulaire_id}), tel que saisi dans Administration › Enseignants (civilité comprise) ;
+   * null si la classe n'a pas de titulaire — le bulletin laisse alors la ligne du visa à compléter à la main.
+   */
+  public record BulletinVue(Long eleveId, String nomComplet, String matricule, String titulaireNom, BigDecimal moyenne,
                             Integer rang, String mention, String appreciation, BigDecimal totalPoints,
                             BigDecimal totalCoef, List<LigneBulletin> lignes) {}
 
@@ -94,6 +109,7 @@ public class BulletinService {
     for (Matiere matiere : subjects) matiereParId.put(matiere.getId(), matiere);
     List<Note> sessionNotes = notes.findByEtablissementIdAndSessionId(user.etablissementId(), sessionId);
     List<Coefficient> coefs = coefficients.findByEtablissementId(user.etablissementId());
+    Map<Long, String> titulaireParClasse = titulairesParClasse(user.etablissementId());
 
     // Programme de chaque classe (matière → coefficient) ; une classe sans ligne n'a pas de programme défini.
     Map<Long, Map<Long, BigDecimal>> programmes = new HashMap<>();
@@ -171,6 +187,7 @@ public class BulletinService {
           eleve.getId(),
           eleve.getNomComplet(),
           eleve.getMatricule(),
+          titulaireParClasse.get(eleve.getClasseId()),
           moyenne,
           rangsGeneraux.get(eleve.getId()),
           GradeCalculator.mention(moyenne),
@@ -197,6 +214,20 @@ public class BulletinService {
     bulletin.setTotalCoef(vue.totalCoef());
     bulletin.setGenereLe(Instant.now());
     bulletins.save(bulletin);
+  }
+
+  /** Nom du titulaire de chaque classe de l'établissement (classe → professeur affecté) ; les classes sans titulaire sont absentes. */
+  private Map<Long, String> titulairesParClasse(Long etablissementId) {
+    Map<Long, String> nomParProfesseur = new HashMap<>();
+    for (Professeur professeur : professeurs.findByEtablissementIdOrderByNomAsc(etablissementId)) {
+      nomParProfesseur.put(professeur.getId(), professeur.getNom());
+    }
+    Map<Long, String> titulaires = new HashMap<>();
+    for (Classe classe : classes.findByEtablissementIdOrderByNomAsc(etablissementId)) {
+      String nom = classe.getTitulaireId() == null ? null : nomParProfesseur.get(classe.getTitulaireId());
+      if (nom != null && !nom.isBlank()) titulaires.put(classe.getId(), nom.trim());
+    }
+    return titulaires;
   }
 
   /**

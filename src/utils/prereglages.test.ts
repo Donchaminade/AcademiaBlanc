@@ -25,7 +25,6 @@ const base: AppSettings = {
   sessionName: 'BAC II',
   examType: 'BAC',
   jurySignerName: 'X',
-  principalTeacherName: 'Y',
   sceauUrl: 'data:image/png;base64,cachet',
   startTableNumber: 1,
   autoAssignTables: true,

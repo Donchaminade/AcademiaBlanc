@@ -244,7 +244,10 @@ export default function App() {
       };
       // République, devise et ministère viennent de l'établissement (préréglage national appliqué, puis ajusté).
       const avecEnTete = appliquerEnTeteAuxSettings(next, profil?.enTete);
-      return charte ? applyCharte(avecEnTete, charte) : avecEnTete;
+      const avecCharte = charte ? applyCharte(avecEnTete, charte) : avecEnTete;
+      // Le signataire officiel est le responsable de la fiche de l'établissement (page Profil), jamais la valeur
+      // de démonstration ; le titulaire n'est pas un paramètre : il vient de la classe de chaque élève.
+      return { ...avecCharte, jurySignerName: profil ? profil.nomResponsable : '' };
     });
     // Les libellés viennent exclusivement de l'API : vide tant qu'aucune session / aucun centre n'existe.
     setSelectedSession(workspace.sessionName);
@@ -766,9 +769,9 @@ export default function App() {
     navigate('connexion');
   };
 
-  // Fiche enregistrée depuis le profil : le nom suit dans la barre latérale, les bulletins et la session.
+  // Fiche enregistrée depuis le profil : le nom et le signataire officiel suivent dans la barre latérale, les bulletins et la session.
   const handleProfilChanged = (profil: ProfilEtablissement) => {
-    setSettings((prev) => ({ ...prev, institutionName: profil.nom }));
+    setSettings((prev) => ({ ...prev, institutionName: profil.nom, jurySignerName: profil.nomResponsable }));
     const session = getSession();
     if (session) setSession({ ...session, nomEtablissement: profil.nom });
   };

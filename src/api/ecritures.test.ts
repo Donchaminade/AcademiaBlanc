@@ -201,12 +201,13 @@ describe('ecritures : écritures de l’espace de travail', () => {
     assert.equal(envoye.logoUrl, DEFAULT_SETTINGS.logoUrl);
     // Sceau officiel volontairement vide : chaîne vide (zone vierge), pas null (valeur par défaut).
     assert.equal(envoye.sceauOfficielUrl, '');
-    assert.equal(envoye.nomSignataireJury, DEFAULT_SETTINGS.jurySignerName);
-    assert.equal(envoye.nomTitulaire, DEFAULT_SETTINGS.principalTeacherName);
+    assert.equal(envoye.titreSignataireJury, DEFAULT_SETTINGS.jurySignerTitle);
     assert.equal(envoye.premierNumeroTable, 201);
     assert.equal(envoye.numerotationAutomatique, false);
-    // Ni les libellés de la session / du profil, ni l'en-tête officiel (porté par la fiche de l'établissement).
-    for (const interdit of ['institutionName', 'academicYear', 'sessionName', 'examType', 'pays', 'deviseNationale', 'ministere']) {
+    // Ni les libellés de la session / du profil, ni l'en-tête officiel (porté par la fiche de l'établissement),
+    // ni les noms des signataires : le titulaire vient de la classe de l'élève, le signataire officiel de la fiche.
+    for (const interdit of ['institutionName', 'academicYear', 'sessionName', 'examType', 'pays', 'deviseNationale', 'ministere',
+      'nomSignataireJury', 'nomTitulaire', 'titreTitulaire']) {
       assert.equal(interdit in envoye, false, `${interdit} ne doit pas partir dans la charte`);
     }
   });

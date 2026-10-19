@@ -22,8 +22,6 @@ export const TOGO_SETTINGS: AppSettings = {
   examType: 'BACCALAURÉAT DEUXIÈME PARTIE (BAC II BLANC)',
   jurySignerTitle: 'Le Proviseur',
   jurySignerName: 'Dr. Aminata Traoré',
-  principalTeacherTitle: 'Le Titulaire',
-  principalTeacherName: 'M. Konan Germain',
   startTableNumber: 138,
   autoAssignTables: true,
 };
@@ -38,8 +36,6 @@ export const CI_SETTINGS: AppSettings = {
   examType: 'BACCALAURÉAT II (BLANC)',
   jurySignerTitle: 'Le Proviseur',
   jurySignerName: 'Dr. Aminata Traoré',
-  principalTeacherTitle: 'Le Titulaire',
-  principalTeacherName: 'M. Konan Germain',
   startTableNumber: 138,
   autoAssignTables: true,
 };
