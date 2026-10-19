@@ -37,4 +37,8 @@ public class Note implements TenantOwned {
 
   @Column(nullable = false)
   private boolean absent;
+
+  /** Texte libre de l'enseignant ; {@code null} = appréciation automatique selon la note. */
+  @Column(length = 60)
+  private String appreciation;
 }

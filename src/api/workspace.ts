@@ -37,7 +37,7 @@ interface EleveApi {
   lieuNaissance?: string | null;
   etablissementOrigine?: string | null;
 }
-interface NoteApi { eleveId: number; matiereId: number; valeur?: number | null; absent: boolean; }
+interface NoteApi { eleveId: number; matiereId: number; valeur?: number | null; absent: boolean; appreciation?: string | null; }
 
 export interface ExamOption { id: number; label: string; }
 
@@ -158,7 +158,8 @@ export async function loadSchoolWorkspace(preferredSessionId?: number, options: 
     const classe = classes.find((item) => item.id === eleve.classeId);
     const grades: Candidate['grades'] = {};
     notes.filter((note) => note.eleveId === eleve.id && !note.absent && note.valeur != null).forEach((note) => {
-      grades[String(note.matiereId)] = { score: Number(note.valeur), appreciation: '' };
+      // Texte libre de l'enseignant ; vide = appréciation automatique selon la note (utils/appreciation.ts).
+      grades[String(note.matiereId)] = { score: Number(note.valeur), appreciation: note.appreciation ?? '' };
     });
     const candidate: Candidate = {
       id: String(eleve.id),

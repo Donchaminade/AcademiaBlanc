@@ -2,13 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
 import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministryMark } from '../utils/bulletinHeader';
 import {
-  appreciationFromAverage,
   camaradesDeClasse,
   computeSubjectRank,
   extremesDeMatiere,
   formatMinMax,
   formatSubjectRank,
 } from '../utils/bulletinMetrics';
+import { appreciationAffichee } from '../utils/appreciation';
 import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
@@ -400,7 +400,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   const subjectRankValue = computeSubjectRank(selectedCandidate.id, subj.id, candidates);
                   const subjectRank = subjectRankValue === null ? '—' : formatSubjectRank(subjectRankValue);
                   const minMaxClasse = formatMinMax(extremesDeMatiere(subj.id, camarades));
-                  const professorAppreciation = appreciationFromAverage(computedStats.average);
+                  const professorAppreciation = appreciationAffichee(gradeData);
 
                   return (
                     <tr

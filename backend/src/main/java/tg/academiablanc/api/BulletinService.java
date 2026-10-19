@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import tg.academiablanc.calc.Appreciation;
 import tg.academiablanc.calc.GradeCalculator;
 import tg.academiablanc.calc.GradeCalculator.Ligne;
 import tg.academiablanc.domain.Bulletin;
@@ -68,10 +69,11 @@ public class BulletinService {
   /**
    * Ligne du bulletin. {@code noteMaxClasse} / {@code noteMinClasse} : meilleure et moins bonne note de
    * la matière parmi les élèves de la même classe (même session) qui ont une note présente ; null sans note.
+   * {@code appreciation} : texte libre de l'enseignant s'il existe, sinon barème {@link Appreciation} sur la note.
    */
   public record LigneBulletin(Long matiereId, String matiere, BigDecimal note, BigDecimal coefficient,
                               BigDecimal total, Integer rang, boolean absent,
-                              BigDecimal noteMaxClasse, BigDecimal noteMinClasse) {}
+                              BigDecimal noteMaxClasse, BigDecimal noteMinClasse, String appreciation) {}
 
   /**
    * Bulletin d'un élève. La moyenne est la moyenne réelle Σ(note × coef) / Σ coef : aucun point n'y est
@@ -204,6 +206,7 @@ public class BulletinService {
       for (Ligne ligne : lignes) {
         Matiere matiere = matiereParId.get(ligne.matiereId());
         Integer rangMatiere = rangsMatieres.get(matiere.getId()).get(eleve.getId());
+        Note note = notesByEleve.getOrDefault(eleve.getId(), Map.of()).get(matiere.getId());
         List<BigDecimal> notesMatiere = notesDeLaClasse.getOrDefault(matiere.getId(), List.of());
         detail.add(new LigneBulletin(
             matiere.getId(),
@@ -214,7 +217,8 @@ public class BulletinService {
             rangMatiere,
             ligne.absent(),
             GradeCalculator.max(notesMatiere),
-            GradeCalculator.min(notesMatiere)
+            GradeCalculator.min(notesMatiere),
+            Appreciation.pourLigne(ligne.note(), note != null && note.isAbsent(), note == null ? null : note.getAppreciation())
         ));
       }
       List<BigDecimal> moyennesDeLaClasse = moyennesParClasse.getOrDefault(eleve.getClasseId(), List.of());

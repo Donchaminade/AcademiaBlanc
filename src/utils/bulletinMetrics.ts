@@ -103,16 +103,7 @@ export function formatMinMax(extremes: ExtremesMatiere): string {
   return `${extremes.lowest.toFixed(2)} / ${extremes.highest.toFixed(2)}`;
 }
 
-/**
- * Appréciation du professeur déduite de la moyenne générale.
- * moyenne > 16 → Très bien ; 12 ≤ moyenne ≤ 16 → Bien ; moyenne < 12 → Assez bien.
- */
-export function appreciationFromAverage(moyenne: number): string {
-  if (!Number.isFinite(moyenne)) return 'Assez bien';
-  if (moyenne > 16) return 'Très bien';
-  if (moyenne >= 12) return 'Bien';
-  return 'Assez bien';
-}
+// L'appréciation du professeur par matière est calculée sur la note de la matière : voir utils/appreciation.ts.
 
 /** Rang affiché seul : « 1er », « 2ème », « 3ème »… jamais « X sur Y ». */
 export function formatSubjectRank(rank: number): string {

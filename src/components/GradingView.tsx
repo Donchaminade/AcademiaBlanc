@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Candidate, Subject, CandidateComputedStats } from '../types';
 import { decisionBucket } from '../utils/bulletinMetrics';
+import { appreciationAffichee, normaliserAppreciationManuelle } from '../utils/appreciation';
 import { horsProgramme, subjectsFor } from '../utils/programme';
+import { AppreciationModal } from './AppreciationModal';
 
 interface GradingViewProps {
   candidates: Candidate[];
@@ -9,6 +11,10 @@ interface GradingViewProps {
   allStats: Record<string, CandidateComputedStats>;
   /** Enregistre une note ; résout `false` si le serveur l'a refusée (la cellule reste « non enregistrée »). */
   onUpdateGrade: (candidateId: string, subjectId: string, newScore: number) => Promise<boolean>;
+  /** Enregistre l'appréciation du professeur d'une matière (texte libre ; vide = automatique). */
+  onUpdateAppreciation?: (candidateId: string, subjectId: string, appreciation: string) => Promise<boolean>;
+  /** Droit NOTES:CREER ou MODIFIER : affiche l'accès à la saisie d'appréciation. */
+  peutAnnoter?: boolean;
   onSelectCandidate: (candidate: Candidate) => void;
   onNavigateToBulletin: (candidate: Candidate) => void;
   onAddNewCandidate: (candidate: Candidate) => void;
@@ -27,6 +33,8 @@ export const GradingView: React.FC<GradingViewProps> = ({
   subjects,
   allStats,
   onUpdateGrade,
+  onUpdateAppreciation,
+  peutAnnoter = true,
   onNavigateToBulletin,
   onAddNewCandidate,
   juryLocked = false,
@@ -35,6 +43,12 @@ export const GradingView: React.FC<GradingViewProps> = ({
   // Valeur tapée mais pas encore validée (blur / Entrée), par cellule ; absente = valeur enregistrée affichée.
   const [brouillons, setBrouillons] = useState<Record<string, string>>({});
   const [etats, setEtats] = useState<Record<string, EtatCellule>>({});
+  // Cellule dont l'appréciation du professeur est en cours de saisie.
+  const [annotation, setAnnotation] = useState<{ candidateId: string; subjectId: string } | null>(null);
+  const annotationActive = annotation
+    ? { candidate: candidates.find((c) => c.id === annotation.candidateId), subject: subjects.find((s) => s.id === annotation.subjectId) }
+    : null;
+  const peutSaisirAppreciation = Boolean(onUpdateAppreciation) && peutAnnoter && !juryLocked;
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'admis' | 'rattrapage' | 'ajourne'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -140,7 +154,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
 
     const initialGrades: Record<string, { score: number; appreciation: string }> = {};
     subjects.forEach((s) => {
-      initialGrades[s.id] = { score: 10.0, appreciation: 'Ensemble convenable.' };
+      initialGrades[s.id] = { score: 10.0, appreciation: '' };
     });
 
     const created: Candidate = {
@@ -530,6 +544,9 @@ export const GradingView: React.FC<GradingViewProps> = ({
                         : etat === 'enregistree' ? (usingApi ? 'Enregistrée sur le serveur' : 'Enregistrée')
                         : etat === 'erreur' ? 'Refusée : note hors barème ou erreur du serveur, valeur non enregistrée'
                         : '';
+                      const gradeData = cand.grades[s.id];
+                      const manuelle = normaliserAppreciationManuelle(gradeData?.appreciation);
+                      const appreciation = appreciationAffichee(gradeData);
                       return (
                         <td key={s.id} className="py-1 px-1.5 text-center">
                           <span className="relative inline-block">
@@ -573,6 +590,21 @@ export const GradingView: React.FC<GradingViewProps> = ({
                               >
                                 {etat === 'enregistree' ? 'cloud_done' : etat === 'erreur' ? 'error' : etat === 'envoi' ? 'progress_activity' : 'edit'}
                               </span>
+                            )}
+                            {peutSaisirAppreciation && gradeData && (
+                              <button
+                                type="button"
+                                data-testid={`appreciation-${cand.id}-${s.id}`}
+                                data-manuelle={manuelle ? 'oui' : 'non'}
+                                aria-label={`Appréciation du professeur — ${cand.fullName}, ${s.name} : ${appreciation}`}
+                                title={manuelle ? `Appréciation saisie : « ${manuelle} » (cliquer pour modifier)` : `Appréciation automatique : « ${appreciation} » (cliquer pour saisir un texte libre)`}
+                                onClick={() => setAnnotation({ candidateId: cand.id, subjectId: s.id })}
+                                className={`absolute -bottom-1.5 -right-1.5 material-symbols-outlined text-[13px] leading-none rounded-full bg-white transition-colors hover:text-[#0051d5] focus:text-[#0051d5] ${
+                                  manuelle ? 'text-[#0051d5]' : 'text-[#b9bfd6]'
+                                }`}
+                              >
+                                rate_review
+                              </button>
                             )}
                           </span>
                         </td>
@@ -645,6 +677,16 @@ export const GradingView: React.FC<GradingViewProps> = ({
           </table>
         </div>
       </div>
+
+      {annotation && annotationActive?.candidate && annotationActive.subject && onUpdateAppreciation && (
+        <AppreciationModal
+          candidate={annotationActive.candidate}
+          subject={annotationActive.subject}
+          usingApi={usingApi}
+          onClose={() => setAnnotation(null)}
+          onSave={(texte) => onUpdateAppreciation(annotation.candidateId, annotation.subjectId, texte)}
+        />
+      )}
 
       {/* Add New Candidate Modal */}
       {showAddModal && (

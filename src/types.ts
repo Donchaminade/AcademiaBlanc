@@ -22,6 +22,7 @@ export type DecisionType =
 
 export interface CandidateGrade {
   score: number;
+  /** Texte libre de l'enseignant (≤ 60 caractères) ; vide = appréciation automatique selon la note. */
   appreciation: string;
 }
 
