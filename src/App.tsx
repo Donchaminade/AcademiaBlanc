@@ -16,12 +16,13 @@ import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
-import { apiDelete, apiSend, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, refreshSession, roleLabel, setSession } from './api/client';
+import { ApiError, apiDelete, apiSend, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, refreshSession, roleLabel, setSession } from './api/client';
 import type { AuthSession } from './api/client';
 import type { ProfilEtablissement } from './api/etablissement';
 import { usePermissions } from './api/permissions';
 import { confirmAction, showError } from './utils/alerts';
-import { loadSchoolWorkspace, ExamOption } from './api/workspace';
+import { loadSchoolWorkspace, ExamOption, WorkspaceOptions } from './api/workspace';
+import { horsProgramme } from './utils/programme';
 import { applyCharte, charteChanged, loadCharte, saveCharte } from './api/charte';
 import {
   getRegisteredSchools,
@@ -63,11 +64,19 @@ export default function App() {
   const [subjects, setSubjects] = useState<Subject[]>(() => (getToken() ? [] : INITIAL_SUBJECTS));
   const [apiSessions, setApiSessions] = useState<ExamOption[]>([]);
   const [apiCenters, setApiCenters] = useState<string[]>([]);
+  const [apiClasses, setApiClasses] = useState<ExamOption[]>([]);
+  // Compteurs lus sur l'API : total d'élèves enregistrés et élèves écartés par le filtre de session.
+  const [elevesEnBase, setElevesEnBase] = useState(0);
+  const [elevesMasques, setElevesMasques] = useState(0);
+  const [toutesSessions, setToutesSessions] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [activeClasseId, setActiveClasseId] = useState<number | null>(null);
   const [activeExamType, setActiveExamType] = useState<string>('');
   const [activeExamTypeLong, setActiveExamTypeLong] = useState<string>('');
   const [usingApi, setUsingApi] = useState<boolean>(() => Boolean(getToken()));
+  // Jeton présent au chargement : rien n'est affiché (surtout pas de données de démonstration)
+  // tant que la session n'est pas relue et l'espace de l'établissement chargé depuis l'API.
+  const [workspaceLoading, setWorkspaceLoading] = useState<boolean>(() => Boolean(getToken()));
   const [apiUser, setApiUser] = useState<{ name: string; role: string } | null>(() => {
     const session = getSession();
     if (!getToken() || !session) return null;
@@ -152,9 +161,9 @@ export default function App() {
     if (!getToken()) saveSchoolData(currentSchoolId, settings, newCandidates);
   };
 
-  const applyWorkspace = async (sessionId?: number) => {
+  const applyWorkspace = async (sessionId?: number, options: WorkspaceOptions = { toutesSessions }) => {
     const [workspace, charte] = await Promise.all([
-      loadSchoolWorkspace(sessionId),
+      loadSchoolWorkspace(sessionId, options),
       // Une charte indisponible (ancienne API) ne doit pas bloquer le chargement de l'espace.
       loadCharte().catch(() => null),
     ]);
@@ -166,6 +175,9 @@ export default function App() {
     setCandidates(workspace.candidates);
     setApiSessions(workspace.sessions);
     setApiCenters(workspace.centers.map((item) => item.label));
+    setApiClasses(workspace.classes);
+    setElevesEnBase(workspace.elevesEnBase);
+    setElevesMasques(workspace.elevesMasques);
     setActiveSessionId(workspace.sessionId);
     setActiveClasseId(workspace.classeId);
     setActiveExamType(workspace.examType);
@@ -204,6 +216,9 @@ export default function App() {
     setSubjects([]);
     setApiSessions([]);
     setApiCenters([]);
+    setApiClasses([]);
+    setElevesEnBase(0);
+    setElevesMasques(0);
     setActiveSessionId(null);
     setActiveClasseId(null);
     setActiveExamType('');
@@ -229,12 +244,22 @@ export default function App() {
       }
       setCurrentView('plateforme');
     }
-    applyWorkspace().catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
+    setWorkspaceLoading(true);
+    applyWorkspace()
+      .catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'))
+      .finally(() => setWorkspaceLoading(false));
   };
 
   const reloadWorkspace = () => {
     if (!getToken()) return;
     applyWorkspace(activeSessionId ?? undefined).catch((err: Error) => showToast(err.message || 'Impossible de recharger la base.'));
+  };
+
+  /** « Toutes les sessions » : relit la liste sans écarter les élèves rattachés à une autre session. */
+  const handleToutesSessionsChange = (toutes: boolean) => {
+    setToutesSessions(toutes);
+    applyWorkspace(activeSessionId ?? undefined, { toutesSessions: toutes })
+      .catch((err: Error) => showToast(err.message || 'Impossible de recharger la base.'));
   };
 
   const openAdmin = (section?: AdminSection) => {
@@ -271,6 +296,10 @@ export default function App() {
     setSubjects([]);
     setApiSessions([]);
     setApiCenters([]);
+    setApiClasses([]);
+    setElevesEnBase(0);
+    setElevesMasques(0);
+    setToutesSessions(false);
     setActiveSessionId(null);
     setActiveClasseId(null);
     setActiveExamType('');
@@ -299,7 +328,19 @@ export default function App() {
         }
         return applyWorkspace();
       })
-      .catch((err: Error) => showToast(err.message || 'Impossible de charger la base.'));
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 401) {
+          // Jeton expiré ou révoqué : retour explicite à la connexion plutôt qu'un espace vide ou de démonstration.
+          clearToken();
+          setUsingApi(false);
+          setApiUser(null);
+          setCurrentView('auth');
+          navigate('connexion', { replace: true });
+        }
+        showToast(err instanceof Error && err.message ? err.message : 'Impossible de charger la base.');
+      })
+      .finally(() => setWorkspaceLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Une fois dans l’application, `/connexion`, `/inscription` et `/admin` n’ont plus de sens : l’URL revient
@@ -394,6 +435,11 @@ export default function App() {
 
   // Update a grade for a candidate
   const handleUpdateGrade = (candidateId: string, subjectId: string, newScore: number) => {
+    const cible = candidates.find((c) => c.id === candidateId);
+    if (horsProgramme(cible, subjectId, subjects)) {
+      showToast('Cette matière n’est pas au programme de la classe de cet élève.');
+      return;
+    }
     const updated = candidates.map((c) => {
       if (c.id !== candidateId) return c;
       const currentApprec = c.grades[subjectId]?.appreciation || 'Travail évalué.';
@@ -485,8 +531,14 @@ export default function App() {
     showToast(`Candidat ${newCand.fullName} inscrit ! N° de table généré automatiquement par ordre alphabétique.`);
   };
 
-  // Batch add candidates with automatic alphabetical table assignment
+  // Batch add candidates with automatic alphabetical table assignment (mode démonstration uniquement)
   const handleBatchAddCandidates = (newCands: Candidate[]) => {
+    if (getToken()) {
+      // En session API, l'import passe par `POST /api/eleves/import` (ImportElevesPanel) : rien n'est ajouté localement,
+      // sinon la liste semblerait enregistrée puis disparaîtrait au rechargement.
+      void showError('Import non enregistré', 'Utilisez « Import en Masse » : la liste est alors enregistrée dans la base de l’établissement.');
+      return;
+    }
     const updatedList = [...candidates, ...newCands];
     const finalList = settings.autoAssignTables !== false
       ? autoAssignTableNumbers(updatedList, settings.startTableNumber || 101)
@@ -632,6 +684,21 @@ export default function App() {
     if (session) setSession({ ...session, nomEtablissement: profil.nom });
   };
 
+  // Jeton présent : état de chargement jusqu'à la réponse de l'API, sans aucune donnée de démonstration à l'écran.
+  if (workspaceLoading && currentView !== 'auth') {
+    return (
+      <div className="min-h-screen bg-[#faf8ff] flex items-center justify-center p-6" aria-busy="true" role="status">
+        <div className="bg-white border border-[#eaedff] rounded-lg shadow-sm px-8 py-6 flex items-center gap-4 max-w-md w-full">
+          <span className="material-symbols-outlined text-3xl text-[#0051d5] animate-spin">progress_activity</span>
+          <div>
+            <p className="text-[14px] font-bold text-[#00236f]">Chargement de l’espace de l’établissement…</p>
+            <p className="text-[12px] text-[#444651] mt-0.5">Lecture des élèves, classes et sessions enregistrés sur le serveur.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Hors application : site vitrine, puis pages pleine écran de connexion / création de compte.
   if (currentView === 'auth') {
     if (route === 'vitrine') {
@@ -756,6 +823,7 @@ export default function App() {
                 section={adminTarget.section}
                 scrollKey={adminTarget.nonce}
                 onDataChanged={reloadWorkspace}
+                activeSessionId={activeSessionId}
               />
             </div>
           )}
@@ -800,6 +868,19 @@ export default function App() {
               onRenumberAlphabetically={handleRenumberAlphabetically}
               onBatchAddCandidates={handleBatchAddCandidates}
               onOpenBatchPrint={peutImprimer ? () => setIsBatchPrintModalOpen(true) : undefined}
+              importApi={usingApi ? {
+                classes: apiClasses,
+                sessions: apiSessions,
+                sessionId: activeSessionId,
+                onImported: () => applyWorkspace(activeSessionId ?? undefined)
+                  .catch((err: Error) => showToast(err.message || 'Impossible de recharger la base.')),
+              } : undefined}
+              rosterApi={usingApi ? {
+                total: elevesEnBase,
+                masques: elevesMasques,
+                toutesSessions,
+                onToutesSessionsChange: handleToutesSessionsChange,
+              } : undefined}
             />
           )}
 

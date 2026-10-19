@@ -1,8 +1,32 @@
 import React, { useState } from 'react';
 import { Candidate, Subject, AppSettings } from '../types';
 import { printDocument } from '../utils/printDocument';
+import { subjectsFor } from '../utils/programme';
 import { confirmDelete } from '../utils/alerts';
 import { getToken } from '../api/client';
+import { ImportElevesPanel } from './ImportElevesPanel';
+
+interface OptionApi { id: number; label: string; }
+
+/** Import en session API : la liste collée est envoyée à `POST /api/eleves/import`, jamais ajoutée localement. */
+export interface ImportApiProps {
+  classes: OptionApi[];
+  sessions: OptionApi[];
+  /** Session active de l'écran : présélectionnée pour rattacher les élèves importés. */
+  sessionId: number | null;
+  /** Relit la liste depuis le serveur après un import réussi. */
+  onImported: () => void | Promise<void>;
+}
+
+/** Compteurs issus de l'API et filtre de session, pour ne jamais cacher un élève enregistré. */
+export interface RosterApiProps {
+  /** Nombre d'élèves enregistrés dans la base de l'établissement (toutes sessions). */
+  total: number;
+  /** Élèves enregistrés mais rattachés à une autre session que la session active. */
+  masques: number;
+  toutesSessions: boolean;
+  onToutesSessionsChange: (toutes: boolean) => void;
+}
 
 interface StudentsListViewProps {
   candidates: Candidate[];
@@ -19,6 +43,9 @@ interface StudentsListViewProps {
   onRenumberAlphabetically?: (startNumber?: number) => void;
   onBatchAddCandidates?: (candidates: Candidate[]) => void;
   onOpenBatchPrint?: () => void;
+  /** Présent en session API : l'import passe par le serveur. Absent : mode démonstration local. */
+  importApi?: ImportApiProps;
+  rosterApi?: RosterApiProps;
 }
 
 export const StudentsListView: React.FC<StudentsListViewProps> = ({
@@ -36,6 +63,8 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
   onRenumberAlphabetically,
   onBatchAddCandidates,
   onOpenBatchPrint,
+  importApi,
+  rosterApi,
 }) => {
   const [startTableNum, setStartTableNum] = useState<number>(settings?.startTableNumber || 138);
   /** Connecté à l'API : le matricule est attribué par le serveur et n'est pas saisi. */
@@ -67,7 +96,7 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
 
   // Check if candidate has completed grades
   const isCandidateGradesComplete = (cand: Candidate) => {
-    return subjects.every((s) => cand.grades[s.id] && cand.grades[s.id].score > 0);
+    return subjectsFor(cand, subjects).every((s) => cand.grades[s.id] && cand.grades[s.id].score > 0);
   };
 
   const filteredCandidates = candidates.filter((c) => {
@@ -259,9 +288,18 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
             <span className="font-sans text-[28px] font-bold text-[#00236f] leading-none my-1 block">
               {totalStudents}
             </span>
-            <span className="text-[11px] text-[#0051d5] font-medium font-mono">
-              {selectedCenter}
-            </span>
+            {rosterApi ? (
+              <span className="text-[11px] text-[#0051d5] font-medium block" data-testid="eleves-en-base">
+                {rosterApi.total} élève{rosterApi.total > 1 ? 's' : ''} en base
+                {rosterApi.masques > 0 && (
+                  <span className="text-[#ba1a1a]"> · {rosterApi.masques} d’une autre session masqué{rosterApi.masques > 1 ? 's' : ''}</span>
+                )}
+              </span>
+            ) : (
+              <span className="text-[11px] text-[#0051d5] font-medium font-mono">
+                {selectedCenter}
+              </span>
+            )}
           </div>
           <div className="w-12 h-12 rounded-full bg-[#eaedff] flex items-center justify-center text-[#00236f]">
             <span className="material-symbols-outlined text-2xl">badge</span>
@@ -366,6 +404,19 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
               Filles
             </button>
           </div>
+
+          {rosterApi && (
+            <select
+              aria-label="Sessions affichées"
+              value={rosterApi.toutesSessions ? 'toutes' : 'active'}
+              onChange={(e) => rosterApi.onToutesSessionsChange(e.target.value === 'toutes')}
+              className="bg-[#f2f3ff] text-[11px] font-semibold text-[#00236f] py-1.5 px-2 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
+              title="Les élèves sans session sont toujours affichés ; « Toutes les sessions » montre aussi ceux rattachés à une autre session."
+            >
+              <option value="active">Session active + sans session</option>
+              <option value="toutes">Toutes les sessions ({rosterApi.total} en base)</option>
+            </select>
+          )}
         </div>
 
         {/* Buttons */}
@@ -802,8 +853,40 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
         </div>
       )}
 
-      {/* Batch Import Modal */}
-      {showBatchModal && (
+      {/* Import en session API : la liste part au serveur et la page est relue depuis la base. */}
+      {showBatchModal && importApi && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full p-6 border border-[#eaedff] space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-[#eaedff]">
+              <div className="flex items-center gap-2 text-[#00236f]">
+                <span className="material-symbols-outlined text-xl">cloud_upload</span>
+                <span className="font-bold text-[16px]">Importer une liste dans la base de l’établissement</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBatchModal(false)}
+                className="text-[#444651] hover:text-[#131b2e]"
+                aria-label="Fermer"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <ImportElevesPanel
+              embedded
+              classes={importApi.classes.map((item) => ({ id: item.id, nom: item.label }))}
+              sessions={importApi.sessions.map((item) => ({ id: item.id, nom: item.label }))}
+              defaultSessionId={importApi.sessionId}
+              onImported={async () => {
+                setShowBatchModal(false);
+                await importApi.onImported();
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Batch Import Modal (mode démonstration : données locales uniquement) */}
+      {showBatchModal && !importApi && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
           <div className="bg-white rounded-lg shadow-2xl max-w-xl w-full p-6 border border-[#eaedff] space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-[#eaedff]">
@@ -819,6 +902,10 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
+
+            <p role="alert" className="text-[12px] rounded border border-[#ffb4ab] bg-[#ffdad6] text-[#93000a] px-3 py-2">
+              Données de démonstration, non enregistrées sur le serveur — connectez-vous pour importer des élèves dans la base de l’établissement.
+            </p>
 
             <p className="text-[12px] text-[#444651]">
               Collez votre liste d'élèves au format : <code className="bg-[#f2f3ff] px-1.5 py-0.5 rounded text-[#00236f] font-mono">Nom Prénom, Genre (M/F), Date Naissance, Établissement, Téléphone</code>

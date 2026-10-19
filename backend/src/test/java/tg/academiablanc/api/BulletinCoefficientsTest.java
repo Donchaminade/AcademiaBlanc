@@ -3,6 +3,7 @@ package tg.academiablanc.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,8 +20,9 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
- * Barème du bulletin : le coefficient saisi pour la classe de l’élève prime sur le coefficient
- * « toutes classes » ; total = Σ(note × coef) ; moyenne = total / Σ coef ; points max = 20 × Σ coef.
+ * Barème du bulletin : le coefficient saisi pour la classe de l’élève (son programme) prime sur le
+ * coefficient « toutes classes » ; total = Σ(note × coef) ; moyenne = total / Σ coef ; points max = 20 × Σ coef.
+ * Une classe sans programme garde toutes les matières avec leurs coefficients communs.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -48,9 +50,11 @@ class BulletinCoefficientsTest {
         "{\"anneeScolaireId\":" + anneeId + ",\"nom\":\"4e\",\"niveau\":\"4e\"}"));
 
     // Histoire-Géographie : ×2 pour toutes les classes, mais ×4 en 3e. Mathématiques : ×3 partout.
+    // Le programme de la 3e (HG ×4, MATH ×3) est défini par ses coefficients de classe ; la 4e n’en a pas.
     envoyer(token, post("/api/coefficients"), "{\"matiereId\":" + histoire + ",\"valeur\":2}");
-    envoyer(token, post("/api/coefficients"), "{\"matiereId\":" + histoire + ",\"classeId\":" + troisieme + ",\"valeur\":4}");
     envoyer(token, post("/api/coefficients"), "{\"matiereId\":" + maths + ",\"valeur\":3}");
+    envoyer(token, put("/api/classes/" + troisieme + "/programme"),
+        "[{\"matiereId\":" + histoire + ",\"coefficient\":4},{\"matiereId\":" + maths + ",\"coefficient\":3}]");
 
     long eleve3e = id(envoyer(token, post("/api/eleves"),
         "{\"classeId\":" + troisieme + ",\"sessionId\":" + sessionId + ",\"nomComplet\":\"AKAKPO Ama\",\"genre\":\"F\",\"numeroTable\":1}"));
@@ -79,7 +83,7 @@ class BulletinCoefficientsTest {
     // Points maximum = 20 × Σ coef = 140 : la note sur 20 au coefficient 4 vaut au plus 80 points.
     assertEquals(0, new BigDecimal("140").compareTo(b3.get("totalCoef").decimalValue().multiply(new BigDecimal("20"))));
 
-    // Élève de 4e : aucun coefficient propre, HG retombe sur ×2 ; total = 12×2 + 10×3 = 54, Σ coef = 5, moyenne = 10,80.
+    // Élève de 4e : aucun programme, toutes les matières comptent et HG retombe sur ×2 ; total = 12×2 + 10×3 = 54, Σ coef = 5, moyenne = 10,80.
     JsonNode b4 = parEleve(bulletins, eleve4e);
     assertNombre(parMatiere(b4, histoire).get("coefficient"), 2);
     assertNombre(parMatiere(b4, histoire).get("total"), 24);

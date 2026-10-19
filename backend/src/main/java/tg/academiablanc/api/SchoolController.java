@@ -73,6 +73,7 @@ public class SchoolController {
   private final MatriculeService matricules;
   private final ReferentielMatieresService referentielMatieres;
   private final TypeExamenService typesExamen;
+  private final ProgrammeClasseService programmes;
 
   public SchoolController(
       AnneeScolaireRepository annees,
@@ -92,6 +93,7 @@ public class SchoolController {
       MatriculeService matricules,
       ReferentielMatieresService referentielMatieres,
       TypeExamenService typesExamen,
+      ProgrammeClasseService programmes,
       PermissionService droits
   ) {
     this.annees = annees;
@@ -112,6 +114,7 @@ public class SchoolController {
     this.matricules = matricules;
     this.referentielMatieres = referentielMatieres;
     this.typesExamen = typesExamen;
+    this.programmes = programmes;
   }
 
   public record AnneeRequest(@NotBlank @Size(max = 40) String libelle, LocalDate dateDebut, LocalDate dateFin, boolean courante) {}
@@ -288,11 +291,14 @@ public class SchoolController {
     return matieres.save(matiere);
   }
 
-  /** Charge les matières principales (FR, ANG, HG, ECM, PC, MAT, SVT) et leurs coefficients par défaut pour chaque classe. */
+  /**
+   * Charge les matières de base du catalogue (FR, ANG, HG, ECM, PC, MAT, SVT) avec leur groupe.
+   * Aucun coefficient n'est créé : l'affectation aux classes se fait dans le programme de chaque classe.
+   */
   @PostMapping("/matieres/referentiel")
-  public ReferentielMatieresService.Resultat chargerReferentielMatieres(@RequestBody(required = false) ReferentielMatieresService.Demande request) {
+  public ReferentielMatieresService.Resultat chargerReferentielMatieres() {
     droits.exiger(Ressource.MATIERES, Action.CREER);
-    return referentielMatieres.charger(request);
+    return referentielMatieres.charger();
   }
 
   @GetMapping("/matieres/{id}")
@@ -333,6 +339,7 @@ public class SchoolController {
     Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
     Tenant.same(matiere.getEtablissementId());
     if (request.classeId() != null) verifierClasse(request.classeId());
+    verifierCoefficientUnique(request, null);
     Coefficient coefficient = new Coefficient();
     coefficient.setEtablissementId(Tenant.current().etablissementId());
     coefficient.setMatiereId(request.matiereId());
@@ -355,6 +362,7 @@ public class SchoolController {
     Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
     Tenant.same(matiere.getEtablissementId());
     if (request.classeId() != null) verifierClasse(request.classeId());
+    verifierCoefficientUnique(request, id);
     coefficient.setMatiereId(request.matiereId());
     coefficient.setClasseId(request.classeId());
     coefficient.setSerie(request.serie());
@@ -735,6 +743,17 @@ public class SchoolController {
     Tenant.same(classe.getEtablissementId());
   }
 
+  /** Une matière n'apparaît qu'une fois dans le programme d'une classe (index unique matière × classe). */
+  private void verifierCoefficientUnique(CoefficientRequest request, Long saufId) {
+    if (request.classeId() == null) return;
+    coefficients.findFirstByEtablissementIdAndMatiereIdAndClasseId(Tenant.current().etablissementId(), request.matiereId(), request.classeId())
+        .filter(existant -> !existant.getId().equals(saufId))
+        .ifPresent(existant -> {
+          throw new ResponseStatusException(HttpStatus.CONFLICT,
+              "Cette matière est déjà au programme de la classe : modifiez son coefficient dans le programme.");
+        });
+  }
+
   private void verifierProfesseur(Long id) {
     Professeur professeur = professeurs.findById(id).orElseThrow(SchoolController::absent);
     Tenant.same(professeur.getEtablissementId());
@@ -766,6 +785,11 @@ public class SchoolController {
     Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
     Tenant.same(matiere.getEtablissementId());
     verifierSession(request.sessionId());
+    // Une classe dotée d'un programme n'accepte de notes que dans ses matières.
+    if (programmes.horsProgramme(eleve.getEtablissementId(), eleve.getClasseId(), matiere.getId())) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+          "La matière « " + matiere.getNom() + " » n'est pas au programme de la classe de cet élève.");
+    }
     // Le droit NOTES:CREER / MODIFIER est déjà vérifié ; un enseignant reste limité à ses propres affectations.
     var user = Tenant.current();
     if (user.role() == Role.ENSEIGNANT) {

@@ -1,8 +1,13 @@
-# Classes, cycles et séries
+# Classes, cycles, séries et programme
 
 Ce document décrit comment une classe est caractérisée dans AcademiaBlanc : son **cycle**,
-son **niveau** et, au lycée, sa **série**. Il décrit aussi le référentiel des séries que chaque
+son **niveau**, au lycée seulement sa **série**, et son **programme** (les matières qui lui
+sont affectées avec leurs coefficients). Il décrit aussi le référentiel des séries que chaque
 établissement peut compléter.
+
+Principe : **le collège n'a pas de série** (6e à 3e), et **les matières ne dépendent pas d'une
+série**. Le catalogue des matières est commun à l'établissement ; on choisit ensuite une classe,
+on coche ses matières, on fixe les coefficients et on valide.
 
 ## Cycles et niveaux
 
@@ -85,19 +90,80 @@ Côté classes (`POST`/`PUT /api/classes`) :
    dans le sélecteur **Série** (regroupé Générales / Techniques) l'option **+ Nouvelle série…** ;
    la série créée est aussitôt sélectionnée pour la classe.
 
-Le tableau des classes affiche le cycle, le niveau et le code de série accompagné de sa famille.
+Le tableau des classes affiche le cycle, le niveau, le nombre de matières au programme et, pour
+le lycée, le code de série accompagné de sa famille. La colonne **Série** n'apparaît que si
+l'établissement a au moins une classe de lycée ; elle reste vide pour une classe de collège.
 Une série utilisée par au moins une classe ne peut pas être supprimée (le bouton est désactivé et
 l'API répond 409).
 
-## Coefficients par défaut et séries techniques
+### Où la série n'apparaît pas (collège)
 
-Les coefficients par défaut sont indexés par niveau et par série. `ClasseNiveauUtil.resolve`
-renvoie, en plus du cycle et du niveau canonique, le code de la série et sa **famille**.
+- formulaire et tableau des classes : champ masqué, nom généré sans série (`3e`, pas `3e D`) ;
+- en-tête du bulletin, impression groupée, signature : la mention « • Série … » est omise, même si
+  la session d'examen porte une série ;
+- programme des classes et coefficients : plus de colonne « Série » ;
+- session d'examen : le formulaire n'envoie plus de série par défaut (la série est portée par la
+  classe du lycée).
+
+## Programme de classe
+
+Le programme d'une classe est l'ensemble des matières qui lui sont affectées, chacune avec son
+coefficient. Il est porté par la table `coefficient` (migration `V13__programme_classe.sql`) :
+
+| Ligne `coefficient`                         | Sens |
+|---------------------------------------------|------|
+| `classe_id` renseigné                       | la matière est **au programme** de la classe, avec ce coefficient (une seule ligne par couple matière × classe : index unique `uk_coefficient_matiere_classe`) |
+| `classe_id` nul (« toutes les classes »)    | coefficient **global**, utilisé seulement par les classes qui n'ont encore aucun programme |
+
+Une classe **sans aucune ligne** n'a pas de programme défini : par compatibilité, son bulletin
+retient toutes les matières de l'établissement avec les coefficients globaux (1 à défaut), et la
+saisie des notes accepte toutes les matières. L'écran d'administration l'indique par un
+avertissement et le tableau des classes affiche « à définir ».
+
+Dès qu'un programme existe :
+
+- le bulletin de chaque élève de la classe ne comporte **que** les matières du programme, avec
+  ses coefficients (`BulletinService`) ; le rang par matière est calculé parmi les élèves qui ont
+  la matière à leur programme ;
+- une note dans une matière hors programme est **refusée** (`400`) par `POST`/`PUT /api/notes`,
+  et la grille de saisie affiche la cellule désactivée.
+
+### API
+
+Lecture avec `COEFFICIENTS:VOIR`, écriture avec `COEFFICIENTS:MODIFIER`, cloisonnement par
+établissement (classe ou matière d'un autre établissement : `404`).
+
+| Méthode | Route | Rôle |
+|---------|-------|------|
+| `GET`   | `/api/classes/{id}/programme` | `[{ matiereId, code, nom, groupe, groupeLibelle, coefficient }]` dans l'ordre du bulletin (LT, SC, hors groupe) ; `[]` si aucun programme |
+| `PUT`   | `/api/classes/{id}/programme` | corps `[{ "matiereId": 12, "coefficient": 3 }, …]` — **remplace** le programme (transactionnel : met à jour, crée, supprime) ; coefficient 0,5–20, 1 par défaut ; doublon ou valeur hors bornes : `400` ; `[]` retire le programme |
+| `POST`  | `/api/classes/{id}/programme/copier-de/{autreId}` | copie le programme d'une autre classe (`400` si elle n'en a pas ou si c'est la même classe) |
+| `GET`   | `/api/classes/{id}/programme/suggestions` | `[{ matiereId, code, coefficient }]` : coefficient suggéré pour chaque matière du catalogue selon le niveau et la série de la classe (rien n'est enregistré) |
+| `POST`  | `/api/matieres/referentiel` | charge les 7 matières de base dans le catalogue (`{ matieresCreees, matieresExistantes }`) ; **ne crée plus aucun coefficient** |
+
+Les anciennes routes `/api/coefficients` restent disponibles (« mode avancé ») ; créer une
+deuxième ligne pour un couple matière × classe déjà au programme répond `409`.
+
+### Écran Administration → Programme des classes
+
+1. Choisir la classe (liste groupée Collège / Lycée, avec le nombre de matières déjà affectées).
+2. Cocher les matières (groupées Littératures / Scientifiques / hors groupe) et saisir le
+   coefficient de chacune. Raccourcis : **Tout cocher**, **Suggestions par défaut** (coche les
+   matières de base et pré-remplit les coefficients proposés pour le niveau et la série — simple
+   point de départ, modifiable), **Copier depuis une classe…**.
+3. Vérifier le récapitulatif (« N matières, Σ coefficients = X, total max = 20·X pts ») puis
+   **Valider le programme** (confirmation). Un indicateur signale les modifications non
+   enregistrées ; changer de classe avec des modifications en attente demande confirmation.
+
+## Coefficients suggérés et séries techniques
+
+Les coefficients proposés par « Suggestions par défaut » sont indexés par niveau et par série
+(`ReferentielMatieres.coefficientParDefaut`). `ClasseNiveauUtil.resolve` renvoie, en plus du
+cycle et du niveau canonique, le code de la série et sa **famille** ;
 `ClasseNiveauUtil.serieDeReference(serie, famille)` donne la série dont la grille s'applique :
 
 - série générale : la série elle-même (`A4`, `C`, `D`) ;
 - série technique : repli sur la grille **scientifique** (`D`) tant qu'aucune ligne spécifique
   à la série (`G2`, `F4`…) n'est définie par l'établissement.
 
-Un coefficient saisi pour une classe précise (`coefficient.classe_id`) l'emporte toujours sur ces
-valeurs par défaut.
+Ces valeurs ne sont qu'une suggestion : seul le programme validé pour la classe fait foi.

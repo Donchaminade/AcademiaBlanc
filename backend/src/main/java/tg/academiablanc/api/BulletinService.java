@@ -85,8 +85,18 @@ public class BulletinService {
     }
     List<Matiere> subjects = new ArrayList<>(matieres.findByEtablissementIdOrderByNomAsc(user.etablissementId()));
     subjects.sort(ReferentielMatieres.ORDRE_BULLETIN);
+    Map<Long, Matiere> matiereParId = new HashMap<>();
+    for (Matiere matiere : subjects) matiereParId.put(matiere.getId(), matiere);
     List<Note> sessionNotes = notes.findByEtablissementIdAndSessionId(user.etablissementId(), sessionId);
     List<Coefficient> coefs = coefficients.findByEtablissementId(user.etablissementId());
+
+    // Programme de chaque classe (matière → coefficient) ; une classe sans ligne n'a pas de programme défini.
+    Map<Long, Map<Long, BigDecimal>> programmes = new HashMap<>();
+    for (Coefficient coef : coefs) {
+      if (coef.getClasseId() != null) {
+        programmes.computeIfAbsent(coef.getClasseId(), ignored -> new HashMap<>()).putIfAbsent(coef.getMatiereId(), coef.getValeur());
+      }
+    }
 
     Map<Long, Map<Long, Note>> notesByEleve = new HashMap<>();
     for (Note note : sessionNotes) {
@@ -97,17 +107,18 @@ public class BulletinService {
     Map<Long, List<Ligne>> lignesParEleve = new HashMap<>();
     for (Eleve eleve : roster) {
       List<Ligne> lignes = new ArrayList<>();
-      for (Matiere matiere : subjects) {
+      for (Matiere matiere : matieresDe(eleve, subjects, programmes)) {
         Note note = notesByEleve.getOrDefault(eleve.getId(), Map.of()).get(matiere.getId());
         boolean absent = note == null || note.isAbsent() || note.getValeur() == null;
         BigDecimal valeur = absent || note == null ? null : note.getValeur();
-        lignes.add(new Ligne(eleve.getId(), matiere.getId(), valeur, coefDe(coefs, matiere.getId(), eleve.getClasseId()), absent));
+        lignes.add(new Ligne(eleve.getId(), matiere.getId(), valeur, coefDe(coefs, programmes, matiere.getId(), eleve.getClasseId()), absent));
       }
       lignesParEleve.put(eleve.getId(), lignes);
       moyennes.put(eleve.getId(), GradeCalculator.moyenne(lignes));
     }
     Map<Long, Integer> rangsGeneraux = GradeCalculator.rangsCompetition(moyennes);
 
+    // Rang par matière : parmi les élèves qui ont cette matière à leur programme et une note présente.
     Map<Long, Map<Long, Integer>> rangsMatieres = new HashMap<>();
     for (Matiere matiere : subjects) {
       Map<Long, BigDecimal> valeurs = new HashMap<>();
@@ -129,7 +140,7 @@ public class BulletinService {
       BigDecimal moyenne = moyennes.get(eleve.getId());
       List<LigneBulletin> detail = new ArrayList<>();
       for (Ligne ligne : lignes) {
-        Matiere matiere = subjects.stream().filter(item -> item.getId().equals(ligne.matiereId())).findFirst().orElseThrow();
+        Matiere matiere = matiereParId.get(ligne.matiereId());
         Integer rangMatiere = rangsMatieres.get(matiere.getId()).get(eleve.getId());
         detail.add(new LigneBulletin(
             matiere.getId(),
@@ -173,15 +184,27 @@ public class BulletinService {
     bulletins.save(bulletin);
   }
 
-  private static BigDecimal coefDe(List<Coefficient> coefs, Long matiereId, Long classeId) {
+  /**
+   * Matières du bulletin d'un élève : celles du programme de sa classe quand il est défini ;
+   * sinon (compatibilité) toutes les matières de l'établissement, avec les coefficients globaux.
+   */
+  private static List<Matiere> matieresDe(Eleve eleve, List<Matiere> toutes, Map<Long, Map<Long, BigDecimal>> programmes) {
+    Map<Long, BigDecimal> programme = programmes.get(eleve.getClasseId());
+    if (programme == null || programme.isEmpty()) return toutes;
+    List<Matiere> retenues = new ArrayList<>();
+    for (Matiere matiere : toutes) {
+      if (programme.containsKey(matiere.getId())) retenues.add(matiere);
+    }
+    return retenues;
+  }
+
+  private static BigDecimal coefDe(List<Coefficient> coefs, Map<Long, Map<Long, BigDecimal>> programmes, Long matiereId, Long classeId) {
+    BigDecimal duProgramme = programmes.getOrDefault(classeId, Map.of()).get(matiereId);
+    if (duProgramme != null) return duProgramme;
     return coefs.stream()
-        .filter(coef -> coef.getMatiereId().equals(matiereId) && classeId.equals(coef.getClasseId()))
+        .filter(coef -> coef.getMatiereId().equals(matiereId) && coef.getClasseId() == null)
         .map(Coefficient::getValeur)
         .findFirst()
-        .orElseGet(() -> coefs.stream()
-            .filter(coef -> coef.getMatiereId().equals(matiereId) && coef.getClasseId() == null)
-            .map(Coefficient::getValeur)
-            .findFirst()
-            .orElse(BigDecimal.ONE));
+        .orElse(BigDecimal.ONE);
   }
 }

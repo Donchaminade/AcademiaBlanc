@@ -1,5 +1,6 @@
 import { apiGet, isForbidden } from './client';
 import { Candidate, Subject } from '../types';
+import { estCollege } from '../utils/niveaux';
 import { coefficientEffectif } from '../utils/coefficients';
 import { SessionTypeExamen, libelleCourtSession, libelleLongSession } from './typesExamen';
 
@@ -18,7 +19,7 @@ interface Centre { id: number; nom: string; code: string; ville?: string; }
 interface SessionApi extends SessionTypeExamen { id: number; nom: string; serie?: string; anneeScolaireId: number; centreId: number; }
 interface Matiere { id: number; nom: string; code: string; }
 interface Professeur { id: number; nom: string; }
-interface Classe { id: number; nom: string; serie?: string; titulaireId?: number; }
+interface Classe { id: number; nom: string; niveau?: string; serie?: string; titulaireId?: number; }
 interface Affectation { professeurId: number; matiereId: number; classeId: number; }
 interface Coefficient { matiereId: number; classeId?: number | null; valeur: number; }
 interface EleveApi {
@@ -37,11 +38,26 @@ interface NoteApi { eleveId: number; matiereId: number; valeur?: number | null; 
 
 export interface ExamOption { id: number; label: string; }
 
+export interface WorkspaceOptions {
+  /**
+   * `true` : la liste affiche tous les élèves enregistrés, quelle que soit leur session.
+   * Sinon (défaut), les élèves rattachés à une autre session que la session chargée sont écartés ;
+   * ceux sans session restent toujours visibles.
+   */
+  toutesSessions?: boolean;
+}
+
 export interface SchoolWorkspace {
   sessionId: number | null;
   classeId: number | null;
   sessions: ExamOption[];
   centers: ExamOption[];
+  /** Classes de l'établissement (choix de la classe à l'import). */
+  classes: ExamOption[];
+  /** Nombre total d'élèves enregistrés dans la base de l'établissement (avant tout filtre de session). */
+  elevesEnBase: number;
+  /** Élèves enregistrés mais écartés de la liste parce que rattachés à une autre session. */
+  elevesMasques: number;
   subjects: Subject[];
   candidates: Candidate[];
   academicYear: string;
@@ -57,7 +73,20 @@ export interface SchoolWorkspace {
   coefficientsCount: number;
 }
 
-export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<SchoolWorkspace> {
+/**
+ * Élèves à afficher pour la session chargée : ceux de cette session et ceux sans session.
+ * Avec `toutesSessions`, aucun élève enregistré n'est écarté.
+ */
+export function filtrerRoster<T extends { sessionId?: number | null }>(
+  eleves: T[],
+  sessionId: number | null,
+  options: WorkspaceOptions = {},
+): T[] {
+  if (options.toutesSessions || sessionId == null) return eleves;
+  return eleves.filter((eleve) => eleve.sessionId == null || eleve.sessionId === sessionId);
+}
+
+export async function loadSchoolWorkspace(preferredSessionId?: number, options: WorkspaceOptions = {}): Promise<SchoolWorkspace> {
   const [annees, centres, sessions, matieres, profs, classes, affectations, coefficients, eleves] = await Promise.all([
     lire<Annee>('/api/annees-scolaires'),
     lire<Centre>('/api/centres'),
@@ -84,20 +113,24 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
   // comme le fait l’API (BulletinService.coefDe) : il prime sur le coefficient commun.
   const subjects: Subject[] = matieres.map((matiere) => {
     const coef = coefficientEffectif(coefficients, matiere.id, null);
+    // Programme des classes : une ligne (matière, classe) = la matière est au programme de la classe.
+    const coefParClasse: Record<string, number> = {};
+    coefficients
+      .filter((item) => item.matiereId === matiere.id && item.classeId != null)
+      .forEach((item) => { coefParClasse[String(item.classeId)] = Number(item.valeur); });
     return {
       id: String(matiere.id),
       name: matiere.nom,
       teacher: teacherName(matiere.id),
       coef: coef.valeur,
       coefDefault: coef.source === 'defaut',
+      coefParClasse,
     };
   });
   const coefsPourClasse = (classeId: number): Record<string, number> =>
     Object.fromEntries(matieres.map((matiere) => [String(matiere.id), coefficientEffectif(coefficients, matiere.id, classeId).valeur]));
 
-  const roster = session
-    ? eleves.filter((eleve) => eleve.sessionId == null || eleve.sessionId === session.id)
-    : eleves;
+  const roster = filtrerRoster(eleves, session?.id ?? null, options);
 
   const candidates: Candidate[] = roster.map((eleve) => {
     const classe = classes.find((item) => item.id === eleve.classeId);
@@ -115,7 +148,9 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
       originSchool: eleve.etablissementOrigine || '',
       gender: eleve.genre === 'M' ? 'M' : 'F',
       // La classe porte le code du référentiel (« D », « G2 ») ; le bulletin attend « Série D ».
-      serie: classe?.serie ? `Série ${classe.serie}` : session?.serie || '',
+      // Au collège (6e–3e) il n'y a pas de série, même si la session en porte une.
+      serie: classe?.serie ? `Série ${classe.serie}` : (classe && estCollege(classe.niveau) ? '' : session?.serie || ''),
+      classeId: String(eleve.classeId),
       examCenter: centre?.code || '',
       examCenterName: centre ? `${centre.nom}${centre.ville ? ` (${centre.ville})` : ''}` : '',
       parentPhone: '',
@@ -131,6 +166,9 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
     classeId: classes[0]?.id ?? null,
     sessions: sessions.map((item) => ({ id: item.id, label: item.nom })),
     centers: centres.map((item) => ({ id: item.id, label: `${item.nom}${item.code ? ` (${item.code})` : ''}` })),
+    classes: classes.map((item) => ({ id: item.id, label: item.nom })),
+    elevesEnBase: eleves.length,
+    elevesMasques: eleves.length - roster.length,
     subjects,
     candidates,
     academicYear: annee?.libelle || '',
