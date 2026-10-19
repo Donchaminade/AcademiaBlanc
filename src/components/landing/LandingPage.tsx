@@ -320,7 +320,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
       {/* Barre de navigation */}
       <header className="sticky top-0 z-40 border-b border-[#eaedff] bg-white/85 backdrop-blur-md">
         <nav aria-label="Navigation principale" className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <a href="#accueil" className="flex items-center gap-2.5 min-w-0" onClick={closeMenu}>
+          <a href="#accueil" className="flex min-w-0 shrink-0 items-center gap-2.5" onClick={closeMenu}>
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#00236f] text-white">
               <span className="material-symbols-outlined text-xl">account_balance</span>
             </span>
@@ -333,21 +333,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
           <ul className="hidden items-center gap-5 lg:flex">
             {NAV_LINKS.map((link) => (
               <li key={link.href}>
-                <a href={link.href} className="text-[13px] font-semibold text-[#444651] transition-colors hover:text-[#0051d5]">
+                <a href={link.href} className="whitespace-nowrap text-[13px] font-semibold text-[#444651] transition-colors hover:text-[#0051d5]">
                   {link.label}
                 </a>
               </li>
             ))}
           </ul>
 
-          <div className="hidden items-center gap-2 lg:flex">
-            <RouteLink href={ROUTE_PATHS.connexion} onNavigate={onConnexion} className={`${btnGhost} px-4 py-2 text-[13px]`} magnetic>
+          <div className="hidden shrink-0 items-center gap-2 lg:flex">
+            <RouteLink href={ROUTE_PATHS.connexion} onNavigate={onConnexion} className={`${btnGhost} whitespace-nowrap px-4 py-2 text-[13px]`} magnetic>
               <span className="material-symbols-outlined text-base">login</span>
               <span>Se connecter</span>
             </RouteLink>
-            <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={`${btnPrimary} px-4 py-2 text-[13px]`} magnetic>
+            <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={`${btnPrimary} whitespace-nowrap px-4 py-2 text-[13px]`} magnetic>
               <span className="material-symbols-outlined text-base">domain_add</span>
-              <span>Créer le compte de mon établissement</span>
+              <span className="2xl:hidden">Créer le compte</span>
+              <span className="hidden 2xl:inline">Créer le compte de mon établissement</span>
             </RouteLink>
           </div>
 
@@ -606,7 +607,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
 
             <ul data-cards className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {/* Relevé de notes */}
-              <li data-card className="flex flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5">
+              <li data-card className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5">
                 <div
                   className="min-w-0 rounded-lg border border-[#eaedff] bg-white p-4 text-[#131b2e] shadow-sm"
                   role="img"
@@ -671,7 +672,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               </li>
 
               {/* Liste des candidats */}
-              <li data-card className="flex flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5">
+              <li data-card className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5">
                 <div
                   className="min-w-0 rounded-lg border border-[#eaedff] bg-white p-4 text-[#131b2e] shadow-sm"
                   role="img"
@@ -717,7 +718,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               </li>
 
               {/* Procès-verbal */}
-              <li data-card className="flex flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5 md:col-span-2 lg:col-span-1">
+              <li data-card className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5 md:col-span-2 lg:col-span-1">
                 <div
                   className="min-w-0 rounded-lg border border-[#eaedff] bg-white p-4 text-[#131b2e] shadow-sm"
                   role="img"
