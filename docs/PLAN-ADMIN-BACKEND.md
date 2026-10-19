@@ -53,11 +53,12 @@ Formules retenues, notes sur 20 :
 - rang par matière et rang général : tri décroissant, ex æquo au même rang, le suivant saute (1, 2, 2, 4) ;
 - appréciation du professeur : moyenne > 16 → Très bien ; 12 ≤ moyenne ≤ 16 → Bien ; moyenne < 12 → Assez bien.
 
-Le code actuel du bulletin (`computeCandidateStats` dans `src/data/mockData.ts`) :
+Le bulletin (`computeCandidateStats` dans `src/data/mockData.ts`, qui s’appuie sur `moyenneReelle` de `src/utils/bulletinMetrics.ts`) applique exactement ces règles, comme `GradeCalculator` côté API :
 
-- calcule bien Σ(note × coef) / Σ(coef), puis ajoute un bonus de jury éventuel ;
-- traite une note absente comme **0** (`score || 0`) tout en gardant le coefficient : ce n’est pas la règle d’absence ci-dessus ;
-- le rang général est déjà un classement de compétition avec ex æquo ;
+- moyenne réelle Σ(note × coef) / Σ(coef) sur le programme de la classe de l’élève ; **aucun point de repêchage** n’est ajouté (la modale « Arbitrage de délibération du jury » et la colonne `bonus_jury` ont été supprimées, migration V17) ; la délibération ne porte plus que l’observation du conseil et la signature ;
+- une matière sans note est exclue du numérateur **et** du dénominateur (`totalCoef` ne compte que les matières notées) ; le total maximal `pointsMax` = 20 × Σ coef de tout le programme de la classe (ex. 8 matières de démonstration, Σ coef 21 → 420 points), jamais une constante ;
+- le bulletin porte aussi la moyenne de classe, la moyenne la plus forte et la plus faible de la classe (même classe, même session) et, par matière, la note min / max de la classe (`moyenneClasse`, `moyenneClasseMax`, `moyenneClasseMin`, `noteMaxClasse`, `noteMinClasse` sur `/api/bulletins`) ;
+- le rang général est un classement de compétition avec ex æquo sur toute la session ;
 - le rang par matière était une formule fictive (« 140 − note × 7 » et « / 138 ») ; la branche des bulletins le remplace par un vrai rang, sans dénominateur ;
 - la colonne Moy. Promo n’est pas cette moyenne : ce sont les constantes `PROMO_AVERAGES` (mathématiques 10,80, etc.), identiques pour tous les élèves.
 

@@ -475,14 +475,21 @@ export default function App() {
   const computedStats = useMemo(() => {
     if (!selectedCandidate) {
       return {
-        totalCoef: 29,
+        totalCoef: 0,
         totalPoints: 0,
+        totalCoefProgramme: 0,
+        pointsMax: 0,
         average: 0,
+        evaluated: false,
         rank: 1,
         totalCandidates: 0,
         mention: 'AJOURNÉ' as const,
         decision: "AJOURNÉ À L'EXAMEN BLANC" as const,
         differenceToPromo: 0,
+        classAverage: null,
+        classHighestAverage: null,
+        classLowestAverage: null,
+        classEvaluatedCount: 0,
       };
     }
     return allStats[selectedCandidate.id] || computeCandidateStats(selectedCandidate, subjects, candidates);
@@ -522,33 +529,7 @@ export default function App() {
     return true;
   };
 
-  /**
-   * Écriture : décision du jury (bonus de repêchage et observation du bulletin). En session API,
-   * `PUT /api/deliberations` puis mise à jour du candidat à partir de la réponse.
-   */
-  const handleApplyJuryBonus = async (candidateId: string, bonus: number): Promise<void> => {
-    const cible = candidates.find((c) => c.id === candidateId);
-    if (!cible) return;
-    const delibere: Candidate = {
-      ...cible,
-      juryBonus: bonus,
-      generalObservation: `« Délibération spéciale du Jury : bonus de repêchage de +${bonus.toFixed(2)} pts accordé au vu de l'assiduité. »`,
-    };
-    if (usingApi) {
-      try {
-        const vue = await sauvegarderDeliberation(delibere, activeSessionId);
-        remplacerCandidat(appliquerDeliberation(cible, vue));
-        toastSuccess(`Délibération enregistrée sur le serveur : +${bonus.toFixed(2)} pts pour ${cible.fullName}.`);
-      } catch (err) {
-        signalerErreur(err, 'Délibération non enregistrée.');
-      }
-      return;
-    }
-    handleUpdateCandidates(candidates.map((c) => (c.id === candidateId ? delibere : c)));
-    showToast(`Délibération enregistrée : +${bonus.toFixed(2)} pts de rachat accordés.`);
-  };
-
-  /** Écriture : signature électronique du bulletin du candidat sélectionné (même enregistrement que la délibération). */
+  /** Écriture : signature électronique du bulletin du candidat sélectionné (enregistrée avec l'observation du conseil dans la délibération). */
   const handleSign = async (signedAt: string, signer: string, shaHash: string): Promise<void> => {
     if (!selectedCandidate) return;
     const signe: Candidate = { ...selectedCandidate, digitalSignature: { signedAt, signer, shaHash } };
@@ -1016,7 +997,6 @@ export default function App() {
               subjects={subjects}
               allStats={allStats}
               onUpdateGrade={handleUpdateGrade}
-              onApplyJuryBonus={handleApplyJuryBonus}
               usingApi={usingApi}
               onSelectCandidate={(c) => setSelectedCandidateId(c.id)}
               onNavigateToBulletin={(c) => {

@@ -94,7 +94,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       mentionsCount[item.stats.mention] += 1;
     });
 
-    const totalCoef = subjects.reduce((acc, subject) => acc + subject.coef, 0);
+    // Total maximal par élève : 20 × Σ coef du programme de SA classe (pas d’un jeu global de matières).
+    // Plusieurs classes peuvent avoir des programmes différents : on garde l’éventail.
+    const pointsMaxValues = [...new Set(candidates.map((c) => allStats[c.id]?.pointsMax).filter((v): v is number => typeof v === 'number' && v > 0))];
+    const pointsMaxMin = pointsMaxValues.length > 0 ? Math.min(...pointsMaxValues) : null;
+    const pointsMaxMax = pointsMaxValues.length > 0 ? Math.max(...pointsMaxValues) : null;
 
     return {
       total,
@@ -110,9 +114,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       stdDev,
       major,
       mentionsCount,
-      totalCoef,
+      pointsMaxMin,
+      pointsMaxMax,
     };
-  }, [candidates, allStats, subjects]);
+  }, [candidates, allStats]);
 
   const isEmpty = summary.total === 0;
   const fmt = (value: number | null, digits = 2) => (value == null ? '—' : value.toFixed(digits));
@@ -367,9 +372,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="mt-4 p-3 bg-[#f2f3ff] rounded text-[11px] text-[#444651] flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#0051d5] text-base">gavel</span>
+            <span className="material-symbols-outlined text-[#0051d5] text-base">functions</span>
             <span>
-              Les candidats avec moyenne entre 09.80 et 09.99 sont soumis à l'arbitrage de repêchage du jury.
+              Moyennes réelles : Σ(note × coef) / Σ coef sur le programme de la classe, sans aucun point ajouté ; une matière non notée n'entre dans aucune des deux sommes.
             </span>
           </div>
         </div>
@@ -382,11 +387,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 Bilan Pédagogique par Discipline
               </h3>
               <p className="text-[12px] text-[#444651]">
-                Disciplines, enseignants et coefficients de la session
+                Disciplines, enseignants et coefficients communs ; sur le bulletin, le programme de la classe de l'élève fait foi
               </p>
             </div>
-            <span className="text-[11px] font-mono text-[#0051d5] font-semibold bg-[#eaedff] px-2 py-1 rounded">
-              Total Coef: {summary.totalCoef}
+            <span
+              className="text-[11px] font-mono text-[#0051d5] font-semibold bg-[#eaedff] px-2 py-1 rounded"
+              title="20 × Σ coefficients du programme de la classe de chaque élève"
+            >
+              {summary.pointsMaxMin == null
+                ? 'Total max : —'
+                : summary.pointsMaxMin === summary.pointsMaxMax
+                ? `Total max : ${summary.pointsMaxMin} pts`
+                : `Total max : ${summary.pointsMaxMin} à ${summary.pointsMaxMax} pts selon la classe`}
             </span>
           </div>
 
