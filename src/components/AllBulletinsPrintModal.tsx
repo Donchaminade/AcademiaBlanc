@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
 import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministryMark } from '../utils/bulletinHeader';
 import {
-  appreciationFromAverage,
   computeSubjectRank,
   decisionBucket,
   formatSubjectRank,
 } from '../utils/bulletinMetrics';
+import { appreciationAffichee } from '../utils/appreciation';
 import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
@@ -296,7 +296,7 @@ export const AllBulletinsPrintModal: React.FC<AllBulletinsPrintModalProps> = ({
                       const scoreTotal = gradeData ? (gradeData.score * coef).toFixed(2) : '—';
                       const isEven = sIdx % 2 === 0;
                       const subjectRankValue = computeSubjectRank(candidate.id, subj.id, candidates);
-                      const professorAppreciation = appreciationFromAverage(stats?.average ?? 0);
+                      const professorAppreciation = appreciationAffichee(gradeData);
 
                       return (
                         <tr

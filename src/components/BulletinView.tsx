@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
 import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministryMark } from '../utils/bulletinHeader';
-import { appreciationFromAverage, computeSubjectRank, formatSubjectRank } from '../utils/bulletinMetrics';
+import { computeSubjectRank, formatSubjectRank } from '../utils/bulletinMetrics';
+import { appreciationAffichee } from '../utils/appreciation';
 import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
@@ -385,7 +386,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   const isEven = idx % 2 === 0;
                   const subjectRankValue = computeSubjectRank(selectedCandidate.id, subj.id, candidates);
                   const subjectRank = subjectRankValue === null ? '—' : formatSubjectRank(subjectRankValue);
-                  const professorAppreciation = appreciationFromAverage(computedStats.average);
+                  const professorAppreciation = appreciationAffichee(gradeData);
 
                   return (
                     <tr
