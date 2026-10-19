@@ -13,6 +13,7 @@ import {
   sauvegarderNote,
   sauvegarderParametres,
   supprimerEleve,
+  versInstant,
 } from './ecritures';
 import { versCharte } from './charte';
 import type { Candidate } from '../types';
@@ -178,6 +179,13 @@ describe('ecritures : écritures de l’espace de travail', () => {
 
     await assert.rejects(() => sauvegarderDeliberation(delibere, null), /Aucune session/);
     await assert.rejects(() => sauvegarderDeliberation({ ...delibere, id: 'cand-7' }, 5), /absente de la base/);
+  });
+
+  it('versInstant convertit la date locale de la fenêtre de signature en ISO 8601', () => {
+    const iso = versInstant('19-10-2026 07:10:33');
+    assert.equal(new Date(iso).getTime(), new Date(2026, 9, 19, 7, 10, 33).getTime());
+    assert.equal(versInstant('2026-06-01T10:00:00.000Z'), '2026-06-01T10:00:00.000Z');
+    assert.doesNotThrow(() => new Date(versInstant('n’importe quoi')).toISOString());
   });
 
   it('sauvegarderParametres envoie tous les paramètres persistés à PUT /api/etablissement/charte', async () => {

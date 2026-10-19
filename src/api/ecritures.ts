@@ -149,6 +149,20 @@ export async function sauvegarderNote(saisie: NoteSaisie): Promise<NoteApi> {
   });
 }
 
+/**
+ * Date de signature au format ISO 8601 attendu par le serveur. La fenêtre de signature produit
+ * « JJ-MM-AAAA HH:mm:ss » (heure locale) ; une valeur ISO est reprise telle quelle.
+ */
+export function versInstant(signedAt: string): string {
+  const local = /^(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/.exec(signedAt.trim());
+  if (local) {
+    const [, jour, mois, annee, heure, minute, seconde] = local.map(Number);
+    return new Date(annee, mois - 1, jour, heure, minute, seconde).toISOString();
+  }
+  const date = new Date(signedAt);
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
 /** Corps de `PUT /api/deliberations` à partir de l'état complet du candidat (bonus, observation, signature). */
 export function versDeliberation(candidate: Candidate, sessionId: number): Omit<DeliberationApi, 'id'> {
   return {
@@ -158,7 +172,7 @@ export function versDeliberation(candidate: Candidate, sessionId: number): Omit<
     observation: candidate.generalObservation?.trim() || null,
     signature: candidate.digitalSignature
       ? {
-          signeLe: candidate.digitalSignature.signedAt,
+          signeLe: versInstant(candidate.digitalSignature.signedAt),
           signataire: candidate.digitalSignature.signer || null,
           empreinte: candidate.digitalSignature.shaHash || null,
         }
