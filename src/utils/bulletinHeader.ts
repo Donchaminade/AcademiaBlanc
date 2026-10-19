@@ -73,6 +73,20 @@ export function ministrySigle(ministryName: string): string {
   return letters ? `(${letters})` : '';
 }
 
+/** Libellé de démonstration affiché hors connexion, explicitement étiqueté pour ne pas passer pour une donnée réelle. */
+export const DEMO_EXAM_LABEL = 'BAC II (démonstration)';
+
+/**
+ * Titre principal du bulletin à partir du libellé long du référentiel de la plateforme :
+ * « BREVET D'ÉTUDES DU PREMIER CYCLE — EXAMEN BLANC ». Le suffixe n'est pas répété quand le libellé
+ * désigne déjà un examen blanc ou une composition.
+ */
+export function examTitleFromType(examTypeLong: string): string {
+  const upper = (examTypeLong || '').replace(/\s+/g, ' ').trim().toLocaleUpperCase('fr-FR');
+  if (!upper) return '';
+  return /BLANC|COMPOSITION/.test(upper) ? upper : `${upper} — EXAMEN BLANC`;
+}
+
 /**
  * Sigle imprimé sous le nom du ministère : celui enregistré avec le préréglage national
  * (`settings.ministrySigle`) s'il existe, sinon déduit du nom par `ministrySigle()`.
@@ -84,18 +98,30 @@ export function ministryMark(settings: { ministryName: string; ministrySigle?: s
 }
 
 /**
- * Calcule dynamiquement les mentions et titres officiels de l'en-tête du bulletin
- * en fonction de la session choisie (ex : BEPC, BAC I, BAC II Série D, Série C, etc.)
+ * Calcule dynamiquement les mentions et titres officiels de l'en-tête du bulletin.
+ *
+ * - Connecté à l'API : `examTypeLong` (libellé long du type d'examen de la session active, issu du
+ *   référentiel de la plateforme) donne le titre ; la session et la série ne servent qu'au sous-titre.
+ * - Mode démonstration (sans type) : reconnaissance d'après le nom de session (BEPC, BAC I, BAC II…).
  */
 export function getBulletinHeaderInfo(
   sessionName: string,
-  candidateSerie?: string
+  candidateSerie?: string,
+  examTypeLong?: string | null
 ): BulletinHeaderInfo {
+  const title = examTitleFromType(examTypeLong || '');
+  if (!title) return legacyHeaderInfo(sessionName, candidateSerie);
+  // Le libellé long permet de retrouver le sous-titre par cycle / série même si le nom de session est libre.
+  const reconnu = legacyHeaderInfo(`${examTypeLong} ${sessionName || ''}`, candidateSerie);
+  return { mainTitle: title, subTitle: reconnu.subTitle, examBadge: title };
+}
+
+function legacyHeaderInfo(sessionName: string, candidateSerie?: string): BulletinHeaderInfo {
   const norm = (sessionName || '').toUpperCase();
   const serie = (candidateSerie || '').toUpperCase();
 
   // 1. BEPC (Brevet d'Études du Premier Cycle)
-  if (norm.includes('BEPC') || serie.includes('BEPC')) {
+  if (norm.includes('BEPC') || norm.includes("BREVET D'ÉTUDES") || norm.includes('BREVET D’ÉTUDES') || serie.includes('BEPC')) {
     return {
       mainTitle: "RELEVÉ DE NOTES & BULLETIN OFFICIEL DU BREVET D'ÉTUDES DU PREMIER CYCLE (BEPC BLANC)",
       subTitle: "ENSEIGNEMENT SECONDAIRE GÉNÉRAL (PREMIER CYCLE) • DÉLIBÉRATION DU JURY N° 01",
@@ -103,13 +129,11 @@ export function getBulletinHeaderInfo(
     };
   }
 
-  // 2. BAC I (Première partie)
+  // 2. BAC I (Première partie) — « BAC II » ne doit pas être pris pour « BAC I ».
   if (
-    norm.includes('BAC I') ||
-    norm.includes('BACCALAURÉAT I') ||
+    /\bBAC(?:CALAURÉAT)?\s+(?:I|1)\b/.test(norm) ||
     norm.includes('PREMIÈRE PARTIE') ||
-    norm.includes('BAC 1') ||
-    serie.includes('BAC I')
+    /\bBAC\s+I\b/.test(serie)
   ) {
     if (norm.includes('A4') || serie.includes('A4') || norm.includes('SÉRIE A') || serie.includes('SÉRIE A')) {
       return {
@@ -180,9 +204,9 @@ export function getBulletinHeaderInfo(
 
   // 5. Fallback générique
   return {
-    mainTitle: `RELEVÉ DE NOTES & BULLETIN OFFICIEL - ${sessionName.toUpperCase()}`,
+    mainTitle: `RELEVÉ DE NOTES & BULLETIN OFFICIEL - ${(sessionName || '').toUpperCase()}`,
     subTitle: `DÉLIBÉRATION OFFICIELLE DU JURY N° 01 • PROPRIÉTÉ ACADÉMIQUE`,
-    examBadge: sessionName,
+    examBadge: sessionName || '',
   };
 }
 

@@ -9,7 +9,7 @@ import { getSession, onSessionChange } from './client';
 export type Ressource =
   | 'ANNEES' | 'CENTRES' | 'SESSIONS' | 'MATIERES' | 'COEFFICIENTS' | 'ENSEIGNANTS' | 'CLASSES' | 'SERIES'
   | 'AFFECTATIONS' | 'ELEVES' | 'NOTES' | 'BULLETINS' | 'PARAMETRES' | 'UTILISATEURS'
-  | 'ETABLISSEMENTS' | 'GESTIONNAIRES' | 'PREREGLAGES';
+  | 'ETABLISSEMENTS' | 'GESTIONNAIRES' | 'TYPES_EXAMEN' | 'PREREGLAGES';
 
 export type Action = 'VOIR' | 'DETAILS' | 'CREER' | 'MODIFIER' | 'SUPPRIMER' | 'IMPRIMER';
 
@@ -50,6 +50,7 @@ export const RESSOURCE_LABELS: Record<Ressource, string> = {
   UTILISATEURS: 'Utilisateurs & droits',
   ETABLISSEMENTS: 'Établissements',
   GESTIONNAIRES: 'Gestionnaires',
+  TYPES_EXAMEN: 'Types d’examen',
   PREREGLAGES: 'Pays & ministères',
 };
 

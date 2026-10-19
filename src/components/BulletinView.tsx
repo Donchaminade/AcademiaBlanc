@@ -21,6 +21,8 @@ interface BulletinViewProps {
   canPrint?: boolean;
   settings: AppSettings;
   selectedSession?: string;
+  /** Libellé long du type d'examen de la session active (référentiel de la plateforme) ; absent en démonstration. */
+  examTypeLong?: string;
 }
 
 export const BulletinView: React.FC<BulletinViewProps> = ({
@@ -36,6 +38,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   canPrint = true,
   settings,
   selectedSession,
+  examTypeLong,
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const ministryMarkLabel = ministryMark(settings);
@@ -46,9 +49,10 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   const headerInfo = useMemo(() => {
     return getBulletinHeaderInfo(
       selectedSession || settings.sessionName,
-      selectedCandidate.serie
+      selectedCandidate.serie,
+      examTypeLong
     );
-  }, [selectedSession, settings.sessionName, selectedCandidate.serie]);
+  }, [selectedSession, settings.sessionName, selectedCandidate.serie, examTypeLong]);
 
   const currentIndex = candidates.findIndex((c) => c.id === selectedCandidate.id);
 

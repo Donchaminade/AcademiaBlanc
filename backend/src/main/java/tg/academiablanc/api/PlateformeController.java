@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import tg.academiablanc.domain.Action;
+import tg.academiablanc.domain.CycleExamen;
 import tg.academiablanc.domain.Etablissement;
 import tg.academiablanc.domain.Ressource;
 import tg.academiablanc.domain.Role;
@@ -35,7 +36,7 @@ import tg.academiablanc.security.PermissionService;
 
 /**
  * Niveau plateforme : propriétaire du logiciel (SUPER_ADMIN, tous les droits) et gestionnaires
- * (GESTIONNAIRE_PLATEFORME, droits fins sur ETABLISSEMENTS et GESTIONNAIRES).
+ * (GESTIONNAIRE_PLATEFORME, droits fins sur ETABLISSEMENTS, GESTIONNAIRES et TYPES_EXAMEN).
  * Aucune écriture dans les données pédagogiques d’un établissement, aucune prise de contrôle de compte.
  */
 @RestController
@@ -50,6 +51,7 @@ public class PlateformeController {
   private final NoteRepository notes;
   private final EtablissementService creation;
   private final UtilisateursService comptes;
+  private final TypeExamenService typesExamen;
   private final PermissionService droits;
 
   public PlateformeController(
@@ -62,6 +64,7 @@ public class PlateformeController {
       NoteRepository notes,
       EtablissementService creation,
       UtilisateursService comptes,
+      TypeExamenService typesExamen,
       PermissionService droits
   ) {
     this.etablissements = etablissements;
@@ -73,6 +76,7 @@ public class PlateformeController {
     this.notes = notes;
     this.creation = creation;
     this.comptes = comptes;
+    this.typesExamen = typesExamen;
     this.droits = droits;
   }
 
@@ -124,6 +128,15 @@ public class PlateformeController {
   public record PermissionsRequest(@NotNull List<String> permissions) {}
 
   public record MotDePasseRequest(@NotBlank @Size(min = 6, max = 80) String motDePasse) {}
+
+  public record TypeExamenRequest(
+      @NotBlank @Size(max = 20) String code,
+      @NotBlank @Size(max = 60) String libelleCourt,
+      @NotBlank @Size(max = 160) String libelleLong,
+      CycleExamen cycle,
+      Integer ordre,
+      Boolean actif
+  ) {}
 
   /* ------------------------------------------------------------------ */
   /* Établissements                                                      */
@@ -249,6 +262,45 @@ public class PlateformeController {
   public void supprimerGestionnaire(@PathVariable Long id) {
     Utilisateur moi = droits.exiger(Ressource.GESTIONNAIRES, Action.SUPPRIMER);
     comptes.supprimer(moi, gestionnaireCible(id));
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Types d'examen (référentiel commun à tous les établissements)       */
+  /* ------------------------------------------------------------------ */
+
+  @GetMapping("/types-examen")
+  public List<TypeExamenService.TypeExamenVue> typesExamen() {
+    droits.exiger(Ressource.TYPES_EXAMEN, Action.VOIR);
+    return typesExamen.listerTous();
+  }
+
+  @GetMapping("/types-examen/{id}")
+  public TypeExamenService.TypeExamenVue typeExamen(@PathVariable Long id) {
+    droits.exiger(Ressource.TYPES_EXAMEN, Action.DETAILS);
+    return typesExamen.vue(typesExamen.charger(id));
+  }
+
+  @PostMapping("/types-examen")
+  @ResponseStatus(HttpStatus.CREATED)
+  public TypeExamenService.TypeExamenVue creerTypeExamen(@Valid @RequestBody TypeExamenRequest request) {
+    droits.exiger(Ressource.TYPES_EXAMEN, Action.CREER);
+    return typesExamen.creer(request.code(), request.libelleCourt(), request.libelleLong(), request.cycle(), request.ordre(), request.actif());
+  }
+
+  /** Modification complète ; {@code actif = false} désactive le type sans toucher aux sessions qui l'utilisent. */
+  @PutMapping("/types-examen/{id}")
+  public TypeExamenService.TypeExamenVue modifierTypeExamen(@PathVariable Long id, @Valid @RequestBody TypeExamenRequest request) {
+    droits.exiger(Ressource.TYPES_EXAMEN, Action.MODIFIER);
+    return typesExamen.modifier(typesExamen.charger(id), request.code(), request.libelleCourt(), request.libelleLong(),
+        request.cycle(), request.ordre(), request.actif());
+  }
+
+  /** Suppression définitive, refusée (409) dès qu'une session utilise le type. */
+  @DeleteMapping("/types-examen/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void supprimerTypeExamen(@PathVariable Long id) {
+    droits.exiger(Ressource.TYPES_EXAMEN, Action.SUPPRIMER);
+    typesExamen.supprimer(typesExamen.charger(id));
   }
 
   /* ------------------------------------------------------------------ */

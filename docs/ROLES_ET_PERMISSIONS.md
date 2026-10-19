@@ -49,6 +49,7 @@ Plateforme :
 | --- | --- | --- |
 | `ETABLISSEMENTS` | Voir, Détails, Créer, Modifier (réactiver), Supprimer (désactiver) | `/api/plateforme/etablissements` |
 | `GESTIONNAIRES` | Voir, Détails, Créer, Modifier, Supprimer | `/api/plateforme/gestionnaires` |
+| `TYPES_EXAMEN` | Voir, Détails, Créer, Modifier (dont activer / désactiver), Supprimer (refusé `409` si des sessions l’utilisent) | `/api/plateforme/types-examen` — lecture des types actifs par les établissements : `GET /api/types-examen` (tout utilisateur connecté, sans droit particulier), voir `docs/EXAMENS.md` |
 | `PREREGLAGES` | Voir, Détails, Créer, Modifier (dont réactiver, définir par défaut), Supprimer (dont désactiver) | `/api/plateforme/prereglages-nationaux` — voir [PLATEFORME.md](PLATEFORME.md) |
 
 Règle complémentaire inchangée : un `ENSEIGNANT` ne saisit ou ne modifie une note que pour une matière et une classe qui lui sont affectées (fiche enseignant reliée à son compte).
@@ -74,6 +75,7 @@ Le secrétariat ne supprime rien par défaut. Seul `OWNER` gère les utilisateur
 | --- | --- | --- |
 | ETABLISSEMENTS | tout | Voir, Détails |
 | GESTIONNAIRES | tout | Voir |
+| TYPES_EXAMEN | tout | Voir |
 | PREREGLAGES | tout | Voir |
 | ressources d’établissement | tout (sur son propre établissement) | — |
 
@@ -121,7 +123,8 @@ API : `GET/POST /api/utilisateurs`, `GET /api/utilisateurs/referentiel`, `GET/PU
 2. Onglet **Gestionnaires** → **Ajouter un gestionnaire** : nom, email, mot de passe temporaire, droits (préréglage `Voir` + `Détails` sur les établissements, ou matrice personnalisée).
 3. Un gestionnaire n’est rattaché à aucun établissement (`etablissement_id` nul) : il n’a accès à aucune donnée pédagogique, uniquement à `/api/plateforme/**` selon ses droits.
 4. Onglet **Établissements** : la liste demande `ETABLISSEMENTS:VOIR` ; les contacts et effectifs demandent `DETAILS` ; **Ajouter un établissement** (crée l’école et son `OWNER` avec un mot de passe temporaire) demande `CREER` ; **Désactiver** demande `SUPPRIMER` ; **Réactiver** demande `MODIFIER`. On ne désactive pas l’établissement qui porte le compte `SUPER_ADMIN`.
-5. Onglet **Pays & ministères** (`PREREGLAGES:VOIR`) : référentiel des préréglages nationaux (république, devise, ministère, sigle) proposés aux établissements ; créer demande `CREER`, modifier / réactiver / définir par défaut `MODIFIER`, désactiver et supprimer `SUPPRIMER`. Détails dans [PLATEFORME.md](PLATEFORME.md).
+5. Onglet **Types d’examen** : le référentiel commun (CEPD, BEPC, BAC I, BAC II, composition…) que chaque établissement choisit pour ses sessions. La liste demande `TYPES_EXAMEN:VOIR` ; **Créer**, **Modifier** / **Désactiver** / **Réactiver** et **Supprimer** demandent respectivement `CREER`, `MODIFIER` et `SUPPRIMER`. Un type utilisé par des sessions ne se supprime pas : il se désactive (voir `docs/EXAMENS.md`).
+6. Onglet **Pays & ministères** (`PREREGLAGES:VOIR`) : référentiel des préréglages nationaux (république, devise, ministère, sigle) proposés aux établissements ; créer demande `CREER`, modifier / réactiver / définir par défaut `MODIFIER`, désactiver et supprimer `SUPPRIMER`. Détails dans [PLATEFORME.md](PLATEFORME.md).
 
 API : `GET/POST /api/plateforme/etablissements`, `GET /api/plateforme/etablissements/{id}`, `DELETE /api/plateforme/etablissements/{id}` (désactivation), `PUT /api/plateforme/etablissements/{id}/reactiver`, `GET/POST /api/plateforme/gestionnaires`, `GET /api/plateforme/gestionnaires/referentiel`, `GET/PUT/DELETE /api/plateforme/gestionnaires/{id}`, `PUT …/{id}/permissions`, `POST …/{id}/permissions/prereglage`, `POST …/{id}/reinitialiser-mot-de-passe`.
 
@@ -137,7 +140,7 @@ Migration `V10__permissions_utilisateurs.sql` :
 - `etablissement.actif` (défaut vrai) pour la désactivation douce.
 - Table `permission_utilisateur (id, utilisateur_id, ressource, action, accorde)` avec unicité `(utilisateur_id, ressource, action)` et suppression en cascade avec l’utilisateur.
 
-Migration `V14__prereglage_national.sql` : table `prereglage_national` (ressource `PREREGLAGES`) et colonnes d’en-tête officiel sur `etablissement` ; voir [PLATEFORME.md](PLATEFORME.md).
+Migration `V15__prereglage_national.sql` : table `prereglage_national` (ressource `PREREGLAGES`) et colonnes d’en-tête officiel sur `etablissement` ; voir [PLATEFORME.md](PLATEFORME.md).
 
 ## Variables d’environnement
 

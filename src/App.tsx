@@ -75,6 +75,7 @@ export default function App() {
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [activeClasseId, setActiveClasseId] = useState<number | null>(null);
   const [activeExamType, setActiveExamType] = useState<string>('');
+  const [activeExamTypeLong, setActiveExamTypeLong] = useState<string>('');
   const [usingApi, setUsingApi] = useState<boolean>(() => Boolean(getToken()));
   // Jeton présent au chargement : rien n'est affiché (surtout pas de données de démonstration)
   // tant que la session n'est pas relue et l'espace de l'établissement chargé depuis l'API.
@@ -190,13 +191,15 @@ export default function App() {
     setActiveSessionId(workspace.sessionId);
     setActiveClasseId(workspace.classeId);
     setActiveExamType(workspace.examType);
+    setActiveExamTypeLong(workspace.examTypeLong);
     setSettings((prev) => {
       const next: AppSettings = {
         ...prev,
         institutionName: session?.nomEtablissement || prev.institutionName,
         academicYear: workspace.academicYear || prev.academicYear,
         sessionName: workspace.sessionName || prev.sessionName,
-        examType: workspace.examType || prev.examType,
+        // Libellé long du référentiel de la plateforme ; vide tant qu'aucune session n'existe (jamais la valeur de démo).
+        examType: workspace.examTypeLong,
       };
       // République, devise et ministère viennent de l'établissement (préréglage national appliqué, puis ajusté).
       const avecEnTete = appliquerEnTeteAuxSettings(next, profil?.enTete);
@@ -771,6 +774,7 @@ export default function App() {
         onConnexion={usingApi ? undefined : ouvrirConnexion}
         onOpenSearch={sessionPlateformeSeule ? undefined : () => setIsSearchModalOpen(true)}
         sessionOptions={usingApi ? apiSessions.map((item) => item.label) : undefined}
+        examType={usingApi ? activeExamType : undefined}
         centerOptions={usingApi ? apiCenters : undefined}
         platformOwner={isPlatformAccount(getSession()) || accountRole === 'SUPER_ADMIN' || accountRole === 'GESTIONNAIRE_PLATEFORME'}
         platformOnly={sessionPlateformeSeule}
@@ -850,6 +854,7 @@ export default function App() {
               canPrint={peutImprimer}
               settings={settings}
               selectedSession={selectedSession}
+              examTypeLong={usingApi ? activeExamTypeLong : undefined}
             />
           )}
 
@@ -953,6 +958,7 @@ export default function App() {
               }}
               selectedSession={selectedSession}
               selectedCenter={selectedCenter}
+              examType={usingApi ? activeExamType : undefined}
               juryLocked={juryLocked}
               onToggleJuryLock={handleToggleJuryLock}
             />
@@ -1017,6 +1023,7 @@ export default function App() {
           allStats={allStats}
           settings={settings}
           selectedSession={selectedSession}
+          examTypeLong={usingApi ? activeExamTypeLong : undefined}
           onClose={() => setIsBatchPrintModalOpen(false)}
         />
       )}
