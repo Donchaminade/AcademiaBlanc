@@ -4,9 +4,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -151,10 +153,7 @@ public class BulletinService {
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session introuvable."));
     Tenant.same(session.getEtablissementId());
 
-    List<Eleve> roster = eleves.findByEtablissementIdAndSessionId(user.etablissementId(), sessionId);
-    if (roster.isEmpty()) {
-      roster = eleves.findByEtablissementIdOrderByNomCompletAsc(user.etablissementId());
-    }
+    List<Eleve> roster = candidatsDe(session, user.etablissementId());
     List<Matiere> subjects = new ArrayList<>(matieres.findByEtablissementIdOrderByNomAsc(user.etablissementId()));
     subjects.sort(ReferentielMatieres.ORDRE_BULLETIN);
     Map<Long, Matiere> matiereParId = new HashMap<>();
@@ -281,6 +280,26 @@ public class BulletinService {
       vues.add(vue);
     }
     return vues;
+  }
+
+  /**
+   * Candidats d'une session : les élèves rattachés à cette session, ceux rattachés à une session
+   * sœur (même examen, même année scolaire : le « BEPC blanc n°2 » reprend les élèves du n°1 sans
+   * réimport) et ceux sans session. Tant qu'aucun élève n'est rattaché à la session ni à une sœur,
+   * tous les élèves de l'établissement sont candidats (données antérieures au rattachement).
+   */
+  private List<Eleve> candidatsDe(SessionExamen session, Long etablissementId) {
+    Set<Long> famille = new HashSet<>();
+    famille.add(session.getId());
+    for (SessionExamen autre : sessions.findByEtablissementIdOrderByNomAsc(etablissementId)) {
+      if (session.memeExamenMemeAnnee(autre)) famille.add(autre.getId());
+    }
+    List<Eleve> tous = eleves.findByEtablissementIdOrderByNomCompletAsc(etablissementId);
+    List<Eleve> roster = tous.stream()
+        .filter(eleve -> eleve.getSessionId() == null || famille.contains(eleve.getSessionId()))
+        .toList();
+    boolean rattaches = roster.stream().anyMatch(eleve -> eleve.getSessionId() != null);
+    return rattaches ? roster : tous;
   }
 
   private void upsert(Long etablissementId, Long sessionId, BulletinVue vue) {

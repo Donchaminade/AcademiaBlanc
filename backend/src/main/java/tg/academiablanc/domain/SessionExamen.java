@@ -52,4 +52,15 @@ public class SessionExamen implements TenantOwned {
   /** Renseignée quand la session est archivée ou clôturée ; vide tant qu'elle est ouverte. */
   @Column(name = "archivee_le")
   private Instant archiveeLe;
+
+  /**
+   * Deux sessions sont « sœurs » quand elles portent le même examen dans la même année scolaire
+   * (« BEPC blanc n°1 » en novembre puis « BEPC blanc n°2 » en février) : leurs candidats sont
+   * communs, sans réimport des élèves. Le type est comparé par référentiel, sinon par libellé.
+   */
+  public boolean memeExamenMemeAnnee(SessionExamen autre) {
+    if (autre == null || anneeScolaireId == null || !anneeScolaireId.equals(autre.anneeScolaireId)) return false;
+    if (typeExamenId != null && autre.typeExamenId != null) return typeExamenId.equals(autre.typeExamenId);
+    return typeExamen != null && autre.typeExamen != null && typeExamen.trim().equalsIgnoreCase(autre.typeExamen.trim());
+  }
 }
