@@ -82,7 +82,8 @@ function notifySession(): void {
 const TOKEN_KEY = 'academiablanc_token';
 
 export function apiBaseUrl(): string {
-  const configured = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+  // `import.meta.env` n'existe que sous Vite ; les tests Node appellent ce module sans lui.
+  const configured = import.meta.env?.VITE_API_URL || 'http://localhost:8080';
   return configured.replace(/\/$/, '');
 }
 

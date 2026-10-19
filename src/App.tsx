@@ -15,15 +15,25 @@ import { AllBulletinsPrintModal } from './components/AllBulletinsPrintModal';
 import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
 import { SearchModal } from './components/SearchModal';
-import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
-import { ApiError, apiDelete, apiSend, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, refreshSession, roleLabel, setSession } from './api/client';
+import { DEFAULT_SETTINGS, INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
+import { ApiError, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, refreshSession, roleLabel, setSession } from './api/client';
+import {
+  appliquerDeliberation,
+  creerEleve,
+  renumeroterEleves,
+  sauvegarderDeliberation,
+  sauvegarderEleve,
+  sauvegarderNote,
+  sauvegarderParametres,
+  supprimerEleve,
+} from './api/ecritures';
 import type { AuthSession } from './api/client';
 import type { ProfilEtablissement } from './api/etablissement';
 import { usePermissions } from './api/permissions';
-import { confirmAction, showError } from './utils/alerts';
+import { confirmAction, showError, toastSuccess } from './utils/alerts';
 import { loadSchoolWorkspace, ExamOption, WorkspaceOptions } from './api/workspace';
 import { horsProgramme } from './utils/programme';
-import { applyCharte, charteChanged, loadCharte, saveCharte } from './api/charte';
+import { applyCharte, charteChanged, loadCharte } from './api/charte';
 import {
   getRegisteredSchools,
   getCurrentSchoolId,
@@ -143,21 +153,39 @@ export default function App() {
     showToast(err instanceof Error && err.message ? err.message : fallback);
   };
 
-  // Sync isolated data on changes
-  const handleUpdateSettings = (newSettings: AppSettings) => {
+  /**
+   * Écriture : paramètres du bulletin (logo, sceau, pays, devise, ministère, signataires, numérotation,
+   * cachet et signatures). En session API ils sont enregistrés sur le serveur (`PUT /api/etablissement/charte`)
+   * et l'état local n'est mis à jour qu'à partir de la réponse ; en démonstration, dans le navigateur.
+   * Résout `false` si le serveur a refusé : l'appelant n'affiche alors aucune confirmation.
+   */
+  const handleUpdateSettings = async (newSettings: AppSettings): Promise<boolean> => {
+    if (usingApi) {
+      if (!charteChanged(settings, newSettings)) return true;
+      try {
+        const charte = await sauvegarderParametres(newSettings);
+        setSettings((prev) => applyCharte(prev, charte));
+        return true;
+      } catch (err) {
+        signalerErreur(err, 'Paramètres non enregistrés sur le serveur.');
+        return false;
+      }
+    }
     setSettings(newSettings);
     saveSchoolData(currentSchoolId, newSettings, candidates);
     setSchools(getRegisteredSchools());
-    // Cachet et signatures suivent l'établissement sur l'API pour être retrouvés depuis un autre poste.
-    if (getToken() && charteChanged(settings, newSettings)) {
-      void saveCharte(newSettings).catch((err: unknown) =>
-        signalerErreur(err, 'Cachet / signatures non enregistrés sur le serveur.'));
-    }
+    return true;
   };
 
+  /** Démonstration uniquement : la liste locale est mémorisée dans le navigateur. */
   const handleUpdateCandidates = (newCandidates: Candidate[]) => {
     setCandidates(newCandidates);
-    if (!getToken()) saveSchoolData(currentSchoolId, settings, newCandidates);
+    if (!usingApi) saveSchoolData(currentSchoolId, settings, newCandidates);
+  };
+
+  /** Remplace un candidat par sa version relue sur le serveur, sans toucher aux autres. */
+  const remplacerCandidat = (next: Candidate) => {
+    setCandidates((prev) => prev.map((c) => (c.id === next.id ? next : c)));
   };
 
   const applyWorkspace = async (sessionId?: number, options: WorkspaceOptions = { toutesSessions }) => {
@@ -181,8 +209,11 @@ export default function App() {
     setActiveClasseId(workspace.classeId);
     setActiveExamType(workspace.examType);
     setSettings((prev) => {
+      // En session API, les paramètres viennent du serveur (charte) ou des valeurs par défaut du logiciel :
+      // rien n'est repris des réglages de démonstration mémorisés dans le navigateur.
+      const base: AppSettings = charte ? DEFAULT_SETTINGS : prev;
       const next: AppSettings = {
-        ...prev,
+        ...base,
         institutionName: session?.nomEtablissement || prev.institutionName,
         academicYear: workspace.academicYear || prev.academicYear,
         sessionName: workspace.sessionName || prev.sessionName,
@@ -430,91 +461,96 @@ export default function App() {
     return allStats[selectedCandidate.id] || computeCandidateStats(selectedCandidate, subjects, candidates);
   }, [allStats, selectedCandidate, subjects, candidates]);
 
-  // Update a grade for a candidate
-  const handleUpdateGrade = (candidateId: string, subjectId: string, newScore: number) => {
+  const avecNote = (candidate: Candidate, subjectId: string, score: number): Candidate => ({
+    ...candidate,
+    grades: {
+      ...candidate.grades,
+      [subjectId]: { score, appreciation: candidate.grades[subjectId]?.appreciation || 'Travail évalué.' },
+    },
+  });
+
+  /**
+   * Écriture : note d'un candidat dans une matière. En session API la note part au serveur
+   * (`POST /api/notes`) et la grille n'est mise à jour qu'avec la valeur renvoyée ; résout `false`
+   * en cas de refus (la cellule reste marquée « non enregistrée »).
+   */
+  const handleUpdateGrade = async (candidateId: string, subjectId: string, newScore: number): Promise<boolean> => {
     const cible = candidates.find((c) => c.id === candidateId);
+    if (!cible) return false;
     if (horsProgramme(cible, subjectId, subjects)) {
       showToast('Cette matière n’est pas au programme de la classe de cet élève.');
-      return;
+      return false;
     }
-    const updated = candidates.map((c) => {
-      if (c.id !== candidateId) return c;
-      const currentApprec = c.grades[subjectId]?.appreciation || 'Travail évalué.';
-      return {
-        ...c,
-        grades: {
-          ...c.grades,
-          [subjectId]: {
-            score: newScore,
-            appreciation: currentApprec,
-          },
-        },
-      };
-    });
-    handleUpdateCandidates(updated);
-    if (getToken() && activeSessionId && Number.isFinite(Number(candidateId)) && Number.isFinite(Number(subjectId))) {
-      void apiSend('/api/notes', 'POST', {
-        eleveId: Number(candidateId),
-        matiereId: Number(subjectId),
-        sessionId: activeSessionId,
-        valeur: newScore,
-        absent: false,
-      }).catch((err: unknown) => signalerErreur(err, 'Note non enregistrée.'));
+    if (usingApi) {
+      try {
+        const note = await sauvegarderNote({ candidateId, subjectId, sessionId: activeSessionId, score: newScore });
+        remplacerCandidat(avecNote(cible, subjectId, Number(note.valeur ?? newScore)));
+        return true;
+      } catch (err) {
+        signalerErreur(err, 'Note non enregistrée.');
+        return false;
+      }
     }
+    handleUpdateCandidates(candidates.map((c) => (c.id === candidateId ? avecNote(c, subjectId, newScore) : c)));
+    return true;
   };
 
-  // Apply jury bonus (repêchage)
-  const handleApplyJuryBonus = (candidateId: string, bonus: number) => {
-    const updated = candidates.map((c) => {
-      if (c.id !== candidateId) return c;
-      return {
-        ...c,
-        juryBonus: bonus,
-        generalObservation: `« Délibération spéciale du Jury : bonus de repêchage de +${bonus.toFixed(2)} pts accordé au vu de l'assiduité. »`,
-      };
-    });
-    handleUpdateCandidates(updated);
+  /**
+   * Écriture : décision du jury (bonus de repêchage et observation du bulletin). En session API,
+   * `PUT /api/deliberations` puis mise à jour du candidat à partir de la réponse.
+   */
+  const handleApplyJuryBonus = async (candidateId: string, bonus: number): Promise<void> => {
+    const cible = candidates.find((c) => c.id === candidateId);
+    if (!cible) return;
+    const delibere: Candidate = {
+      ...cible,
+      juryBonus: bonus,
+      generalObservation: `« Délibération spéciale du Jury : bonus de repêchage de +${bonus.toFixed(2)} pts accordé au vu de l'assiduité. »`,
+    };
+    if (usingApi) {
+      try {
+        const vue = await sauvegarderDeliberation(delibere, activeSessionId);
+        remplacerCandidat(appliquerDeliberation(cible, vue));
+        toastSuccess(`Délibération enregistrée sur le serveur : +${bonus.toFixed(2)} pts pour ${cible.fullName}.`);
+      } catch (err) {
+        signalerErreur(err, 'Délibération non enregistrée.');
+      }
+      return;
+    }
+    handleUpdateCandidates(candidates.map((c) => (c.id === candidateId ? delibere : c)));
     showToast(`Délibération enregistrée : +${bonus.toFixed(2)} pts de rachat accordés.`);
   };
 
-  // Sign digitally
-  const handleSign = (signedAt: string, signer: string, shaHash: string) => {
+  /** Écriture : signature électronique du bulletin du candidat sélectionné (même enregistrement que la délibération). */
+  const handleSign = async (signedAt: string, signer: string, shaHash: string): Promise<void> => {
     if (!selectedCandidate) return;
-    const updated = candidates.map((c) => {
-      if (c.id !== selectedCandidate.id) return c;
-      return {
-        ...c,
-        digitalSignature: {
-          signedAt,
-          signer,
-          shaHash,
-        },
-      };
-    });
-    handleUpdateCandidates(updated);
+    const signe: Candidate = { ...selectedCandidate, digitalSignature: { signedAt, signer, shaHash } };
+    if (usingApi) {
+      try {
+        const vue = await sauvegarderDeliberation(signe, activeSessionId);
+        remplacerCandidat(appliquerDeliberation(selectedCandidate, vue));
+        toastSuccess(`Signature de ${signer} enregistrée sur le serveur.`);
+      } catch (err) {
+        signalerErreur(err, 'Signature non enregistrée.');
+      }
+      return;
+    }
+    handleUpdateCandidates(candidates.map((c) => (c.id === selectedCandidate.id ? signe : c)));
     showToast(`Signature électronique X.509 de ${signer} apposée et scellée avec succès.`);
   };
 
-  // Add new candidate with automatic alphabetical table assignment
+  // Écriture : inscription d'un candidat. En session API, `POST /api/eleves` puis relecture de la liste.
   const handleAddNewCandidate = (newCand: Candidate) => {
-    if (getToken()) {
+    if (usingApi) {
       if (!activeClasseId) {
         showToast('Créez d’abord une classe dans Administration (barre latérale).');
         openAdmin('classes');
         return;
       }
       // Le matricule n'est pas envoyé : il est attribué par le serveur.
-      void apiSend<{ matricule: string }>('/api/eleves', 'POST', {
-        classeId: activeClasseId,
-        sessionId: activeSessionId,
-        nomComplet: newCand.fullName,
-        genre: newCand.gender,
-        numeroTable: newCand.tableNumber || null,
-        dateNaissance: newCand.dob || null,
-        lieuNaissance: newCand.birthPlace || null,
-        etablissementOrigine: newCand.originSchool || null,
-      }).then((cree) => applyWorkspace(activeSessionId ?? undefined)
-        .then(() => showToast(`${newCand.fullName} est enregistré dans la base — matricule ${cree.matricule}.`)))
+      void creerEleve(newCand, activeClasseId, activeSessionId)
+        .then((cree) => applyWorkspace(activeSessionId ?? undefined)
+          .then(() => toastSuccess(`${newCand.fullName} est enregistré dans la base — matricule ${cree.matricule}.`)))
         .catch((err: unknown) => signalerErreur(err, 'Inscription impossible.'));
       return;
     }
@@ -528,9 +564,9 @@ export default function App() {
     showToast(`Candidat ${newCand.fullName} inscrit ! N° de table généré automatiquement par ordre alphabétique.`);
   };
 
-  // Batch add candidates with automatic alphabetical table assignment (mode démonstration uniquement)
+  // Écriture : ajout groupé (démonstration uniquement ; en session API l'import passe par ImportElevesPanel).
   const handleBatchAddCandidates = (newCands: Candidate[]) => {
-    if (getToken()) {
+    if (usingApi) {
       // En session API, l'import passe par `POST /api/eleves/import` (ImportElevesPanel) : rien n'est ajouté localement,
       // sinon la liste semblerait enregistrée puis disparaîtrait au rechargement.
       void showError('Import non enregistré', 'Utilisez « Import en Masse » : la liste est alors enregistrée dans la base de l’établissement.');
@@ -545,8 +581,23 @@ export default function App() {
     showToast(`${newCands.length} candidats importés et numérotés automatiquement par ordre alphabétique (A → Z) !`);
   };
 
-  // Update candidate and synchronize alphabetical table numbers if name changes
-  const handleUpdateCandidate = (updated: Candidate) => {
+  /**
+   * Écriture : fiche d'un élève (crayon de la liste). En session API, `PUT /api/eleves/{id}` puis relecture
+   * de la liste depuis le serveur ; résout `false` si le serveur a refusé (la fenêtre reste ouverte).
+   * En démonstration, les numéros de table sont recalculés localement.
+   */
+  const handleUpdateCandidate = async (updated: Candidate): Promise<boolean> => {
+    if (usingApi) {
+      try {
+        await sauvegarderEleve(updated);
+        await applyWorkspace(activeSessionId ?? undefined);
+        toastSuccess(`Fiche de ${updated.fullName} enregistrée sur le serveur.`);
+        return true;
+      } catch (err) {
+        signalerErreur(err, 'Fiche non enregistrée.');
+        return false;
+      }
+    }
     const list = candidates.map((c) => (c.id === updated.id ? updated : c));
     const finalList = settings.autoAssignTables !== false
       ? autoAssignTableNumbers(list, settings.startTableNumber || 101)
@@ -554,14 +605,15 @@ export default function App() {
 
     handleUpdateCandidates(finalList);
     showToast(`Fiche de ${updated.fullName} mise à jour (N° de table recalculé automatiquement).`);
+    return true;
   };
 
-  // Delete candidate and re-index table numbers
+  // Écriture : retrait d'un candidat. En session API, `DELETE /api/eleves/{id}` puis relecture de la liste.
   const handleDeleteCandidate = (candidateId: string) => {
-    if (getToken() && Number.isFinite(Number(candidateId))) {
-      void apiDelete(`/api/eleves/${candidateId}`)
+    if (usingApi) {
+      void supprimerEleve(candidateId)
         .then(() => applyWorkspace(activeSessionId ?? undefined))
-        .then(() => showToast('Élève retiré de la base.'))
+        .then(() => toastSuccess('Élève retiré de la base.'))
         .catch((err: unknown) => signalerErreur(err, 'Suppression impossible.'));
       return;
     }
@@ -577,10 +629,25 @@ export default function App() {
     showToast('Candidat retiré du registre et numéros de table réajustés.');
   };
 
-  // Manual trigger to re-generate table numbers alphabetically A-Z
-  const handleRenumberAlphabetically = (startNumber?: number) => {
+  /**
+   * Écriture : renumérotation alphabétique des tables. En session API, chaque élève dont le numéro
+   * change est enregistré (`PUT /api/eleves/{id}`) puis la liste est relue depuis le serveur.
+   */
+  const handleRenumberAlphabetically = async (startNumber?: number): Promise<void> => {
     const base = startNumber ?? settings.startTableNumber ?? 101;
     const renumbered = autoAssignTableNumbers(candidates, base);
+    if (usingApi) {
+      try {
+        const modifies = await renumeroterEleves(candidates, renumbered);
+        await applyWorkspace(activeSessionId ?? undefined);
+        toastSuccess(modifies > 0
+          ? `${modifies} numéro(s) de table enregistré(s) sur le serveur (${base} → ${base + candidates.length - 1}).`
+          : 'Numéros de table déjà à jour sur le serveur.');
+      } catch (err) {
+        signalerErreur(err, 'Numéros de table non enregistrés.');
+      }
+      return;
+    }
     handleUpdateCandidates(renumbered);
     showToast(`Tables générées automatiquement de ${base} à ${base + candidates.length - 1} selon l'ordre alphabétique des noms (A → Z) !`);
   };
@@ -920,6 +987,7 @@ export default function App() {
               allStats={allStats}
               onUpdateGrade={handleUpdateGrade}
               onApplyJuryBonus={handleApplyJuryBonus}
+              usingApi={usingApi}
               onSelectCandidate={(c) => setSelectedCandidateId(c.id)}
               onNavigateToBulletin={(c) => {
                 setSelectedCandidateId(c.id);

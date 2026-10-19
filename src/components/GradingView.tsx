@@ -7,13 +7,21 @@ interface GradingViewProps {
   candidates: Candidate[];
   subjects: Subject[];
   allStats: Record<string, CandidateComputedStats>;
-  onUpdateGrade: (candidateId: string, subjectId: string, newScore: number) => void;
-  onApplyJuryBonus: (candidateId: string, bonus: number) => void;
+  /** Enregistre une note ; résout `false` si le serveur l'a refusée (la cellule reste « non enregistrée »). */
+  onUpdateGrade: (candidateId: string, subjectId: string, newScore: number) => Promise<boolean>;
+  onApplyJuryBonus: (candidateId: string, bonus: number) => void | Promise<void>;
   onSelectCandidate: (candidate: Candidate) => void;
   onNavigateToBulletin: (candidate: Candidate) => void;
   onAddNewCandidate: (candidate: Candidate) => void;
   juryLocked?: boolean;
+  /** Session connectée : les notes sont enregistrées sur le serveur, cellule par cellule. */
+  usingApi?: boolean;
 }
+
+/** État d'enregistrement d'une cellule de note : saisie en cours, envoi, enregistrée, refusée. */
+type EtatCellule = 'modifiee' | 'envoi' | 'enregistree' | 'erreur';
+
+const cleCellule = (candidateId: string, subjectId: string) => `${candidateId}:${subjectId}`;
 
 export const GradingView: React.FC<GradingViewProps> = ({
   candidates,
@@ -24,7 +32,11 @@ export const GradingView: React.FC<GradingViewProps> = ({
   onNavigateToBulletin,
   onAddNewCandidate,
   juryLocked = false,
+  usingApi = false,
 }) => {
+  // Valeur tapée mais pas encore validée (blur / Entrée), par cellule ; absente = valeur enregistrée affichée.
+  const [brouillons, setBrouillons] = useState<Record<string, string>>({});
+  const [etats, setEtats] = useState<Record<string, EtatCellule>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'admis' | 'rattrapage' | 'ajourne'>('all');
   const [selectedCandidateForBonus, setSelectedCandidateForBonus] = useState<Candidate | null>(null);
@@ -81,13 +93,50 @@ export const GradingView: React.FC<GradingViewProps> = ({
     return true;
   });
 
+  const poserEtat = (cle: string, etat: EtatCellule | null) => {
+    setEtats((prev) => {
+      const next = { ...prev };
+      if (etat) next[cle] = etat; else delete next[cle];
+      return next;
+    });
+  };
+
+  /** Frappe : la valeur reste un brouillon « non enregistré » jusqu'à validation. */
   const handleScoreChange = (candidateId: string, subjectId: string, valStr: string) => {
     if (juryLocked) return;
-    const val = parseFloat(valStr);
-    if (!isNaN(val) && val >= 0 && val <= 20) {
-      onUpdateGrade(candidateId, subjectId, Math.round(val * 100) / 100);
+    const cle = cleCellule(candidateId, subjectId);
+    setBrouillons((prev) => ({ ...prev, [cle]: valStr }));
+    poserEtat(cle, 'modifiee');
+  };
+
+  /** Validation (blur ou Entrée) : envoi au gestionnaire ; la cellule ne passe « enregistrée » qu'après son accord. */
+  const validerNote = async (candidateId: string, subjectId: string, valeurActuelle: number) => {
+    const cle = cleCellule(candidateId, subjectId);
+    const brouillon = brouillons[cle];
+    if (brouillon === undefined) return;
+    const val = parseFloat(brouillon.replace(',', '.'));
+    const arrondie = Math.round(val * 100) / 100;
+    if (!Number.isFinite(val) || val < 0 || val > 20) {
+      poserEtat(cle, 'erreur');
+      return;
+    }
+    if (arrondie === valeurActuelle) {
+      setBrouillons((prev) => { const next = { ...prev }; delete next[cle]; return next; });
+      poserEtat(cle, null);
+      return;
+    }
+    poserEtat(cle, 'envoi');
+    const ok = await onUpdateGrade(candidateId, subjectId, arrondie);
+    if (ok) {
+      setBrouillons((prev) => { const next = { ...prev }; delete next[cle]; return next; });
+      poserEtat(cle, 'enregistree');
+    } else {
+      poserEtat(cle, 'erreur');
     }
   };
+
+  const nonEnregistrees = Object.values(etats).filter((etat) => etat === 'modifiee' || etat === 'erreur').length;
+  const enCours = Object.values(etats).filter((etat) => etat === 'envoi').length;
 
   const submitAddCandidate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,6 +198,31 @@ export const GradingView: React.FC<GradingViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <span
+            role="status"
+            data-testid="etat-notes"
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded text-[12px] font-semibold border ${
+              nonEnregistrees > 0
+                ? 'bg-amber-50 text-amber-900 border-amber-300'
+                : enCours > 0
+                ? 'bg-[#eaedff] text-[#00236f] border-[#dce1ff]'
+                : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+            }`}
+            title={usingApi
+              ? 'Chaque note validée (Entrée ou sortie de la case) est enregistrée dans la base de l’établissement.'
+              : 'Mode démonstration : les notes restent dans ce navigateur.'}
+          >
+            <span className="material-symbols-outlined text-base">
+              {nonEnregistrees > 0 ? 'edit_note' : enCours > 0 ? 'progress_activity' : 'cloud_done'}
+            </span>
+            <span>
+              {nonEnregistrees > 0
+                ? `${nonEnregistrees} note(s) non enregistrée(s)`
+                : enCours > 0
+                ? 'Enregistrement…'
+                : usingApi ? 'Notes enregistrées sur le serveur' : 'Notes enregistrées (démonstration)'}
+            </span>
+          </span>
           <button
             type="button"
             onClick={() => setShowRankings(!showRankings)}
@@ -445,6 +519,9 @@ export const GradingView: React.FC<GradingViewProps> = ({
                     {/* Subject Inputs */}
                     {subjects.map((s) => {
                       const grade = cand.grades[s.id]?.score ?? 0;
+                      const cle = cleCellule(cand.id, s.id);
+                      const etat = etats[cle];
+                      const affichee = brouillons[cle] ?? String(grade);
                       if (horsProgramme(cand, s.id, subjects)) {
                         return (
                           <td key={s.id} className="py-1 px-1.5 text-center text-[#757682]" title="Matière hors programme de la classe de cet élève">
@@ -453,25 +530,56 @@ export const GradingView: React.FC<GradingViewProps> = ({
                         );
                       }
                       const coefCellule = s.coefParClasse?.[cand.classeId ?? ''];
+                      const titreEtat = etat === 'modifiee' ? 'Non enregistrée : validez par Entrée ou en quittant la case'
+                        : etat === 'envoi' ? 'Enregistrement en cours…'
+                        : etat === 'enregistree' ? (usingApi ? 'Enregistrée sur le serveur' : 'Enregistrée')
+                        : etat === 'erreur' ? 'Refusée : note hors barème ou erreur du serveur, valeur non enregistrée'
+                        : '';
                       return (
                         <td key={s.id} className="py-1 px-1.5 text-center">
-                          <input
-                            type="number"
-                            min="0"
-                            max="20"
-                            step="0.5"
-                            value={grade}
-                            disabled={juryLocked}
-                            title={juryLocked ? 'PV verrouillé : déverrouillez le registre pour modifier les notes' : `Note sur 20${coefCellule !== undefined ? ` — coefficient ${coefCellule}` : ''}`}
-                            onChange={(e) => handleScoreChange(cand.id, s.id, e.target.value)}
-                            className={`w-14 text-center font-mono text-[12px] py-1 px-1 rounded border outline-none font-semibold transition-colors ${
-                              grade >= 14
-                                ? 'bg-[#eaedff] text-[#00236f] border-[#dce1ff]'
-                                : grade < 10
-                                ? 'bg-[#ffdad6]/60 text-[#ba1a1a] border-[#ffdad6]'
-                                : 'bg-white text-[#131b2e] border-[#eaedff]'
-                            } focus:border-[#0051d5] focus:bg-white`}
-                          />
+                          <span className="relative inline-block">
+                            <input
+                              type="number"
+                              min="0"
+                              max="20"
+                              step="0.5"
+                              value={affichee}
+                              disabled={juryLocked || etat === 'envoi'}
+                              aria-label={`${cand.fullName} — ${s.name}`}
+                              data-etat={etat ?? 'stable'}
+                              title={juryLocked ? 'PV verrouillé : déverrouillez le registre pour modifier les notes' : `Note sur 20${coefCellule !== undefined ? ` — coefficient ${coefCellule}` : ''}${titreEtat ? ` — ${titreEtat}` : ''}`}
+                              onChange={(e) => handleScoreChange(cand.id, s.id, e.target.value)}
+                              onBlur={() => void validerNote(cand.id, s.id, grade)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') { e.preventDefault(); (e.currentTarget as HTMLInputElement).blur(); }
+                              }}
+                              className={`w-14 text-center font-mono text-[12px] py-1 px-1 rounded border outline-none font-semibold transition-colors ${
+                                etat === 'modifiee' || etat === 'envoi'
+                                  ? 'bg-amber-50 text-amber-900 border-amber-400 border-dashed'
+                                  : etat === 'erreur'
+                                  ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]'
+                                  : grade >= 14
+                                  ? 'bg-[#eaedff] text-[#00236f] border-[#dce1ff]'
+                                  : grade < 10
+                                  ? 'bg-[#ffdad6]/60 text-[#ba1a1a] border-[#ffdad6]'
+                                  : 'bg-white text-[#131b2e] border-[#eaedff]'
+                              } focus:border-[#0051d5] focus:bg-white`}
+                            />
+                            {etat && (
+                              <span
+                                aria-hidden="true"
+                                title={titreEtat}
+                                className={`absolute -top-1.5 -right-1.5 material-symbols-outlined text-[13px] leading-none rounded-full bg-white ${
+                                  etat === 'enregistree' ? 'text-emerald-600'
+                                    : etat === 'erreur' ? 'text-[#ba1a1a]'
+                                    : etat === 'envoi' ? 'text-[#0051d5] animate-spin'
+                                    : 'text-amber-600'
+                                }`}
+                              >
+                                {etat === 'enregistree' ? 'cloud_done' : etat === 'erreur' ? 'error' : etat === 'envoi' ? 'progress_activity' : 'edit'}
+                              </span>
+                            )}
+                          </span>
                         </td>
                       );
                     })}

@@ -10,7 +10,8 @@ import { confirmAction } from '../utils/alerts';
 
 interface SettingsViewProps {
   settings: AppSettings;
-  onUpdateSettings: (newSettings: AppSettings) => void;
+  /** Enregistre les paramètres ; résout `false` si le serveur a refusé (aucune confirmation affichée). */
+  onUpdateSettings: (newSettings: AppSettings) => void | boolean | Promise<boolean>;
   onNavigate: (view: 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings') => void;
   /** Ouvre la page « Profil de l’établissement » (fiche officielle, charte, compte). */
   onOpenProfil?: () => void;
@@ -50,19 +51,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const sealFileInputRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * Point de passage unique des enregistrements : le formulaire reflète la saisie, la confirmation
+   * n'apparaît qu'après l'accord du gestionnaire (sur le serveur en session connectée).
+   */
+  const enregistrer = async (next: AppSettings, message: string, duree = 2500): Promise<boolean> => {
+    setFormData(next);
+    const ok = await onUpdateSettings(next);
+    if (ok === false) return false;
+    setToastMessage(usingApi && message === 'Paramètres enregistrés !' ? 'Paramètres enregistrés sur le serveur.' : message);
+    setShowSavedToast(true);
+    setTimeout(() => setShowSavedToast(false), duree);
+    return true;
+  };
+
   const applyPreset = (preset: AppSettings, label: string) => {
-    // Un préréglage national ne touche pas aux cachet / signatures déjà téléversés.
+    // Un préréglage national ne touche pas aux cachet / signatures déjà téléversés, ni aux
+    // libellés qui viennent du serveur en session connectée (établissement, année, session).
     const next: AppSettings = {
       ...preset,
       sceauUrl: formData.sceauUrl,
       signatureProviseurUrl: formData.signatureProviseurUrl,
       signatureTitulaireUrl: formData.signatureTitulaireUrl,
+      ...(usingApi ? {
+        institutionName: formData.institutionName,
+        academicYear: formData.academicYear,
+        sessionName: formData.sessionName,
+        examType: formData.examType,
+      } : {}),
     };
-    setFormData(next);
-    onUpdateSettings(next);
-    setToastMessage(`Préréglage officiel pour ${label} appliqué avec succès !`);
-    setShowSavedToast(true);
-    setTimeout(() => setShowSavedToast(false), 3000);
+    void enregistrer(next, `Préréglage officiel pour ${label} appliqué avec succès !`, 3000);
   };
 
   const handleFileChange = (
@@ -81,10 +99,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string' && isSafeImageUrl(reader.result)) {
-        const updated = { ...formData, [field]: reader.result };
-        setFormData(updated);
-        onUpdateSettings(updated);
-        triggerToast();
+        void enregistrer({ ...formData, [field]: reader.result }, 'Paramètres enregistrés !');
       }
     };
     reader.readAsDataURL(file);
@@ -97,11 +112,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setTimeout(() => setShowSavedToast(false), 3000);
       return;
     }
-    const updated = { ...formData, logoUrl: logoInputUrl.trim() };
-    setFormData(updated);
-    onUpdateSettings(updated);
-    setLogoInputUrl('');
-    triggerToast();
+    void enregistrer({ ...formData, logoUrl: logoInputUrl.trim() }, 'Paramètres enregistrés !')
+      .then((ok) => { if (ok) setLogoInputUrl(''); });
   };
 
   const applySealUrl = () => {
@@ -111,16 +123,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setTimeout(() => setShowSavedToast(false), 3000);
       return;
     }
-    const updated = { ...formData, sealUrl: sealInputUrl.trim() };
-    setFormData(updated);
-    onUpdateSettings(updated);
-    setSealInputUrl('');
-    triggerToast();
-  };
-
-  const triggerToast = () => {
-    setShowSavedToast(true);
-    setTimeout(() => setShowSavedToast(false), 2500);
+    void enregistrer({ ...formData, sealUrl: sealInputUrl.trim() }, 'Paramètres enregistrés !')
+      .then((ok) => { if (ok) setSealInputUrl(''); });
   };
 
   const showError = (message: string) => {
@@ -130,19 +134,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const applyCharteAsset = (field: CharteField, dataUrl: string) => {
-    const updated = { ...formData, [field]: dataUrl };
-    setFormData(updated);
-    onUpdateSettings(updated);
-    setToastMessage(dataUrl
+    void enregistrer({ ...formData, [field]: dataUrl }, dataUrl
       ? 'Image enregistrée : elle apparaît désormais sur le bulletin.'
       : "Image retirée : l'emplacement reste vide pour une apposition à la main.");
-    triggerToast();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateSettings(formData);
-    triggerToast();
+    void enregistrer(formData, 'Paramètres enregistrés !');
   };
 
   const handleResetDefaults = async () => {
@@ -153,9 +152,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       icon: 'warning',
     });
     if (ok) {
-      setFormData(DEFAULT_SETTINGS);
-      onUpdateSettings(DEFAULT_SETTINGS);
-      triggerToast();
+      void enregistrer(usingApi ? {
+        ...DEFAULT_SETTINGS,
+        institutionName: formData.institutionName,
+        academicYear: formData.academicYear,
+        sessionName: formData.sessionName,
+        examType: formData.examType,
+      } : DEFAULT_SETTINGS, 'Paramètres enregistrés !');
     }
   };
 
@@ -362,12 +365,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  const updated = { ...formData, sealUrl: '' };
-                  setFormData(updated);
-                  onUpdateSettings(updated);
-                  setToastMessage("Sceau supprimé : l'emplacement restera vide sur le bulletin pour apposition manuelle.");
-                  setShowSavedToast(true);
-                  setTimeout(() => setShowSavedToast(false), 3000);
+                  void enregistrer({ ...formData, sealUrl: '' },
+                    "Sceau supprimé : l'emplacement restera vide sur le bulletin pour apposition manuelle.", 3000);
                 }}
                 className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11.5px] font-bold border border-amber-200 transition-colors shadow-2xs"
               >
@@ -378,12 +377,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  const updated = { ...formData, sealUrl: TOGO_SETTINGS.sealUrl };
-                  setFormData(updated);
-                  onUpdateSettings(updated);
-                  setToastMessage("Sceau officiel de la République Togolaise réactivé.");
-                  setShowSavedToast(true);
-                  setTimeout(() => setShowSavedToast(false), 3000);
+                  void enregistrer({ ...formData, sealUrl: TOGO_SETTINGS.sealUrl },
+                    'Sceau officiel de la République Togolaise réactivé.', 3000);
                 }}
                 className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-[#eaedff] hover:bg-[#dce1ff] text-[#00236f] text-[11.5px] font-bold border border-[#dce1ff] transition-colors"
               >
@@ -577,12 +572,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   required
                   placeholder="Ex : Lycée Moderne de Tokoin, Collège Protestant de Lomé"
                   value={formData.institutionName}
+                  readOnly={usingApi}
+                  title={usingApi ? 'Nom enregistré dans le profil de l’établissement (serveur) : modifiez-le depuis « Profil de l’établissement ».' : undefined}
                   onChange={(e) => setFormData({ ...formData, institutionName: e.target.value })}
-                  className="w-full bg-white text-[14px] py-2.5 px-3.5 rounded-md border border-[#0051d5]/40 outline-none focus:ring-2 focus:ring-[#0051d5]/30 focus:border-[#0051d5] font-bold text-[#00236f]"
+                  className={`w-full text-[14px] py-2.5 px-3.5 rounded-md border border-[#0051d5]/40 outline-none focus:ring-2 focus:ring-[#0051d5]/30 focus:border-[#0051d5] font-bold text-[#00236f] ${usingApi ? 'bg-[#faf8ff] cursor-not-allowed' : 'bg-white'}`}
                 />
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2 pt-2 border-t border-[#0051d5]/15">
                   <span className="text-[11px] text-[#444651] block">
-                    Ce nom officiel apparaît sur tous les bulletins, bordereaux et procès-verbaux de votre établissement.
+                    {usingApi
+                      ? 'Nom lu depuis le profil de l’établissement enregistré sur le serveur : il se modifie depuis « Profil de l’établissement ».'
+                      : 'Ce nom officiel apparaît sur tous les bulletins, bordereaux et procès-verbaux de votre établissement.'}
                   </span>
                   {onOpenProfil && (
                     <button
@@ -642,9 +641,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <input
                   type="text"
                   value={formData.academicYear}
+                  readOnly={usingApi}
+                  title={usingApi ? 'Année courante définie dans Administration › Années scolaires (serveur).' : undefined}
                   onChange={(e) => setFormData({ ...formData, academicYear: e.target.value })}
-                  className="w-full bg-[#f2f3ff] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
+                  className={`w-full py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5] ${usingApi ? 'bg-[#faf8ff] text-[#757682] cursor-not-allowed' : 'bg-[#f2f3ff]'}`}
                 />
+                {usingApi && (
+                  <span className="block text-[10.5px] text-[#757682] mt-1">Définie dans Administration › Années scolaires.</span>
+                )}
               </div>
 
               <div>
@@ -654,9 +658,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <input
                   type="text"
                   value={formData.sessionName}
+                  readOnly={usingApi}
+                  title={usingApi ? 'Session chargée, définie dans Administration › Sessions (serveur).' : undefined}
                   onChange={(e) => setFormData({ ...formData, sessionName: e.target.value })}
-                  className="w-full bg-[#f2f3ff] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
+                  className={`w-full py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5] ${usingApi ? 'bg-[#faf8ff] text-[#757682] cursor-not-allowed' : 'bg-[#f2f3ff]'}`}
                 />
+                {usingApi && (
+                  <span className="block text-[10.5px] text-[#757682] mt-1">Définie dans Administration › Sessions.</span>
+                )}
               </div>
 
               <div>

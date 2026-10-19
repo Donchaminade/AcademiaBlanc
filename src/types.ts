@@ -38,6 +38,8 @@ export interface Candidate {
   serie: string;
   /** Identifiant de la classe sur l'API ; absent pour les données de démonstration. */
   classeId?: string;
+  /** Session d'examen de rattachement sur l'API (null = élève sans session) ; absent hors API. */
+  sessionId?: number | null;
   examCenter: string;
   examCenterName: string;
   parentPhone: string;
