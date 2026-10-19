@@ -1,6 +1,7 @@
 import React from 'react';
 import { AppSettings, Candidate } from '../../types';
 import { TITRE_CHEF_CENTRE, libelleNiveauSerie } from '../../utils/sessionMode';
+import { titreChefDepuisSettings } from '../../utils/titreChef';
 import { numeroTableAffiche, trierPourEmargement } from '../../utils/numerosTable';
 import type { SourcesEnTeteDocument } from '../../utils/documentPaysage';
 import { libelleClasses, settingsEnTete } from '../ListeCandidatsSheet';
@@ -25,11 +26,22 @@ interface FeuilleEmargementSheetProps {
 }
 
 /**
- * Titre du responsable qui signe la feuille : le chef du centre en inter-établissements, sinon le titre
- * du signataire officiel des paramètres (« Le Proviseur », « La Directrice »…), à défaut « Le Chef d'établissement ».
+ * Titre du responsable qui signe la feuille : le chef du centre en inter-établissements, sinon le chef
+ * d'établissement selon la règle commune (`titreChef.ts`) : titre saisi dans le profil, sinon Le Directeur
+ * au collège et Le Proviseur au lycée d'après les niveaux des candidats et le type de l'établissement.
  */
-export function titreSignataireEmargement(sessionInter: boolean, settings?: Pick<AppSettings, 'jurySignerTitle'>): string {
-  return sessionInter ? TITRE_CHEF_CENTRE : (settings?.jurySignerTitle?.trim() || "Le Chef d'établissement");
+export function titreSignataireEmargement(
+  sessionInter: boolean,
+  settings: Pick<AppSettings, 'jurySignerTitle' | 'typeEtablissement' | 'institutionName'> | undefined,
+  candidates: ReadonlyArray<Pick<Candidate, 'niveau'>>,
+  nomEtablissement = '',
+): string {
+  if (sessionInter) return TITRE_CHEF_CENTRE;
+  return titreChefDepuisSettings({
+    jurySignerTitle: settings?.jurySignerTitle,
+    typeEtablissement: settings?.typeEtablissement,
+    institutionName: settings?.institutionName || nomEtablissement,
+  }, candidates);
 }
 
 /**
@@ -116,7 +128,7 @@ export const FeuilleEmargementSheet: React.FC<FeuilleEmargementSheetProps> = ({
           <div className="emargement-signature-nom">Nom et prénoms : ……………………</div>
         </div>
         <div className="emargement-signature">
-          <div className="emargement-signature-titre">{titreSignataireEmargement(sessionInter, settings)}</div>
+          <div className="emargement-signature-titre">{titreSignataireEmargement(sessionInter, settings, candidates, centreExamen)}</div>
           <div className="emargement-signature-espace" />
           <div className="emargement-signature-nom">{signataireNom || 'Nom et prénoms : ……………………'}</div>
         </div>
