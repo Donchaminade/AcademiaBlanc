@@ -120,8 +120,8 @@ export const CharteImagesPanel: React.FC<CharteImagesPanelProps> = ({
         onError={onError}
       />
       <CharteAssetUpload
-        label={`Signature du ${(settings.principalTeacherTitle || 'Titulaire').replace(/^le\s+/i, '')}`}
-        hint="Optionnelle : signature scannée du titulaire de la classe."
+        label="Signature du Titulaire"
+        hint="Optionnelle : signature scannée du titulaire de la classe (le nom du titulaire vient de la classe de chaque élève)."
         icon="draw"
         value={settings.signatureTitulaireUrl}
         status={statut(!sans(settings.signatureTitulaireUrl))}

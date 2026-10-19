@@ -21,6 +21,7 @@ import {
   appliquerDeliberation,
   creerEleve,
   renumeroterEleves,
+  sauvegarderAppreciation,
   sauvegarderDeliberation,
   sauvegarderEleve,
   sauvegarderEnTete,
@@ -36,6 +37,7 @@ import { usePermissions } from './api/permissions';
 import { confirmAction, showError, toastSuccess } from './utils/alerts';
 import { loadSchoolWorkspace, ExamOption, WorkspaceOptions } from './api/workspace';
 import { horsProgramme } from './utils/programme';
+import { APPRECIATION_LONGUEUR_MAX, appreciationManuelleValide, normaliserAppreciationManuelle } from './utils/appreciation';
 import { applyCharte, charteChanged, loadCharte, parametresSansDemonstration } from './api/charte';
 import {
   getRegisteredSchools,
@@ -243,6 +245,8 @@ export default function App() {
       const next: AppSettings = {
         ...base,
         institutionName: session?.nomEtablissement || prev.institutionName,
+        // Devise propre de la fiche (pied de page) : jamais la valeur de démonstration en session connectée.
+        institutionMotto: profil?.devise ?? '',
         academicYear: workspace.academicYear || prev.academicYear,
         sessionName: workspace.sessionName || prev.sessionName,
         // Libellé long du référentiel de la plateforme ; vide tant qu'aucune session n'existe (jamais la valeur de démo).
@@ -250,7 +254,10 @@ export default function App() {
       };
       // République, devise et ministère viennent de l'établissement (préréglage national appliqué, puis ajusté).
       const avecEnTete = appliquerEnTeteAuxSettings(next, profil?.enTete);
-      return charte ? applyCharte(avecEnTete, charte) : avecEnTete;
+      const avecCharte = charte ? applyCharte(avecEnTete, charte) : avecEnTete;
+      // Le signataire officiel est le responsable de la fiche de l'établissement (page Profil), jamais la valeur
+      // de démonstration ; le titulaire n'est pas un paramètre : il vient de la classe de chaque élève.
+      return { ...avecCharte, jurySignerName: profil ? profil.nomResponsable : '' };
     });
     // Les libellés viennent exclusivement de l'API : vide tant qu'aucune session / aucun centre n'existe.
     setSelectedSession(workspace.sessionName);
@@ -480,26 +487,40 @@ export default function App() {
   const computedStats = useMemo(() => {
     if (!selectedCandidate) {
       return {
-        totalCoef: 29,
+        totalCoef: 0,
         totalPoints: 0,
+        totalCoefProgramme: 0,
+        pointsMax: 0,
         average: 0,
+        evaluated: false,
         rank: 1,
         totalCandidates: 0,
         mention: 'AJOURNÉ' as const,
         decision: "AJOURNÉ À L'EXAMEN BLANC" as const,
         differenceToPromo: 0,
+        classAverage: null,
+        classHighestAverage: null,
+        classLowestAverage: null,
+        classEvaluatedCount: 0,
       };
     }
     return allStats[selectedCandidate.id] || computeCandidateStats(selectedCandidate, subjects, candidates);
   }, [allStats, selectedCandidate, subjects, candidates]);
 
-  const avecNote = (candidate: Candidate, subjectId: string, score: number): Candidate => ({
+  // L'appréciation reste celle de l'enseignant si elle existe ; vide = automatique selon la note.
+  const avecNote = (candidate: Candidate, subjectId: string, score: number, appreciation?: string): Candidate => ({
     ...candidate,
     grades: {
       ...candidate.grades,
-      [subjectId]: { score, appreciation: candidate.grades[subjectId]?.appreciation || 'Travail évalué.' },
+      [subjectId]: { score, appreciation: appreciation ?? candidate.grades[subjectId]?.appreciation ?? '' },
     },
   });
+
+  const avecAppreciation = (candidate: Candidate, subjectId: string, appreciation: string): Candidate => {
+    const grade = candidate.grades[subjectId];
+    if (!grade) return candidate;
+    return { ...candidate, grades: { ...candidate.grades, [subjectId]: { ...grade, appreciation } } };
+  };
 
   /**
    * Écriture : note d'un candidat dans une matière. En session API la note part au serveur
@@ -516,7 +537,7 @@ export default function App() {
     if (usingApi) {
       try {
         const note = await sauvegarderNote({ candidateId, subjectId, sessionId: activeSessionId, score: newScore });
-        remplacerCandidat(avecNote(cible, subjectId, Number(note.valeur ?? newScore)));
+        remplacerCandidat(avecNote(cible, subjectId, Number(note.valeur ?? newScore), note.appreciation ?? ''));
         return true;
       } catch (err) {
         signalerErreur(err, 'Note non enregistrée.');
@@ -528,32 +549,37 @@ export default function App() {
   };
 
   /**
-   * Écriture : décision du jury (bonus de repêchage et observation du bulletin). En session API,
-   * `PUT /api/deliberations` puis mise à jour du candidat à partir de la réponse.
+   * Écriture : appréciation du professeur pour une matière (texte libre ≤ 60 caractères ; vide =
+   * retour à l'appréciation automatique selon la note). En session API, `POST /api/notes` reprend la
+   * note existante avec le champ `appreciation` et la grille n'est mise à jour qu'avec la réponse.
    */
-  const handleApplyJuryBonus = async (candidateId: string, bonus: number): Promise<void> => {
+  const handleUpdateAppreciation = async (candidateId: string, subjectId: string, appreciation: string): Promise<boolean> => {
     const cible = candidates.find((c) => c.id === candidateId);
-    if (!cible) return;
-    const delibere: Candidate = {
-      ...cible,
-      juryBonus: bonus,
-      generalObservation: `« Délibération spéciale du Jury : bonus de repêchage de +${bonus.toFixed(2)} pts accordé au vu de l'assiduité. »`,
-    };
+    const grade = cible?.grades[subjectId];
+    if (!cible || !grade) {
+      showToast('Saisissez d’abord une note avant son appréciation.');
+      return false;
+    }
     if (usingApi) {
       try {
-        const vue = await sauvegarderDeliberation(delibere, activeSessionId);
-        remplacerCandidat(appliquerDeliberation(cible, vue));
-        toastSuccess(`Délibération enregistrée sur le serveur : +${bonus.toFixed(2)} pts pour ${cible.fullName}.`);
+        const note = await sauvegarderAppreciation({ candidateId, subjectId, sessionId: activeSessionId, score: grade.score, appreciation });
+        remplacerCandidat(avecAppreciation(cible, subjectId, note.appreciation ?? ''));
+        return true;
       } catch (err) {
-        signalerErreur(err, 'Délibération non enregistrée.');
+        signalerErreur(err, 'Appréciation non enregistrée.');
+        return false;
       }
-      return;
     }
-    handleUpdateCandidates(candidates.map((c) => (c.id === candidateId ? delibere : c)));
-    showToast(`Délibération enregistrée : +${bonus.toFixed(2)} pts de rachat accordés.`);
+    const texte = normaliserAppreciationManuelle(appreciation);
+    if (!appreciationManuelleValide(texte)) {
+      showToast(`L’appréciation ne doit pas dépasser ${APPRECIATION_LONGUEUR_MAX} caractères.`);
+      return false;
+    }
+    handleUpdateCandidates(candidates.map((c) => (c.id === candidateId ? avecAppreciation(c, subjectId, texte) : c)));
+    return true;
   };
 
-  /** Écriture : signature électronique du bulletin du candidat sélectionné (même enregistrement que la délibération). */
+  /** Écriture : signature électronique du bulletin du candidat sélectionné (enregistrée avec l'observation du conseil dans la délibération). */
   const handleSign = async (signedAt: string, signer: string, shaHash: string): Promise<void> => {
     if (!selectedCandidate) return;
     const signe: Candidate = { ...selectedCandidate, digitalSignature: { signedAt, signer, shaHash } };
@@ -773,9 +799,10 @@ export default function App() {
     navigate('connexion');
   };
 
-  // Fiche enregistrée depuis le profil : le nom suit dans la barre latérale, les bulletins et la session.
+  // Fiche enregistrée depuis le profil : le nom et le signataire officiel suivent dans la barre latérale, les bulletins
+  // et la session ; la devise propre alimente le pied de page du bulletin.
   const handleProfilChanged = (profil: ProfilEtablissement) => {
-    setSettings((prev) => ({ ...prev, institutionName: profil.nom }));
+    setSettings((prev) => ({ ...prev, institutionName: profil.nom, jurySignerName: profil.nomResponsable, institutionMotto: profil.devise ?? '' }));
     const session = getSession();
     if (session) setSession({ ...session, nomEtablissement: profil.nom });
   };
@@ -1022,7 +1049,8 @@ export default function App() {
               subjects={subjects}
               allStats={allStats}
               onUpdateGrade={handleUpdateGrade}
-              onApplyJuryBonus={handleApplyJuryBonus}
+              onUpdateAppreciation={handleUpdateAppreciation}
+              peutAnnoter={!usingApi || can('NOTES', 'CREER') || can('NOTES', 'MODIFIER')}
               usingApi={usingApi}
               onSelectCandidate={(c) => setSelectedCandidateId(c.id)}
               onNavigateToBulletin={(c) => {

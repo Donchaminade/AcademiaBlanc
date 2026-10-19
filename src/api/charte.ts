@@ -5,10 +5,12 @@ import { DEFAULT_LOGO_URL } from '../data/mockData';
 /**
  * Charte de l'établissement du jeton (GET/PUT /api/etablissement/charte) : logo, cachet et signatures
  * téléversés (conservés en base dans la ligne de l'établissement, sous forme de data URL), puis paramètres
- * d'affichage de l'écran Paramètres (sceau officiel, signataires, numérotation des tables). `null` = jamais
- * renseigné sur le serveur : le client conserve alors sa valeur par défaut pour un texte, et laisse l'emplacement
- * vide pour une image. L'en-tête officiel (république, devise, ministère) est porté par la fiche de
- * l'établissement (`PUT /api/etablissement/en-tete`), pas par la charte.
+ * d'affichage de l'écran Paramètres (sceau officiel, titre du signataire officiel, numérotation des tables).
+ * `null` = jamais renseigné sur le serveur : le client conserve alors sa valeur par défaut pour un texte, et
+ * laisse l'emplacement vide pour une image. L'en-tête officiel (république, devise, ministère) est porté par
+ * la fiche de l'établissement (`PUT /api/etablissement/en-tete`), pas par la charte. Les noms des signataires
+ * non plus : le titulaire vient de la classe de l'élève, le signataire officiel est le responsable de la fiche
+ * de l'établissement (`nomResponsable`).
  */
 export interface CharteEtablissement {
   logoUrl?: string | null;
@@ -18,9 +20,6 @@ export interface CharteEtablissement {
   /** Chaîne vide = emplacement volontairement laissé vierge (tampon manuel), à ne pas confondre avec `null`. */
   sceauOfficielUrl?: string | null;
   titreSignataireJury?: string | null;
-  nomSignataireJury?: string | null;
-  titreTitulaire?: string | null;
-  nomTitulaire?: string | null;
   premierNumeroTable?: number | null;
   numerotationAutomatique?: boolean | null;
   /** Lecture seule : dernière modification du logo, du cachet ou des signatures (ISO 8601) ; null si aucune image. */
@@ -36,12 +35,13 @@ export const IMAGES_CHARTE = [...CHARTE_FIELDS, 'sealUrl'] as const satisfies re
 
 /**
  * Paramètres enregistrés dans la charte en session connectée. Les autres champs d'`AppSettings`
- * viennent de l'en-tête de l'établissement (république, devise, ministère, sigle…) ou de la session
- * chargée (nom de l'établissement, année, session, type d'examen).
+ * viennent de l'en-tête de l'établissement (république, devise, ministère, sigle…), de la fiche de
+ * l'établissement (nom du signataire officiel) ou de la session chargée (nom de l'établissement, année,
+ * session, type d'examen).
  */
 export const PARAMETRES_PERSISTES = [
   ...IMAGES_CHARTE,
-  'jurySignerTitle', 'jurySignerName', 'principalTeacherTitle', 'principalTeacherName',
+  'jurySignerTitle',
   'startTableNumber', 'autoAssignTables',
 ] as const satisfies readonly (keyof AppSettings)[];
 export type ParametrePersiste = (typeof PARAMETRES_PERSISTES)[number];
@@ -77,9 +77,6 @@ export function versCharte(settings: Pick<AppSettings, ParametrePersiste>): Char
     // Le sceau officiel vide est un choix (zone vierge) : il part en chaîne vide, pas en null.
     sceauOfficielUrl: image(settings.sealUrl) ?? '',
     titreSignataireJury: settings.jurySignerTitle || null,
-    nomSignataireJury: settings.jurySignerName || null,
-    titreTitulaire: settings.principalTeacherTitle || null,
-    nomTitulaire: settings.principalTeacherName || null,
     premierNumeroTable: Number.isFinite(settings.startTableNumber) ? settings.startTableNumber : null,
     numerotationAutomatique: settings.autoAssignTables,
   };
@@ -107,9 +104,6 @@ export function applyCharte(settings: AppSettings, charte: CharteEtablissement):
     signatureTitulaireUrl: charte.signatureTitulaireUrl || '',
     sealUrl: charte.sceauOfficielUrl || '',
     jurySignerTitle: charte.titreSignataireJury || settings.jurySignerTitle,
-    jurySignerName: charte.nomSignataireJury || settings.jurySignerName,
-    principalTeacherTitle: charte.titreTitulaire || settings.principalTeacherTitle,
-    principalTeacherName: charte.nomTitulaire || settings.principalTeacherName,
     startTableNumber: charte.premierNumeroTable ?? settings.startTableNumber,
     autoAssignTables: charte.numerotationAutomatique ?? settings.autoAssignTables,
   };

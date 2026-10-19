@@ -32,11 +32,10 @@ Légende : **OK** = déjà fonctionnel ; **cassé** = ne produisait pas l’effe
 | Afficher le classement / explication des rangs | Saisie | OK | Inchangé | Déplie ou replie les blocs |
 | Ajouter un candidat | Saisie | OK | Inchangé | Modale d’inscription |
 | Notes (champs) | Saisie | OK | Bloquées si le PV est verrouillé ; valeurs hors 0–20 ignorées | Verrouiller le PV puis revenir à la saisie |
-| Bulletin / arbitrage jury (ligne) | Saisie | OK | L’arbitrage est désactivé tant que le PV est verrouillé | Cadenas puis icône marteau inactive |
-| Bonus de rachat | Modale jury | OK | Inchangé quand le PV est ouvert | Choisir un bonus, confirmer : moyenne mise à jour |
+| Bulletin (ligne) | Saisie | OK | L’icône « arbitrage / rachat du jury » et sa modale de points de repêchage sont supprimées : la moyenne est toujours la moyenne réelle | Ouvre le bulletin |
 | Exporter CSV | PV | OK | Échappement des guillemets et des formules (`=`, `+`, `-`, `@`) | Télécharge un `.csv` ouvrable |
 | Imprimer le registre | PV | OK | Titre de fichier `PV_…` | Dialogue PDF du palmarès |
-| Verrouiller / déverrouiller le PV | PV | factice | Le verrou est mémorisé par établissement et bloque notes et rachat | Le libellé et la saisie suivent l’état |
+| Verrouiller / déverrouiller le PV | PV | factice | Le verrou est mémorisé par établissement et bloque la saisie des notes | Le libellé et la saisie suivent l’état |
 | Filtres de palmarès + ouvrir bulletin | PV | OK | Filtre admis corrigé | Cliquer une ligne « bulletin » |
 | Zoom 85 / 100 / 115 | Bulletin | OK | Inchangé | L’aperçu change d’échelle ; l’impression reste à taille réelle |
 | Candidat précédent / suivant / liste | Bulletin | OK | Inchangé | Change le candidat affiché |

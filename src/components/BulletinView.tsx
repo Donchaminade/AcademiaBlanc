@@ -1,10 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
 import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministryMark } from '../utils/bulletinHeader';
-import { appreciationFromAverage, computeSubjectRank, formatSubjectRank } from '../utils/bulletinMetrics';
+import {
+  camaradesDeClasse,
+  computeSubjectRank,
+  extremesDeMatiere,
+  formatMinMax,
+  formatSubjectRank,
+} from '../utils/bulletinMetrics';
+import { appreciationAffichee } from '../utils/appreciation';
 import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
+import { TITRE_TITULAIRE, aUnTitulaire, nomTitulaireAffiche } from '../utils/titulaire';
+import { BulletinFooter } from './BulletinFooter';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
 
 interface BulletinViewProps {
@@ -55,6 +64,9 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   }, [selectedSession, settings.sessionName, selectedCandidate.serie, examTypeLong]);
 
   const currentIndex = candidates.findIndex((c) => c.id === selectedCandidate.id);
+  // Camarades de la même classe (même session) : base des notes min / max par matière.
+  const camarades = useMemo(() => camaradesDeClasse(selectedCandidate, candidates), [selectedCandidate, candidates]);
+  const fmtMoyenne = (value: number | null) => (value == null ? '—' : value.toFixed(2));
 
   const handlePrev = () => {
     if (currentIndex > 0) {
@@ -364,6 +376,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 <col className="col-note" />
                 <col className="col-total" />
                 <col className="col-rank" />
+                <col className="col-minmax" />
                 <col className="col-appreciation" />
               </colgroup>
               <thead>
@@ -374,6 +387,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   <th className="py-2 px-2 font-semibold text-right">Note /20</th>
                   <th className="py-2 px-2 font-semibold text-right">Total Coef</th>
                   <th className="py-2 px-2 font-semibold text-center">Rang</th>
+                  <th className="py-2 px-2 font-semibold text-center">Min / Max classe</th>
                   <th className="py-2 px-3 font-semibold text-left">Appréciation du professeur</th>
                 </tr>
               </thead>
@@ -385,7 +399,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   const isEven = idx % 2 === 0;
                   const subjectRankValue = computeSubjectRank(selectedCandidate.id, subj.id, candidates);
                   const subjectRank = subjectRankValue === null ? '—' : formatSubjectRank(subjectRankValue);
-                  const professorAppreciation = appreciationFromAverage(computedStats.average);
+                  const minMaxClasse = formatMinMax(extremesDeMatiere(subj.id, camarades));
+                  const professorAppreciation = appreciationAffichee(gradeData);
 
                   return (
                     <tr
@@ -410,6 +425,9 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                       <td className="py-1.5 px-2 font-mono text-[11px] text-center font-semibold text-[#0051d5]">
                         {subjectRank}
                       </td>
+                      <td className="py-1.5 px-2 font-mono text-[11px] text-center text-[#444651] whitespace-nowrap">
+                        {minMaxClasse}
+                      </td>
                       <td className="py-1.5 px-3 text-[12px] italic text-[#131b2e] leading-tight">
                         {professorAppreciation}
                       </td>
@@ -428,11 +446,14 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                     {computedStats.totalCoef}
                   </td>
                   <td className="py-2.5 px-2 text-right text-[12px] text-[#444651] italic">
-                    Moyenne pondérée:
+                    Total :
                   </td>
-                  <td className="py-2.5 px-0 font-mono text-[15px] font-bold text-[#0051d5]" colSpan={3}>
+                  <td className="py-2.5 px-0 font-mono text-[15px] font-bold text-[#0051d5]" colSpan={4}>
                     <span className="bulletin-weighted-total">
                       {computedStats.totalPoints.toFixed(2)}
+                    </span>
+                    <span className="bulletin-weighted-max text-[11px] font-semibold text-[#444651]">
+                      sur {computedStats.pointsMax.toFixed(2)} pts (20 × {computedStats.totalCoefProgramme})
                     </span>
                   </td>
                 </tr>
@@ -483,7 +504,9 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                 <span className="font-sans text-[22px] text-[#00236f] font-bold my-0 leading-none">
                   {computedStats.average.toFixed(2)}
                 </span>
-                <span className="font-mono text-[11px] text-[#444651]">sur 20.00</span>
+                <span className="font-mono text-[11px] text-[#444651] whitespace-nowrap">
+                  / 20 • classe {fmtMoyenne(computedStats.classAverage)}
+                </span>
               </div>
 
               <div className="bulletin-metric bg-white rounded-xs px-2 py-1.5 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
@@ -504,26 +527,50 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   sur {computedStats.totalCandidates} candidats
                 </span>
               </div>
+
+              <div className="bulletin-metric bg-white rounded-xs px-2 py-1.5 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
+                <span className="text-[11px] text-[#444651] uppercase font-semibold">
+                  Moyenne la plus forte
+                </span>
+                <span className="font-sans text-[18px] text-[#00236f] font-bold my-0 leading-none">
+                  {fmtMoyenne(computedStats.classHighestAverage)}
+                </span>
+                <span className="font-mono text-[11px] text-[#444651]">de la classe</span>
+              </div>
+
+              <div className="bulletin-metric bg-white rounded-xs px-2 py-1.5 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
+                <span className="text-[11px] text-[#444651] uppercase font-semibold">
+                  Moyenne la plus faible
+                </span>
+                <span className="font-sans text-[18px] text-[#ba1a1a] font-bold my-0 leading-none">
+                  {fmtMoyenne(computedStats.classLowestAverage)}
+                </span>
+                <span className="font-mono text-[11px] text-[#444651]">de la classe</span>
+              </div>
             </div>
           </div>
 
           {/* Signatures & Endorsement Section: Le Titulaire et Le Proviseur */}
           <div className="bulletin-signatures relative z-10 pt-1 grid grid-cols-2 gap-2 max-w-2xl mx-auto text-center">
-            {/* Signature 1: Le Titulaire */}
+            {/* Signature 1: Le Titulaire — l'enseignant affecté à la classe de l'élève, sinon ligne à compléter */}
             <div className="bulletin-signature-card flex flex-col items-center justify-between min-h-[52px] bg-[#f2f3ff]/50 px-2 py-1 rounded-xs border border-[#eaedff]">
               <div>
                 <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold block leading-tight">
-                  {settings.principalTeacherTitle || 'Le Titulaire'}
+                  {TITRE_TITULAIRE}
                 </span>
-                <span className="text-[13px] text-[#131b2e] font-semibold mt-0.5 block leading-tight">
-                  {settings.principalTeacherName}
+                <span
+                  className={`text-[13px] font-semibold mt-0.5 block leading-tight ${aUnTitulaire(selectedCandidate) ? 'text-[#131b2e]' : 'text-[#757682]'}`}
+                  data-testid="bulletin-titulaire"
+                  title={aUnTitulaire(selectedCandidate) ? 'Titulaire de la classe (Administration › Classes)' : 'Aucun titulaire affecté à la classe : nom à compléter à la main'}
+                >
+                  {nomTitulaireAffiche(selectedCandidate)}
                 </span>
               </div>
 
               {/* Signature téléversée ou espace laissé vide pour la signature à la main */}
               <BulletinSignatureZone
                 signatureUrl={settings.signatureTitulaireUrl}
-                signatureAlt={`Signature — ${settings.principalTeacherTitle || 'Le Titulaire'}`}
+                signatureAlt={`Signature — ${TITRE_TITULAIRE}`}
                 className="h-12"
               />
               <span className="text-[10px] text-[#444651] italic leading-tight">
@@ -555,6 +602,31 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Visa des parents : avis et observations laissés à la main quand l'élève rapporte le relevé */}
+          <div className="bulletin-visa-parents relative z-10 max-w-2xl mx-auto mt-2 bg-[#f2f3ff]/50 px-3 py-2 rounded-xs border border-[#eaedff]">
+            <div className="bulletin-visa-head flex items-baseline justify-between gap-2">
+              <span className="text-[11px] text-[#444651] uppercase tracking-wider font-bold leading-tight">
+                Visa des parents / tuteur
+              </span>
+              <span className="text-[10px] text-[#444651] italic leading-tight">
+                Avis et observations
+              </span>
+            </div>
+            <div className="bulletin-visa-lines mt-1" aria-hidden="true">
+              <div className="bulletin-visa-line" />
+              <div className="bulletin-visa-line" />
+              <div className="bulletin-visa-line" />
+            </div>
+            <div className="bulletin-visa-fields grid grid-cols-3 gap-3 mt-1.5 text-[10px] text-[#444651]">
+              <span className="bulletin-visa-field">Nom et prénom :</span>
+              <span className="bulletin-visa-field">Date :</span>
+              <span className="bulletin-visa-field">Signature :</span>
+            </div>
+          </div>
+
+          {/* Dernier élément de la page : filet doré puis « NOM DE L'ÉTABLISSEMENT • Devise » */}
+          <BulletinFooter institutionName={settings.institutionName} institutionMotto={settings.institutionMotto} />
         </div>
       </div>
     </div>

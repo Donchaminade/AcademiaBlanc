@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Candidate, Subject, CandidateComputedStats } from '../types';
 import { decisionBucket } from '../utils/bulletinMetrics';
+import { appreciationAffichee, normaliserAppreciationManuelle } from '../utils/appreciation';
 import { horsProgramme, subjectsFor } from '../utils/programme';
+import { AppreciationModal } from './AppreciationModal';
 
 interface GradingViewProps {
   candidates: Candidate[];
@@ -9,7 +11,10 @@ interface GradingViewProps {
   allStats: Record<string, CandidateComputedStats>;
   /** Enregistre une note ; résout `false` si le serveur l'a refusée (la cellule reste « non enregistrée »). */
   onUpdateGrade: (candidateId: string, subjectId: string, newScore: number) => Promise<boolean>;
-  onApplyJuryBonus: (candidateId: string, bonus: number) => void | Promise<void>;
+  /** Enregistre l'appréciation du professeur d'une matière (texte libre ; vide = automatique). */
+  onUpdateAppreciation?: (candidateId: string, subjectId: string, appreciation: string) => Promise<boolean>;
+  /** Droit NOTES:CREER ou MODIFIER : affiche l'accès à la saisie d'appréciation. */
+  peutAnnoter?: boolean;
   onSelectCandidate: (candidate: Candidate) => void;
   onNavigateToBulletin: (candidate: Candidate) => void;
   onAddNewCandidate: (candidate: Candidate) => void;
@@ -28,7 +33,8 @@ export const GradingView: React.FC<GradingViewProps> = ({
   subjects,
   allStats,
   onUpdateGrade,
-  onApplyJuryBonus,
+  onUpdateAppreciation,
+  peutAnnoter = true,
   onNavigateToBulletin,
   onAddNewCandidate,
   juryLocked = false,
@@ -37,10 +43,14 @@ export const GradingView: React.FC<GradingViewProps> = ({
   // Valeur tapée mais pas encore validée (blur / Entrée), par cellule ; absente = valeur enregistrée affichée.
   const [brouillons, setBrouillons] = useState<Record<string, string>>({});
   const [etats, setEtats] = useState<Record<string, EtatCellule>>({});
+  // Cellule dont l'appréciation du professeur est en cours de saisie.
+  const [annotation, setAnnotation] = useState<{ candidateId: string; subjectId: string } | null>(null);
+  const annotationActive = annotation
+    ? { candidate: candidates.find((c) => c.id === annotation.candidateId), subject: subjects.find((s) => s.id === annotation.subjectId) }
+    : null;
+  const peutSaisirAppreciation = Boolean(onUpdateAppreciation) && peutAnnoter && !juryLocked;
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'admis' | 'rattrapage' | 'ajourne'>('all');
-  const [selectedCandidateForBonus, setSelectedCandidateForBonus] = useState<Candidate | null>(null);
-  const [bonusAmount, setBonusAmount] = useState<number>(0.15);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRankings, setShowRankings] = useState(false);
   const [showExplanation, setShowExplanation] = useState(true);
@@ -144,7 +154,7 @@ export const GradingView: React.FC<GradingViewProps> = ({
 
     const initialGrades: Record<string, { score: number; appreciation: string }> = {};
     subjects.forEach((s) => {
-      initialGrades[s.id] = { score: 10.0, appreciation: 'Ensemble convenable.' };
+      initialGrades[s.id] = { score: 10.0, appreciation: '' };
     });
 
     const created: Candidate = {
@@ -163,7 +173,6 @@ export const GradingView: React.FC<GradingViewProps> = ({
       parentEmail: newStudent.parentEmail,
       generalObservation: '« Candidat inscrit sur bordereau officiel. Travail régulier. »',
       grades: initialGrades,
-      isDeliberated: true,
     };
 
     onAddNewCandidate(created);
@@ -535,6 +544,9 @@ export const GradingView: React.FC<GradingViewProps> = ({
                         : etat === 'enregistree' ? (usingApi ? 'Enregistrée sur le serveur' : 'Enregistrée')
                         : etat === 'erreur' ? 'Refusée : note hors barème ou erreur du serveur, valeur non enregistrée'
                         : '';
+                      const gradeData = cand.grades[s.id];
+                      const manuelle = normaliserAppreciationManuelle(gradeData?.appreciation);
+                      const appreciation = appreciationAffichee(gradeData);
                       return (
                         <td key={s.id} className="py-1 px-1.5 text-center">
                           <span className="relative inline-block">
@@ -579,6 +591,21 @@ export const GradingView: React.FC<GradingViewProps> = ({
                                 {etat === 'enregistree' ? 'cloud_done' : etat === 'erreur' ? 'error' : etat === 'envoi' ? 'progress_activity' : 'edit'}
                               </span>
                             )}
+                            {peutSaisirAppreciation && gradeData && (
+                              <button
+                                type="button"
+                                data-testid={`appreciation-${cand.id}-${s.id}`}
+                                data-manuelle={manuelle ? 'oui' : 'non'}
+                                aria-label={`Appréciation du professeur — ${cand.fullName}, ${s.name} : ${appreciation}`}
+                                title={manuelle ? `Appréciation saisie : « ${manuelle} » (cliquer pour modifier)` : `Appréciation automatique : « ${appreciation} » (cliquer pour saisir un texte libre)`}
+                                onClick={() => setAnnotation({ candidateId: cand.id, subjectId: s.id })}
+                                className={`absolute -bottom-1.5 -right-1.5 material-symbols-outlined text-[13px] leading-none rounded-full bg-white transition-colors hover:text-[#0051d5] focus:text-[#0051d5] ${
+                                  manuelle ? 'text-[#0051d5]' : 'text-[#b9bfd6]'
+                                }`}
+                              >
+                                rate_review
+                              </button>
+                            )}
                           </span>
                         </td>
                       );
@@ -592,11 +619,6 @@ export const GradingView: React.FC<GradingViewProps> = ({
                     {/* Weighted Average */}
                     <td className="py-2 px-2 font-mono text-right font-bold text-[#00236f]">
                       {stats?.average.toFixed(2) || '0.00'}
-                      {cand.juryBonus && cand.juryBonus > 0 && (
-                        <span className="block text-[9px] text-[#0051d5] font-semibold">
-                          +{cand.juryBonus.toFixed(2)} jury
-                        </span>
-                      )}
                     </td>
 
                     {/* Rank */}
@@ -647,17 +669,6 @@ export const GradingView: React.FC<GradingViewProps> = ({
                       >
                         <span className="material-symbols-outlined text-base">picture_as_pdf</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!juryLocked) setSelectedCandidateForBonus(cand);
-                        }}
-                        disabled={juryLocked}
-                        className="p-1 rounded bg-[#eaedff] text-[#0051d5] hover:bg-[#dce1ff] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={juryLocked ? 'PV verrouillé' : 'Arbitrage / Rachat du jury'}
-                      >
-                        <span className="material-symbols-outlined text-base">gavel</span>
-                      </button>
                     </td>
                   </tr>
                 );
@@ -667,83 +678,14 @@ export const GradingView: React.FC<GradingViewProps> = ({
         </div>
       </div>
 
-      {/* Jury Repêchage Modal */}
-      {selectedCandidateForBonus && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border border-[#eaedff] space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-[#eaedff]">
-              <div className="flex items-center gap-2 text-[#00236f]">
-                <span className="material-symbols-outlined text-xl">gavel</span>
-                <span className="font-bold text-[15px]">Arbitrage de Délibération du Jury</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedCandidateForBonus(null)}
-                className="text-[#444651] hover:text-[#131b2e]"
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <div>
-              <p className="text-[13px] text-[#131b2e] font-semibold">
-                {selectedCandidateForBonus.fullName} (Table {selectedCandidateForBonus.tableNumber})
-              </p>
-              <p className="text-[12px] text-[#444651] mt-0.5">
-                Moyenne actuelle :{' '}
-                <span className="font-mono font-bold text-[#00236f]">
-                  {allStats[selectedCandidateForBonus.id]?.average.toFixed(2)}/20
-                </span>
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-[11px] font-bold text-[#444651] uppercase">
-                Points de repêchage accordés par le conseil :
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {[0.10, 0.15, 0.25, 0.50].map((b) => (
-                  <button
-                    key={b}
-                    type="button"
-                    onClick={() => setBonusAmount(b)}
-                    className={`py-1.5 rounded font-mono text-[12px] font-bold border transition-colors ${
-                      bonusAmount === b
-                        ? 'bg-[#00236f] text-white border-[#00236f]'
-                        : 'bg-[#f2f3ff] text-[#131b2e] border-[#eaedff] hover:bg-[#eaedff]'
-                    }`}
-                  >
-                    +{b.toFixed(2)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <p className="text-[11px] text-[#444651] italic leading-snug">
-              Note du protocole : Le rachat par le jury est inscrit dans le procès-verbal d'examen blanc avec mention des critères d'assiduité.
-            </p>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#eaedff]">
-              <button
-                type="button"
-                onClick={() => setSelectedCandidateForBonus(null)}
-                className="px-3 py-1.5 rounded text-[12px] text-[#444651] hover:bg-[#f2f3ff]"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onApplyJuryBonus(selectedCandidateForBonus.id, bonusAmount);
-                  setSelectedCandidateForBonus(null);
-                }}
-                className="px-4 py-1.5 rounded text-[12px] bg-[#0051d5] text-white font-semibold hover:bg-[#003ea8]"
-              >
-                Valider la Délibération
-              </button>
-            </div>
-          </div>
-        </div>
+      {annotation && annotationActive?.candidate && annotationActive.subject && onUpdateAppreciation && (
+        <AppreciationModal
+          candidate={annotationActive.candidate}
+          subject={annotationActive.subject}
+          usingApi={usingApi}
+          onClose={() => setAnnotation(null)}
+          onSave={(texte) => onUpdateAppreciation(annotation.candidateId, annotation.subjectId, texte)}
+        />
       )}
 
       {/* Add New Candidate Modal */}

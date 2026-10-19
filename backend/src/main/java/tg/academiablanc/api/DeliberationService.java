@@ -1,10 +1,7 @@
 package tg.academiablanc.api;
 
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -20,8 +17,9 @@ import tg.academiablanc.repo.SessionExamenRepository;
 import tg.academiablanc.security.Tenant;
 
 /**
- * Délibération du jury (bonus de repêchage, observation, signature électronique) par élève et par session.
- * Une seule ligne par couple élève × session : l'enregistrement remplace la décision précédente.
+ * Délibération du jury (observation portée sur le bulletin, signature électronique) par élève et par session.
+ * Une seule ligne par couple élève × session : l'enregistrement remplace la décision précédente. Elle ne
+ * modifie jamais la moyenne : le bulletin affiche la moyenne réelle Σ(note × coef) / Σ coef.
  */
 @Service
 public class DeliberationService {
@@ -39,16 +37,15 @@ public class DeliberationService {
   public record Signature(@NotNull Instant signeLe, @Size(max = 180) String signataire, @Size(max = 128) String empreinte) {}
 
   public record Demande(@NotNull Long eleveId, @NotNull Long sessionId,
-                        @DecimalMin("0") @DecimalMax("5") BigDecimal bonusJury,
                         @Size(max = 2000) String observation,
                         Signature signature) {}
 
-  public record Vue(Long id, Long eleveId, Long sessionId, BigDecimal bonusJury, String observation,
+  public record Vue(Long id, Long eleveId, Long sessionId, String observation,
                     Signature signature, Instant modifieLe) {
     static Vue of(DeliberationJury item) {
       Signature signature = item.getSigneLe() == null ? null
           : new Signature(item.getSigneLe(), item.getSignataire(), item.getEmpreinteSignature());
-      return new Vue(item.getId(), item.getEleveId(), item.getSessionId(), item.getBonusJury(),
+      return new Vue(item.getId(), item.getEleveId(), item.getSessionId(),
           item.getObservation(), signature, item.getModifieLe());
     }
   }
@@ -72,7 +69,6 @@ public class DeliberationService {
     item.setEtablissementId(eleve.getEtablissementId());
     item.setEleveId(demande.eleveId());
     item.setSessionId(demande.sessionId());
-    item.setBonusJury(demande.bonusJury() == null ? BigDecimal.ZERO : demande.bonusJury());
     item.setObservation(demande.observation() == null || demande.observation().isBlank() ? null : demande.observation().trim());
     Signature signature = demande.signature();
     item.setSigneLe(signature == null ? null : signature.signeLe());

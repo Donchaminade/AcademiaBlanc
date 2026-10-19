@@ -225,7 +225,6 @@ export const ArchivedSessionsSection: React.FC<ArchivedSessionsSectionProps> = (
       notes: archiveNotes,
       signers: {
         principal: settings.jurySignerName,
-        juryPresident: settings.principalTeacherName,
       },
     };
 

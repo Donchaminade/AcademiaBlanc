@@ -196,7 +196,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       icon: 'warning',
     });
     if (ok) {
-      // En session connectée, aucune image de démonstration ne doit partir au serveur ni remplacer celles de l'établissement.
+      // En session API, les libellés portés par le serveur (session, fiche de l'établissement) sont conservés,
+      // et aucune image de démonstration ne doit partir au serveur ni remplacer celles de l'établissement.
       void enregistrer(usingApi ? {
         ...parametresSansDemonstration(DEFAULT_SETTINGS),
         ...imagesDe(settings),
@@ -204,6 +205,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         academicYear: formData.academicYear,
         sessionName: formData.sessionName,
         examType: formData.examType,
+        jurySignerName: formData.jurySignerName,
       } : DEFAULT_SETTINGS, 'Paramètres enregistrés !');
     }
   };
@@ -579,36 +581,53 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 )}
               </div>
 
+              {/* Signataire officiel : en session API, le responsable de la fiche de l'établissement (page Profil). */}
               <div>
                 <label className="block font-bold text-[#444651] uppercase text-[11px] mb-1">
-                  Le Proviseur (Signataire officiel)
+                  {formData.jurySignerTitle || 'Le Proviseur'} (Signataire officiel)
                 </label>
                 <input
                   type="text"
                   value={formData.jurySignerName}
+                  readOnly={usingApi}
+                  title={usingApi ? 'Responsable de la fiche de l’établissement (page Profil, serveur).' : undefined}
                   onChange={(e) => setFormData({ ...formData, jurySignerName: e.target.value })}
-                  className="w-full bg-[#f2f3ff] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
+                  className={`w-full py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5] ${usingApi ? 'bg-[#faf8ff] text-[#757682] cursor-not-allowed' : 'bg-[#f2f3ff]'}`}
                 />
+                {usingApi && (
+                  <span className="block text-[10.5px] text-[#757682] mt-1">
+                    Responsable de la fiche de l’établissement.
+                    {onOpenProfil && (
+                      <>
+                        {' '}
+                        <button type="button" onClick={onOpenProfil} className="text-[#0051d5] font-semibold hover:underline">
+                          Modifier dans le profil
+                        </button>
+                      </>
+                    )}
+                  </span>
+                )}
               </div>
 
-              <div>
-                <label className="block font-bold text-[#444651] uppercase text-[11px] mb-1">
-                  Le Titulaire (Visa)
-                </label>
-                <input
-                  type="text"
-                  value={formData.principalTeacherName}
-                  onChange={(e) => setFormData({ ...formData, principalTeacherName: e.target.value })}
-                  className="w-full bg-[#f2f3ff] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
-                />
+              {/* Le titulaire n'est pas un réglage : c'est l'enseignant affecté à la classe de chaque élève. */}
+              <div className="rounded border border-dashed border-[#c5cae9] bg-[#faf8ff] px-3 py-2" data-testid="titulaire-par-classe">
+                <span className="block font-bold text-[#444651] uppercase text-[11px] mb-0.5">Le Titulaire (Visa)</span>
+                <span className="block text-[11.5px] text-[#444651] leading-snug">
+                  Issu de la classe de chaque élève : l’enseignant désigné « Titulaire » dans
+                  Administration › Enseignants &amp; Classes signe le bulletin de sa classe. Sans titulaire affecté, la ligne reste à compléter à la main.
+                </span>
+                {usingApi && onOpenAdmin && (
+                  <button type="button" onClick={() => onOpenAdmin('classes')} className="mt-1 text-[11px] text-[#0051d5] font-semibold hover:underline">
+                    Affecter les titulaires des classes
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="pt-4 border-t border-[#eaedff] flex items-center justify-between">
-              <span className="text-[11px] text-[#444651]">
-                {usingApi
-                  ? 'Enregistré dans la base de l’établissement sur le serveur : retrouvé à chaque connexion.'
-                  : 'Démonstration : enregistrement dans ce navigateur uniquement.'}
+              <span className="text-[11px] text-[#444651] inline-flex items-center gap-1.5" data-testid="parametres-stockage">
+                <span className="material-symbols-outlined text-sm text-[#0051d5]">{usingApi ? 'cloud_done' : 'science'}</span>
+                {usingApi ? 'Enregistré sur le serveur de l’établissement.' : 'Données de démonstration (stockage local).'}
               </span>
               <button
                 type="submit"

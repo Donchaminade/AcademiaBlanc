@@ -4,6 +4,7 @@ import type { CharteEtablissement, ParametrePersiste } from './charte';
 import type { ProfilEtablissement } from './etablissement';
 import { saveEnTete } from './prereglages';
 import { enTeteDepuisSettings } from '../utils/prereglages';
+import { APPRECIATION_LONGUEUR_MAX, appreciationManuelleValide, normaliserAppreciationManuelle } from '../utils/appreciation';
 import type { AppSettings, Candidate } from '../types';
 
 /**
@@ -35,6 +36,8 @@ export interface NoteApi {
   sessionId?: number;
   valeur?: number | null;
   absent: boolean;
+  /** Texte libre de l'enseignant ; absent ou `null` = appréciation automatique selon la note. */
+  appreciation?: string | null;
 }
 
 export interface SignatureApi {
@@ -43,12 +46,15 @@ export interface SignatureApi {
   empreinte: string | null;
 }
 
-/** Délibération du jury pour un élève dans une session (`GET/PUT /api/deliberations`). */
+/**
+ * Délibération du jury pour un élève dans une session (`GET/PUT /api/deliberations`) : observation
+ * portée sur le bulletin et signature électronique. Elle ne modifie jamais la moyenne, qui reste
+ * la moyenne réelle Σ(note × coef) / Σ coef.
+ */
 export interface DeliberationApi {
   id?: number;
   eleveId: number;
   sessionId: number;
-  bonusJury: number | null;
   observation: string | null;
   signature: SignatureApi | null;
 }
@@ -152,6 +158,39 @@ export async function sauvegarderNote(saisie: NoteSaisie): Promise<NoteApi> {
   });
 }
 
+export interface AppreciationSaisie extends NoteSaisie {
+  /** Texte libre de l'enseignant ; vide = retour à l'appréciation automatique. */
+  appreciation: string;
+}
+
+/**
+ * Enregistre l'appréciation du professeur d'une note existante (`POST /api/notes` avec la note
+ * actuelle et le champ `appreciation` : texte libre, ou chaîne vide pour rétablir l'automatique).
+ */
+export async function sauvegarderAppreciation(saisie: AppreciationSaisie): Promise<NoteApi> {
+  if (!saisie.sessionId) {
+    throw new Error('Aucune session chargée : créez ou sélectionnez une session avant de saisir des appréciations.');
+  }
+  if (!estEleveApi(saisie.candidateId) || !Number.isFinite(Number(saisie.subjectId))) {
+    throw new Error('Élève ou matière absent de la base : rechargez la page.');
+  }
+  if (!Number.isFinite(saisie.score) || saisie.score < 0 || saisie.score > 20) {
+    throw new Error('Saisissez d’abord une note sur 20 avant son appréciation.');
+  }
+  const appreciation = normaliserAppreciationManuelle(saisie.appreciation);
+  if (!appreciationManuelleValide(appreciation)) {
+    throw new Error(`L’appréciation ne doit pas dépasser ${APPRECIATION_LONGUEUR_MAX} caractères.`);
+  }
+  return apiSend<NoteApi>('/api/notes', 'POST', {
+    eleveId: Number(saisie.candidateId),
+    matiereId: Number(saisie.subjectId),
+    sessionId: saisie.sessionId,
+    valeur: saisie.score,
+    absent: false,
+    appreciation,
+  });
+}
+
 /**
  * Date de signature au format ISO 8601 attendu par le serveur. La fenêtre de signature produit
  * « JJ-MM-AAAA HH:mm:ss » (heure locale) ; une valeur ISO est reprise telle quelle.
@@ -166,12 +205,11 @@ export function versInstant(signedAt: string): string {
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 }
 
-/** Corps de `PUT /api/deliberations` à partir de l'état complet du candidat (bonus, observation, signature). */
+/** Corps de `PUT /api/deliberations` à partir de l'état complet du candidat (observation, signature). */
 export function versDeliberation(candidate: Candidate, sessionId: number): Omit<DeliberationApi, 'id'> {
   return {
     eleveId: Number(candidate.id),
     sessionId,
-    bonusJury: candidate.juryBonus ?? 0,
     observation: candidate.generalObservation?.trim() || null,
     signature: candidate.digitalSignature
       ? {
@@ -183,7 +221,7 @@ export function versDeliberation(candidate: Candidate, sessionId: number): Omit<
   };
 }
 
-/** Enregistre la décision du jury (repêchage, observation) et la signature du bulletin d'un élève. */
+/** Enregistre l'observation du conseil et la signature du bulletin d'un élève. */
 export async function sauvegarderDeliberation(candidate: Candidate, sessionId: number | null): Promise<DeliberationApi> {
   exigerEleveApi(candidate);
   if (!sessionId) {
@@ -195,10 +233,8 @@ export async function sauvegarderDeliberation(candidate: Candidate, sessionId: n
 /** Reporte une délibération lue sur l'API dans la fiche du candidat. */
 export function appliquerDeliberation(candidate: Candidate, vue: DeliberationApi | undefined): Candidate {
   if (!vue) return candidate;
-  const bonus = Number(vue.bonusJury ?? 0);
   return {
     ...candidate,
-    juryBonus: bonus > 0 ? bonus : undefined,
     generalObservation: vue.observation ?? '',
     digitalSignature: vue.signature
       ? { signedAt: vue.signature.signeLe, signer: vue.signature.signataire ?? '', shaHash: vue.signature.empreinte ?? '' }

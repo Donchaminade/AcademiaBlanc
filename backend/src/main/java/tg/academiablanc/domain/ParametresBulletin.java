@@ -13,6 +13,8 @@ import lombok.Setter;
  * Paramètres d'affichage du bulletin propres à l'établissement (écran Paramètres).
  * Une valeur nulle signifie « valeur par défaut du logiciel » : le client applique alors son préréglage.
  * Le logo n'en fait plus partie : il est porté par {@link Etablissement} avec le cachet et les signatures (V20).
+ * Les noms des signataires n'en font pas partie : le titulaire est l'enseignant affecté à la classe
+ * ({@code classe.titulaire_id}), le signataire officiel est le responsable de la fiche de l'établissement.
  */
 @Entity
 @Table(name = "parametres_bulletin")
@@ -29,15 +31,6 @@ public class ParametresBulletin {
 
   @Column(name = "titre_signataire_jury")
   private String titreSignataireJury;
-
-  @Column(name = "nom_signataire_jury")
-  private String nomSignataireJury;
-
-  @Column(name = "titre_titulaire")
-  private String titreTitulaire;
-
-  @Column(name = "nom_titulaire")
-  private String nomTitulaire;
 
   @Column(name = "premier_numero_table")
   private Integer premierNumeroTable;

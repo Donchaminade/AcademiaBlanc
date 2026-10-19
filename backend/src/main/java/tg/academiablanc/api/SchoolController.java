@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import tg.academiablanc.calc.Appreciation;
 import tg.academiablanc.domain.Action;
 import tg.academiablanc.domain.Affectation;
 import tg.academiablanc.domain.AnneeScolaire;
@@ -136,8 +137,13 @@ public class SchoolController {
   public record EleveRequest(@NotNull Long classeId, Long sessionId, @NotBlank @Size(max = 180) String nomComplet,
                              @Size(max = 20) String dateNaissance, @Size(max = 120) String lieuNaissance, @NotBlank @Size(min = 1, max = 1) String genre,
                              Integer numeroTable, @Size(max = 180) String etablissementOrigine) {}
+  /**
+   * {@code appreciation} : texte libre de l'enseignant porté sur le bulletin à la place de
+   * l'appréciation automatique. Absent (null) = inchangée ; vide = retour à l'automatique.
+   */
   public record NoteRequest(@NotNull Long eleveId, @NotNull Long matiereId, @NotNull Long sessionId,
-                            @DecimalMin("0") @DecimalMax("20") BigDecimal valeur, boolean absent) {}
+                            @DecimalMin("0") @DecimalMax("20") BigDecimal valeur, boolean absent,
+                            @Size(max = Appreciation.LONGUEUR_MAX) String appreciation) {}
 
   @GetMapping("/annees-scolaires")
   public List<AnneeScolaire> annees() {
@@ -813,6 +819,9 @@ public class SchoolController {
     note.setSessionId(request.sessionId());
     note.setAbsent(request.absent());
     note.setValeur(request.absent() ? null : request.valeur());
+    if (request.appreciation() != null) {
+      note.setAppreciation(Appreciation.normaliserManuelle(request.appreciation()));
+    }
   }
 
   private static ResponseStatusException absent() {

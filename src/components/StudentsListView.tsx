@@ -132,7 +132,7 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
 
     const initialGrades: Record<string, { score: number; appreciation: string }> = {};
     subjects.forEach((s) => {
-      initialGrades[s.id] = { score: 10.0, appreciation: 'En attente de notation.' };
+      initialGrades[s.id] = { score: 10.0, appreciation: '' };
     });
 
     const created: Candidate = {
@@ -151,7 +151,6 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
       parentEmail: newStudent.parentEmail,
       generalObservation: '« Candidat régulièrement inscrit pour la session d\'examen blanc. »',
       grades: initialGrades,
-      isDeliberated: false,
     };
 
     onAddNewCandidate(created);
@@ -197,7 +196,7 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
 
         const initialGrades: Record<string, { score: number; appreciation: string }> = {};
         subjects.forEach((s) => {
-          initialGrades[s.id] = { score: 10.0, appreciation: 'En attente de notation.' };
+          initialGrades[s.id] = { score: 10.0, appreciation: '' };
         });
 
         const newCand: Candidate = {
@@ -216,7 +215,6 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
           parentEmail: 'parent@edu.tg',
           generalObservation: '« Candidat importé depuis la liste officielle. »',
           grades: initialGrades,
-          isDeliberated: false,
         };
 
         newBatchCandidates.push(newCand);
