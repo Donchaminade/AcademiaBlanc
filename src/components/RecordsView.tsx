@@ -379,13 +379,13 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
         <colgroup>
           <col style={{ width: '6%' }} />
           <col style={{ width: '6%' }} />
-          <col style={{ width: '25%' }} />
-          <col style={{ width: '19%' }} />
-          <col style={{ width: '5%' }} />
+          <col style={{ width: '24%' }} />
+          <col style={{ width: '18%' }} />
+          <col style={{ width: '6%' }} />
           <col style={{ width: '10%' }} />
           <col style={{ width: '8%' }} />
           <col style={{ width: '10%' }} />
-          <col style={{ width: '11%' }} />
+          <col style={{ width: '12%' }} />
         </colgroup>
         <thead>
           <tr>

@@ -697,7 +697,9 @@
   font-weight: 700;
   font-size: 8.5px;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
+  overflow-wrap: normal;
+  hyphens: manual;
 }
 
 .registre-table tr {
