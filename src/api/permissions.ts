@@ -8,12 +8,12 @@ import { getSession, onSessionChange } from './client';
 
 export type Ressource =
   | 'ANNEES' | 'CENTRES' | 'SESSIONS' | 'MATIERES' | 'COEFFICIENTS' | 'ENSEIGNANTS' | 'CLASSES' | 'SERIES'
-  | 'AFFECTATIONS' | 'ELEVES' | 'NOTES' | 'BULLETINS' | 'PARAMETRES' | 'UTILISATEURS'
+  | 'AFFECTATIONS' | 'ELEVES' | 'NOTES' | 'BULLETINS' | 'PARAMETRES' | 'UTILISATEURS' | 'TRANSFERTS'
   | 'ETABLISSEMENTS' | 'GESTIONNAIRES' | 'TYPES_EXAMEN' | 'PREREGLAGES';
 
-export type Action = 'VOIR' | 'DETAILS' | 'CREER' | 'MODIFIER' | 'SUPPRIMER' | 'IMPRIMER';
+export type Action = 'VOIR' | 'DETAILS' | 'CREER' | 'MODIFIER' | 'SUPPRIMER' | 'IMPRIMER' | 'ENVOYER' | 'TRAITER';
 
-export const ACTIONS: Action[] = ['VOIR', 'DETAILS', 'CREER', 'MODIFIER', 'SUPPRIMER', 'IMPRIMER'];
+export const ACTIONS: Action[] = ['VOIR', 'DETAILS', 'CREER', 'MODIFIER', 'SUPPRIMER', 'IMPRIMER', 'ENVOYER', 'TRAITER'];
 
 export const ACTION_LABELS: Record<Action, string> = {
   VOIR: 'Voir',
@@ -22,6 +22,8 @@ export const ACTION_LABELS: Record<Action, string> = {
   MODIFIER: 'Modifier',
   SUPPRIMER: 'Supprimer',
   IMPRIMER: 'Imprimer',
+  ENVOYER: 'Envoyer',
+  TRAITER: 'Traiter',
 };
 
 export const ACTION_HINTS: Record<Action, string> = {
@@ -31,6 +33,8 @@ export const ACTION_HINTS: Record<Action, string> = {
   MODIFIER: 'Modifier une fiche existante',
   SUPPRIMER: 'Supprimer ou désactiver',
   IMPRIMER: 'Imprimer ou télécharger',
+  ENVOYER: 'Envoyer les données d’un examen blanc à un autre établissement (centre d’examen)',
+  TRAITER: 'Accepter ou refuser un transfert reçu',
 };
 
 export const RESSOURCE_LABELS: Record<Ressource, string> = {
@@ -48,6 +52,7 @@ export const RESSOURCE_LABELS: Record<Ressource, string> = {
   BULLETINS: 'Bulletins',
   PARAMETRES: 'Paramètres',
   UTILISATEURS: 'Utilisateurs & droits',
+  TRANSFERTS: 'Transferts d’examen blanc',
   ETABLISSEMENTS: 'Établissements',
   GESTIONNAIRES: 'Gestionnaires',
   TYPES_EXAMEN: 'Types d’examen',

@@ -49,6 +49,10 @@ interface SidebarProps {
   apiUser?: { name: string; role: string } | null;
   /** Ouvre l'écran d'administration (matières, enseignants, classes, élèves…). */
   onOpenAdmin?: () => void;
+  /** Ouvre l'écran « Transferts » (envois du centre d'examen, transferts reçus) ; absent sans le droit TRANSFERTS : VOIR. */
+  onOpenTransferts?: () => void;
+  /** Transferts reçus en attente de traitement (badge de l'entrée « Transferts »). */
+  transfertsEnAttente?: number;
   /** Ferme la session API et revient à l'écran de connexion. */
   onLogout?: () => void;
   /**
@@ -58,6 +62,10 @@ interface SidebarProps {
   variant?: 'fixed' | 'drawer';
   /** Tiroir mobile : ferme le tiroir (croix en haut à droite). */
   onClose?: () => void;
+  /** Établissement connecté : ouvre sa page « Abonnement » (statut, paiement, historique). */
+  onOpenAbonnement?: () => void;
+  /** Badge d'abonnement affiché sous l'en-tête (établissement connecté uniquement). */
+  abonnementBadge?: React.ReactNode;
 }
 
 const DEMO_SESSIONS = [
@@ -110,9 +118,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   usingApi = false,
   apiUser,
   onOpenAdmin,
+  onOpenTransferts,
+  transfertsEnAttente = 0,
   onLogout,
   variant = 'fixed',
   onClose,
+  onOpenAbonnement,
+  abonnementBadge,
 }) => {
   const sessionChoices = usingApi ? (sessionOptions || []) : (sessionOptions && sessionOptions.length > 0 ? sessionOptions : DEMO_SESSIONS);
   const centerChoices = usingApi ? (centerOptions || []) : (centerOptions && centerOptions.length > 0 ? centerOptions : DEMO_CENTERS);
@@ -171,6 +183,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <span>{platformOnly ? 'Établissements & gestionnaires' : 'Plateforme : établissements & gestionnaires'}</span>
       </button>
     </>
+  );
+
+  // Portail super admin : abonnements, paiements mobile money et paramètres commerciaux.
+  const abonnementsEntry = (
+    <button
+      type="button"
+      onClick={() => onViewChange('abonnements')}
+      data-testid="sidebar-abonnements"
+      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium ${
+        currentView === 'abonnements'
+          ? 'bg-[#1e3a8a] text-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
+          : 'text-[#00236f] bg-[#f2f3ff] hover:bg-[#eaedff]'
+      }`}
+    >
+      <span className="material-symbols-outlined text-lg">credit_card</span>
+      <span>Abonnements &amp; paiements</span>
+    </button>
+  );
+
+  // Établissement connecté : sa page Abonnement (statut, échéance, paiement, historique).
+  const abonnementEntry = onOpenAbonnement && (
+    <button
+      type="button"
+      onClick={onOpenAbonnement}
+      data-testid="sidebar-abonnement"
+      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium ${
+        currentView === 'abonnement'
+          ? 'bg-[#1e3a8a] text-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
+          : 'text-[#00236f] bg-white border border-[#eaedff] hover:bg-[#eaedff]'
+      }`}
+    >
+      <span className={`material-symbols-outlined text-lg ${currentView === 'abonnement' ? '' : 'text-[#0051d5]'}`}>credit_card</span>
+      <span className="font-semibold">Mon abonnement</span>
+    </button>
   );
 
   const accountIdentity = (
@@ -243,6 +289,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               Plateforme
             </p>
             {platformEntry}
+            {abonnementsEntry}
           </nav>
         </div>
 
@@ -291,6 +338,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             {closeButton}
           </div>
+          {abonnementBadge && <div className="mt-3 flex" data-testid="sidebar-badge-abonnement">{abonnementBadge}</div>}
           <button
             type="button"
             onClick={onToggleOffline}
@@ -395,6 +443,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           {platformOwner && platformEntry}
+          {platformOwner && abonnementsEntry}
 
           {/* Dashboard */}
           <button
@@ -512,6 +561,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>Palmarès &amp; PV Global</span>
           </button>
 
+          {/* Transferts d'examen blanc entre établissements (centre : envois ; destinataire : reçus) */}
+          {onOpenTransferts && (
+            <button
+              type="button"
+              onClick={onOpenTransferts}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded transition-all text-[13px] text-left font-medium ${
+                currentView === 'transferts'
+                  ? 'bg-[#1e3a8a] text-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] font-semibold'
+                  : 'text-[#444651] hover:bg-[#eaedff] hover:text-[#131b2e]'
+              }`}
+              title="Envoyer les résultats d'un examen blanc inter-établissements aux établissements d'origine, ou traiter les transferts reçus"
+              data-testid="menu-transferts"
+            >
+              <span className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-lg">swap_horiz</span>
+                <span>Transferts reçus &amp; envois</span>
+              </span>
+              {transfertsEnAttente > 0 && (
+                <span
+                  className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-[#ba1a1a] text-white font-bold"
+                  title={`${transfertsEnAttente} transfert(s) en attente de traitement`}
+                  data-testid="badge-transferts-en-attente"
+                >
+                  {transfertsEnAttente}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Settings & Archives */}
           <button
             type="button"
@@ -541,6 +619,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="font-semibold">Profil de l’établissement</span>
             </button>
           )}
+
+          {abonnementEntry}
 
           {/* Hors connexion : accès à la page de connexion (jamais pendant une session active) */}
           {onConnexion && !usingApi && (

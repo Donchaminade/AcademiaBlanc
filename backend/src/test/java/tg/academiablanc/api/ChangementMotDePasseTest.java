@@ -72,8 +72,8 @@ class ChangementMotDePasseTest {
     String raw = mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"Lycee Mot de passe\",\"ville\":\"Lome\",\"email\":\"" + email
-                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\"}"))
-        .andExpect(status().isOk())
+                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Proviseur\",\"acceptationConditions\":true}"))
+        .andExpect(status().isCreated())
         .andReturn().getResponse().getContentAsString();
     return raw.split("\"token\":\"")[1].split("\"")[0];
   }

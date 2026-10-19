@@ -96,9 +96,9 @@ class AnalytiquePlateformeTest {
     String ecole = token(mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
-                {"nom":"Lycee Analytique","ville":"Kara","email":"ecole-analytique@ecole.tg","motDePasse":"secret1","nomResponsable":"Proviseur"}
+                {"nom":"Lycee Analytique","ville":"Kara","email":"ecole-analytique@ecole.tg","motDePasse":"secret1","nomResponsable":"Proviseur","acceptationConditions":true}
                 """))
-        .andExpect(status().isOk())
+        .andExpect(status().isCreated())
         .andReturn().getResponse().getContentAsString());
     Etablissement inscrit = etablissements.findByEmailIgnoreCase("ecole-analytique@ecole.tg").orElseThrow();
     inscrit.setCreeLe(Instant.parse("2026-10-02T06:00:00Z"));

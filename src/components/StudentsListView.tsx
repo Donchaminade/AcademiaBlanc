@@ -10,6 +10,7 @@ import { confirmAction } from '../utils/alerts';
 import { ImportElevesPanel } from './ImportElevesPanel';
 import { ListeCandidatsSheet } from './ListeCandidatsSheet';
 import { FeuilleEmargementSheet } from './print/FeuilleEmargementSheet';
+import { CLASSE_BOUTON_VERROUILLE, attributsBoutonVerrouille, useVerrouImpression } from './abonnement/useVerrouImpression';
 
 interface OptionApi { id: number; label: string; }
 
@@ -64,6 +65,12 @@ interface StudentsListViewProps {
   centreExamen?: string;
   /** Libellé court du type d'examen de la session active (en-tête de la liste imprimée). */
   examType?: string;
+  /**
+   * Session inter-établissements, droit TRANSFERTS : ouvre l'écran « Transferts » pour envoyer les résultats
+   * aux établissements d'origine ; `originesCount` : nombre d'établissements d'origine distincts (hors centre).
+   */
+  onOpenTransferts?: () => void;
+  originesCount?: number;
 }
 
 export const StudentsListView: React.FC<StudentsListViewProps> = ({
@@ -87,8 +94,12 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
   sessionInter = false,
   centreExamen = '',
   examType,
+  onOpenTransferts,
+  originesCount = 0,
 }) => {
   const [startTableNum, setStartTableNum] = useState<number>(settings?.startTableNumber || 138);
+  // Abonnement expiré ou suspendu : impression et export CSV grisés avec explication.
+  const verrou = useVerrouImpression();
   /** Connecté à l'API : le matricule est attribué par le serveur et n'est pas saisi. */
   const matriculeServeur = !!getToken();
   const [searchQuery, setSearchQuery] = useState('');
@@ -515,6 +526,19 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
             </button>
           )}
 
+          {sessionInter && onOpenTransferts && (
+            <button
+              type="button"
+              onClick={onOpenTransferts}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#fff3e0] text-[#8a4b00] border border-[#ffcc80] text-[12px] font-semibold hover:bg-[#ffe6c2] transition-colors"
+              title="Envoyer les notes et le classement des candidats à leur établissement d'origine (code de transfert du destinataire)"
+              data-testid="bouton-transferts"
+            >
+              <span className="material-symbols-outlined text-base">swap_horiz</span>
+              <span className="truncate">Transferts{originesCount > 0 ? ` (${originesCount} établissement${originesCount > 1 ? 's' : ''})` : ''}</span>
+            </button>
+          )}
+
           {onAssignMissingTableNumbers && sansNumero.length > 0 && (
             <button
               type="button"
@@ -532,8 +556,9 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
           <button
             type="button"
             onClick={() => printDocument('emargement', `Emargement_${selectedSession}`)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#eaedff] transition-colors"
-            title="Imprimer la feuille d'émargement des candidats inscrits"
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#eaedff] transition-colors ${CLASSE_BOUTON_VERROUILLE}`}
+            {...attributsBoutonVerrouille(verrou, "Imprimer la feuille d'émargement des candidats inscrits")}
+            data-testid="bouton-emargement"
           >
             <span className="material-symbols-outlined text-base">print</span>
             <span className="truncate"><span className="hidden sm:inline">Feuille d'</span>Émargement</span>
@@ -542,10 +567,10 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
           <button
             type="button"
             onClick={() => printDocument('candidats', `Liste_candidats_${selectedSession}`)}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded text-[12px] font-semibold transition-colors ${sessionInter ? 'bg-[#fff3e0] text-[#8a4b00] border border-[#ffcc80] hover:bg-[#ffe6c2]' : 'bg-[#f2f3ff] text-[#444651] hover:bg-[#eaedff]'}`}
-            title={sessionInter
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded text-[12px] font-semibold transition-colors ${sessionInter ? 'bg-[#fff3e0] text-[#8a4b00] border border-[#ffcc80] hover:bg-[#ffe6c2]' : 'bg-[#f2f3ff] text-[#444651] hover:bg-[#eaedff]'} ${CLASSE_BOUTON_VERROUILLE}`}
+            {...attributsBoutonVerrouille(verrou, sessionInter
               ? "Liste A4 des candidats du centre d'examen, par classe puis par nom, avec établissement d'origine et colonne d'émargement"
-              : 'Liste A4 des candidats par classe puis par nom, avec colonne d’émargement'}
+              : 'Liste A4 des candidats par classe puis par nom, avec colonne d’émargement')}
             data-testid="bouton-liste-candidats"
           >
             <span className="material-symbols-outlined text-base">list_alt</span>
@@ -555,9 +580,10 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
           <button
             type="button"
             onClick={exporterListeCsv}
-            disabled={candidates.length === 0}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#eaedff] transition-colors disabled:opacity-40"
-            title="Exporter la liste des candidats (CSV, séparateur « ; »)"
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#eaedff] transition-colors ${CLASSE_BOUTON_VERROUILLE}`}
+            {...attributsBoutonVerrouille(verrou, 'Exporter la liste des candidats (CSV, séparateur « ; »)')}
+            disabled={verrou.verrouille || candidates.length === 0}
+            data-testid="bouton-csv-candidats"
           >
             <span className="material-symbols-outlined text-base">download</span>
             <span>CSV</span>

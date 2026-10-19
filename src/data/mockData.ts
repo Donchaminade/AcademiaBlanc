@@ -317,7 +317,7 @@ export function computeCandidateStats(
   // Extrêmes de la classe de l’élève (même session) : moyenne la plus forte, la plus faible, moyenne de classe.
   const classe = extremesDesMoyennes(options.inter ? cohorte : camaradesDeClasse(candidate, allCandidates), subjects);
 
-  return {
+  const stats: CandidateComputedStats = {
     totalCoef,
     totalPoints,
     totalCoefProgramme,
@@ -333,6 +333,29 @@ export function computeCandidateStats(
     classHighestAverage: classe.highest,
     classLowestAverage: classe.lowest,
     classEvaluatedCount: classe.count,
+  };
+  return appliquerExamenCommun(stats, candidate);
+}
+
+/**
+ * Session issue d'un transfert : le rang, l'effectif et les extrêmes sont ceux du groupe de classement
+ * de l'examen commun au centre (figés à l'acceptation), pas ceux recalculés sur les seuls élèves de
+ * l'établissement. La moyenne, la mention et la décision restent calculées sur les notes importées
+ * (identiques à celles du centre : mêmes notes, mêmes coefficients).
+ */
+export function appliquerExamenCommun(stats: CandidateComputedStats, candidate: Pick<Candidate, 'examenCommun'>): CandidateComputedStats {
+  const commun = candidate.examenCommun;
+  if (!commun) return stats;
+  const moyenneGroupe = commun.moyenneGroupe ?? stats.classAverage;
+  return {
+    ...stats,
+    rank: commun.rang ?? stats.rank,
+    totalCandidates: commun.effectif ?? stats.totalCandidates,
+    differenceToPromo: moyenneGroupe == null ? stats.differenceToPromo : Math.round((stats.average - moyenneGroupe) * 100) / 100,
+    classAverage: moyenneGroupe,
+    classHighestAverage: commun.moyenneMax ?? stats.classHighestAverage,
+    classLowestAverage: commun.moyenneMin ?? stats.classLowestAverage,
+    classEvaluatedCount: commun.effectif ?? stats.classEvaluatedCount,
   };
 }
 

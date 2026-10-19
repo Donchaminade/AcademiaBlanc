@@ -6,6 +6,7 @@ import { UtilisateursSection } from './UtilisateursSection';
 import { TypesExamenPanel } from './TypesExamenPanel';
 import { PrereglagesNationauxPanel } from './plateforme/PrereglagesNationauxPanel';
 import { AnalytiquePanel } from './plateforme/AnalytiquePanel';
+import type { StatutAbonnementAnalytique } from '../api/plateforme';
 
 /** Champs de contact et effectifs absents sans ETABLISSEMENTS:DETAILS. */
 interface EtablissementSurveillance {
@@ -43,6 +44,8 @@ interface PlateformeViewProps {
   ongletDemande?: DemandeOnglet | null;
   /** Signale l'onglet affiché (mise en évidence dans la barre latérale). */
   onOngletChange?: (onglet: OngletPlateforme | null) => void;
+  /** Ouvre la page « Abonnements & paiements » filtrée sur un statut (cartes du tableau de bord analytique). */
+  onOuvrirAbonnements?: (statut: StatutAbonnementAnalytique) => void;
 }
 
 const format = (value: number | undefined) => (value == null ? '—' : new Intl.NumberFormat('fr-FR').format(value));
@@ -59,7 +62,7 @@ const Field: React.FC<{ label: string; className?: string; children: React.React
 
 const EMPTY_FORM = { nom: '', ville: '', email: '', motDePasse: '', nomResponsable: '', telephone: '', region: '', typeEtablissement: '' };
 
-export const PlateformeView: React.FC<PlateformeViewProps> = ({ ongletDemande = null, onOngletChange }) => {
+export const PlateformeView: React.FC<PlateformeViewProps> = ({ ongletDemande = null, onOngletChange, onOuvrirAbonnements }) => {
   const { can, permissions } = usePermissions();
   const allowed = isPlatformAccount();
   // L'analytique (revenus, churn, inscriptions) n'est jamais proposée aux gestionnaires : propriétaire seulement.
@@ -246,7 +249,7 @@ export const PlateformeView: React.FC<PlateformeViewProps> = ({ ongletDemande = 
         </div>
       )}
 
-      {ongletCourant === 'analytique' && <AnalytiquePanel />}
+      {ongletCourant === 'analytique' && <AnalytiquePanel onOuvrirAbonnements={onOuvrirAbonnements} />}
 
       {ongletCourant === 'gestionnaires' && <UtilisateursSection mode="plateforme" />}
 

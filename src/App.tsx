@@ -15,6 +15,8 @@ import { EtablissementProfilView } from './components/EtablissementProfilView';
 import { AdminLoginPage } from './components/AdminLoginPage';
 import { PlateformeView } from './components/PlateformeView';
 import type { DemandeOnglet, OngletPlateforme } from './components/PlateformeView';
+import { TransfertsView } from './components/TransfertsView';
+import type { OngletTransferts } from './components/TransfertsView';
 import { AllBulletinsPrintModal } from './components/AllBulletinsPrintModal';
 import { SignatureModal } from './components/SignatureModal';
 import { SmsModal } from './components/SmsModal';
@@ -37,6 +39,7 @@ import {
 } from './api/ecritures';
 import type { AuthSession } from './api/client';
 import { loadProfil } from './api/etablissement';
+import { compterRecusEnAttente, regrouperParOrigine } from './api/transferts';
 import type { ProfilEtablissement } from './api/etablissement';
 import { appliquerEnTeteAuxSettings, enTeteChanged, enTeteDepuisSettings } from './utils/prereglages';
 import { usePermissions } from './api/permissions';
@@ -55,14 +58,26 @@ import {
 } from './data/schoolsData';
 import { Candidate, Subject, ViewMode, AppSettings, SchoolAccount, AdminSection } from './types';
 import { printDocument } from './utils/printDocument';
-import { usePublicRoute } from './utils/router';
+import { isLegalRoute, usePublicRoute } from './utils/router';
+import { ReacceptationConditions } from './components/legal/ReacceptationConditions';
 import { MODE_SESSION_DEFAUT, estSessionInter } from './utils/sessionMode';
 import type { ModeSession } from './utils/sessionMode';
 import { TIROIR_FERME, fermerTiroir, ouvrirTiroir, tiroirApresChangementDeVue } from './utils/mobileNav';
 import type { EtatTiroir } from './utils/mobileNav';
+import { INTERVALLE_RAFRAICHISSEMENT_MS, rafraichirAbonnement, setEtatAbonnement, useAbonnement } from './api/abonnement';
+import { isLocked } from './api/client';
+import { AbonnementBadge } from './components/abonnement/AbonnementBadge';
+import { BandeauVerrou } from './components/abonnement/BandeauVerrou';
+import { AbonnementView } from './components/abonnement/AbonnementView';
+import { PaiementActivationScreen } from './components/abonnement/PaiementActivationScreen';
+import { useVerrouImpression } from './components/abonnement/useVerrouImpression';
+import { AbonnementsPlateformeView } from './components/plateforme/AbonnementsPlateformeView';
+import type { DemandeFiltreAbonnements } from './components/plateforme/AbonnementsPlateformeView';
 
 // Site vitrine (GSAP, Three.js) chargé à la demande : l’application connectée n’embarque pas ces bibliothèques.
 const LandingPage = lazy(() => import('./components/landing/LandingPage'));
+// Documents légaux (`/cgu`, `/confidentialite`, `/conditions`) : publics, chargés à la demande.
+const PagesLegales = lazy(() => import('./components/legal/PagesLegales'));
 
 /** Nouvelles tentatives de chargement de l'espace quand le serveur est injoignable ou en cours de réveil. */
 const REPRISES_SERVEUR = 3;
@@ -112,7 +127,13 @@ export default function App() {
   // Mode de la session active (interne / inter-établissements) et nom du centre d'examen en inter.
   const [activeSessionMode, setActiveSessionMode] = useState<ModeSession>(MODE_SESSION_DEFAUT);
   const [activeCentreExamen, setActiveCentreExamen] = useState<string>('');
+  // Session issue d'un transfert reçu : nom du centre émetteur (bandeau, verrou de la saisie des notes) ; vide sinon.
+  const [activeTransfertCentre, setActiveTransfertCentre] = useState<string>('');
   const sessionInter = usingApiInter(activeSessionMode);
+  const sessionTransferee = Boolean(getToken()) && activeTransfertCentre !== '';
+  // Transferts reçus en attente (badge de la barre latérale) et onglet demandé à l'ouverture de l'écran Transferts.
+  const [transfertsEnAttente, setTransfertsEnAttente] = useState(0);
+  const [ongletTransferts, setOngletTransferts] = useState<OngletTransferts | undefined>(undefined);
   const [usingApi, setUsingApi] = useState<boolean>(() => Boolean(getToken()));
   // Jeton présent au chargement : rien n'est affiché (surtout pas de données de démonstration)
   // tant que la session n'est pas relue et l'espace de l'établissement chargé depuis l'API.
@@ -133,6 +154,7 @@ export default function App() {
   // Onglet de la vue Plateforme demandé depuis la barre latérale (« Analytique ») et onglet affiché.
   const [ongletPlateformeDemande, setOngletPlateformeDemande] = useState<DemandeOnglet | null>(null);
   const [ongletPlateformeCourant, setOngletPlateformeCourant] = useState<OngletPlateforme | null>(null);
+  const [filtreAbonnementsDemande, setFiltreAbonnementsDemande] = useState<DemandeFiltreAbonnements | null>(null);
   // Session plateforme sans établissement : barre latérale réduite, aucune vue d'établissement accessible.
   const [sessionPlateformeSeule, setSessionPlateformeSeule] = useState<boolean>(() => Boolean(getToken()) && isPlatformOnlyAccount());
   // Hors application : `/` (vitrine), `/connexion`, `/inscription`.
@@ -189,8 +211,18 @@ export default function App() {
     }, 4000);
   };
 
+  // Abonnement de l'établissement connecté (statut calculé par le serveur) et garde d'impression associée.
+  const etatAbonnement = useAbonnement();
+  const verrouImpression = useVerrouImpression();
+
   /** Un refus du serveur (403) s’affiche en fenêtre avec son message ; les autres erreurs en toast. */
   const signalerErreur = (err: unknown, fallback: string) => {
+    if (isLocked(err)) {
+      // 423 : l'abonnement est verrouillé côté serveur ; le statut est relu pour aligner badge et bandeau.
+      void showError('Abonnement verrouillé', err.message);
+      void rafraichirAbonnement().catch(() => null);
+      return;
+    }
     if (isForbidden(err)) {
       void showError('Action non autorisée', err.message);
       return;
@@ -256,6 +288,8 @@ export default function App() {
       // Une charte ou une fiche indisponible (ancienne API) ne doit pas bloquer le chargement de l'espace.
       loadCharte().catch(() => null),
       loadProfil().catch(() => null),
+      // Statut d'abonnement (badge, bandeau, verrou d'impression) : relu à chaque chargement de l'espace.
+      rafraichirAbonnement().catch(() => null),
     ]);
     const session = getSession();
     setUsingApi(true);
@@ -274,6 +308,7 @@ export default function App() {
     setActiveExamTypeLong(workspace.examTypeLong);
     setActiveSessionMode(workspace.sessionMode);
     setActiveCentreExamen(workspace.centreExamen);
+    setActiveTransfertCentre(workspace.transfertCentre);
     setCharteModifieeLe(charte?.modifieLe ?? null);
     // Paramètres reconstruits intégralement depuis le serveur (session, espace, charte, fiche) : l'état
     // précédent — démonstration ou compte connecté juste avant sur ce navigateur — n'est jamais fusionné,
@@ -311,6 +346,8 @@ export default function App() {
     setActiveExamType('');
     setActiveSessionMode(MODE_SESSION_DEFAUT);
     setActiveCentreExamen('');
+    setActiveTransfertCentre('');
+    setTransfertsEnAttente(0);
     setSelectedCandidateId('');
     setSelectedSession('');
     setSelectedCenter('');
@@ -320,6 +357,7 @@ export default function App() {
     setIsSmsModalOpen(false);
     setIsSearchModalOpen(false);
     setIsBatchPrintModalOpen(false);
+    setEtatAbonnement(null);
     setCurrentView('plateforme');
   };
 
@@ -384,6 +422,32 @@ export default function App() {
     setCurrentView('admin');
   };
 
+  const peutVoirTransferts = usingApi && !sessionPlateformeSeule && can('TRANSFERTS', 'VOIR');
+
+  /** Compteur des transferts reçus en attente (badge) ; silencieux si le droit manque ou l'API est ancienne. */
+  const rafraichirTransfertsEnAttente = useCallback(() => {
+    if (!getToken() || !peutVoirTransferts) {
+      setTransfertsEnAttente(0);
+      return;
+    }
+    compterRecusEnAttente().then(setTransfertsEnAttente).catch(() => setTransfertsEnAttente(0));
+  }, [peutVoirTransferts]);
+
+  useEffect(() => {
+    rafraichirTransfertsEnAttente();
+  }, [rafraichirTransfertsEnAttente, activeSessionId]);
+
+  const openTransferts = (onglet?: OngletTransferts) => {
+    setOngletTransferts(onglet);
+    setCurrentView('transferts');
+  };
+
+  // Nombre d'établissements d'origine distincts (hors centre) dans la session inter active : libellé du bouton « Transferts ».
+  const originesCount = useMemo(
+    () => (sessionInter ? regrouperParOrigine(candidates, activeCentreExamen).length : 0),
+    [sessionInter, candidates, activeCentreExamen],
+  );
+
   // « Consulter » une archive : charge la session réelle correspondante et ouvre son procès-verbal.
   const openArchivedSession = (sessionId: number) => {
     if (!getToken()) return;
@@ -423,6 +487,8 @@ export default function App() {
     setActiveExamType('');
     setActiveSessionMode(MODE_SESSION_DEFAUT);
     setActiveCentreExamen('');
+    setActiveTransfertCentre('');
+    setTransfertsEnAttente(0);
     setSelectedCandidateId('');
     setSelectedSession('');
     setSelectedCenter('');
@@ -434,9 +500,19 @@ export default function App() {
     setIsSmsModalOpen(false);
     setIsSearchModalOpen(false);
     setIsBatchPrintModalOpen(false);
+    setEtatAbonnement(null);
     setCurrentView('auth');
     navigate(comptePlateforme ? 'admin' : 'vitrine');
   };
+
+  // Le statut d'abonnement est recalculé par le serveur : relecture toutes les 30 minutes pendant la session.
+  useEffect(() => {
+    if (!usingApi || sessionPlateformeSeule) return undefined;
+    const minuterie = setInterval(() => {
+      void rafraichirAbonnement().catch(() => null);
+    }, INTERVALLE_RAFRAICHISSEMENT_MS);
+    return () => clearInterval(minuterie);
+  }, [usingApi, sessionPlateformeSeule]);
 
   useEffect(() => {
     if (!getToken()) return;
@@ -456,6 +532,7 @@ export default function App() {
           clearToken();
           setUsingApi(false);
           setApiUser(null);
+          setEtatAbonnement(null);
           setCurrentView('auth');
           navigate('connexion', { replace: true });
         }
@@ -467,13 +544,14 @@ export default function App() {
 
   // Une fois dans l’application, `/connexion`, `/inscription` et `/admin` n’ont plus de sens : l’URL revient
   // sur `/` (une session plateforme déjà active ouvre donc directement la vue Plateforme depuis `/admin`).
+  // Les documents légaux restent consultables à tout moment, connecté ou non.
   useEffect(() => {
-    if (currentView !== 'auth' && route !== 'vitrine') navigate('vitrine', { replace: true });
+    if (currentView !== 'auth' && route !== 'vitrine' && !isLegalRoute(route)) navigate('vitrine', { replace: true });
   }, [currentView, route, navigate]);
 
   // Un compte plateforme sans établissement n'a aucune vue d'établissement : tout écart revient sur la vue Plateforme.
   useEffect(() => {
-    if (sessionPlateformeSeule && currentView !== 'plateforme' && currentView !== 'auth') setCurrentView('plateforme');
+    if (sessionPlateformeSeule && currentView !== 'plateforme' && currentView !== 'abonnements' && currentView !== 'auth') setCurrentView('plateforme');
   }, [sessionPlateformeSeule, currentView]);
 
   // Compte d'établissement créé sur le serveur : `handleApiReady` charge son espace (vide), l'accueil est le tableau de bord.
@@ -798,6 +876,10 @@ export default function App() {
           void showError('Action non autorisée', 'Votre compte ne détient pas le droit IMPRIMER sur BULLETINS.');
           return;
         }
+        if (verrouImpression.verrouille) {
+          void showError('Impression désactivée', verrouImpression.motif);
+          return;
+        }
         if (isBatchPrintModalOpen) {
           printDocument('all-bulletins', `Bulletins_${settings.institutionName}`);
         } else if (currentView === 'bulletin' && selectedCandidate) {
@@ -826,10 +908,13 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [candidates, selectedCandidateId, currentView, isBatchPrintModalOpen, selectedCandidate, settings.institutionName, selectedSession, usingApi, can, sessionPlateformeSeule]);
+  }, [candidates, selectedCandidateId, currentView, isBatchPrintModalOpen, selectedCandidate, settings.institutionName, selectedSession, usingApi, can, sessionPlateformeSeule, verrouImpression]);
 
-  // Impression des bulletins : libre hors API, soumise à BULLETINS:IMPRIMER une fois connecté.
+  // Impression des bulletins : libre hors API, soumise à BULLETINS:IMPRIMER une fois connecté. Les boutons eux-mêmes
+  // se grisent (avec explication) quand l'abonnement est en lecture seule : voir `useVerrouImpression`.
   const peutImprimer = !usingApi || can('BULLETINS', 'IMPRIMER');
+  // Déclaration de paiement : responsable ou administrateur de l'établissement.
+  const peutDeclarerPaiement = accountRole === 'OWNER' || accountRole === 'ADMIN' || accountRole === 'SUPER_ADMIN';
 
   // Hors connexion : la page de connexion remplace l'ancienne modale du portail d'authentification.
   const ouvrirConnexion = () => {
@@ -844,6 +929,15 @@ export default function App() {
     const session = getSession();
     if (session) setSession({ ...session, nomEtablissement: profil.nom });
   };
+
+  // Pages légales publiques : rendues avant tout le reste, sans authentification ni espace chargé.
+  if (isLegalRoute(route)) {
+    return (
+      <Suspense fallback={<div className="min-h-dvh bg-[#faf8ff]" aria-busy="true" />}>
+        <PagesLegales route={route} onRetour={() => navigate('vitrine')} />
+      </Suspense>
+    );
+  }
 
   // Jeton présent : état de chargement jusqu'à la réponse de l'API, sans aucune donnée de démonstration à l'écran.
   if (workspaceLoading && currentView !== 'auth') {
@@ -897,12 +991,33 @@ export default function App() {
     );
   }
 
+  // Compte en attente de paiement (ou dont l'accès n'est pas ouvert) : seul l'écran Paiement / Activation est
+  // proposé tant que le serveur n'a pas activé l'abonnement ou accordé un essai. Jamais pour un compte plateforme.
+  if (usingApi && etatAbonnement && !etatAbonnement.plateforme && !etatAbonnement.acces) {
+    return (
+      <PaiementActivationScreen
+        etat={etatAbonnement}
+        nomEtablissement={settings.institutionName}
+        peutDeclarer={peutDeclarerPaiement}
+        onActive={() => setCurrentView('dashboard')}
+        onLogout={() => void handleLogout()}
+      />
+    );
+  }
+
   const platformOwner = isPlatformAccount(getSession()) || accountRole === 'SUPER_ADMIN' || accountRole === 'GESTIONNAIRE_PLATEFORME';
   // Le tableau de bord analytique n'est proposé qu'au propriétaire du logiciel (SUPER_ADMIN), jamais aux gestionnaires.
   const proprietairePlateforme = usingApi && (isPlatformOwner(getSession()) || accountRole === 'SUPER_ADMIN');
   const ouvrirOngletPlateforme = (onglet: OngletPlateforme) => {
     setOngletPlateformeDemande({ onglet, jeton: Date.now() });
     setCurrentView('plateforme');
+  };
+  const abonnementVisible = usingApi && !sessionPlateformeSeule && etatAbonnement != null && !etatAbonnement.plateforme;
+  const ouvrirAbonnement = () => setCurrentView('abonnement');
+  // Carte du tableau de bord analytique → page « Abonnements & paiements » filtrée sur le statut cliqué.
+  const ouvrirAbonnementsFiltres = (statut: DemandeFiltreAbonnements['statut']) => {
+    setFiltreAbonnementsDemande({ statut, jeton: Date.now() });
+    setCurrentView('abonnements');
   };
   // Depuis le tiroir mobile, une action qui n'est pas un changement de vue doit aussi refermer le tiroir.
   const depuisTiroir = (action?: () => void) => (action ? () => { fermerMenuMobile(); action(); } : undefined);
@@ -940,7 +1055,11 @@ export default function App() {
     usingApi,
     apiUser: usingApi ? apiUser : null,
     onOpenAdmin: usingApi && adminAccess && !sessionPlateformeSeule ? () => openAdmin() : undefined,
+    onOpenTransferts: peutVoirTransferts ? () => openTransferts(sessionInter ? undefined : 'recus') : undefined,
+    transfertsEnAttente,
     onLogout: usingApi ? handleLogout : undefined,
+    onOpenAbonnement: abonnementVisible ? ouvrirAbonnement : undefined,
+    abonnementBadge: abonnementVisible ? <AbonnementBadge etat={etatAbonnement} onClick={ouvrirAbonnement} /> : undefined,
   };
   // Une fenêtre plein écran (recherche, signature, SMS, impression groupée) couvre la barre du bas.
   const fenetreOuverte = isSignatureModalOpen || isSmsModalOpen || isSearchModalOpen || isBatchPrintModalOpen;
@@ -955,6 +1074,7 @@ export default function App() {
         menuOpen={tiroir.ouvert}
         onOpenMenu={ouvrirMenuMobile}
         onOpenSearch={sessionPlateformeSeule ? undefined : () => setIsSearchModalOpen(true)}
+        extra={abonnementVisible ? <AbonnementBadge etat={etatAbonnement} onClick={ouvrirAbonnement} compact /> : undefined}
       />
 
       {/* Sidebar Navigation (bureau, à partir de lg) */}
@@ -973,13 +1093,25 @@ export default function App() {
           onConnexion={depuisTiroir(sidebarProps.onConnexion)}
           onOpenAnalytique={depuisTiroir(sidebarProps.onOpenAnalytique)}
           onOpenPlateforme={depuisTiroir(sidebarProps.onOpenPlateforme)}
+          onOpenTransferts={depuisTiroir(sidebarProps.onOpenTransferts)}
         />
       </MobileDrawer>
 
       {/* Main Content Area - Navigated via Sidebar (bureau) ou barre du bas + tiroir (mobile) */}
       <div className="app-chrome w-full min-h-dvh flex flex-col pt-14 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pl-80 lg:pt-0 lg:pb-0">
+        {/* Abonnement expiré ou suspendu : bandeau rouge persistant, sur toutes les vues de l'établissement */}
+        {abonnementVisible && (
+          <BandeauVerrou etat={etatAbonnement} nomEtablissement={settings.institutionName} onOuvrirAbonnement={ouvrirAbonnement} />
+        )}
+
         {/* View Routing */}
         <main className="relative bg-[#faf8ff] flex-1 min-w-0">
+          {currentView === 'abonnement' && (
+            <AbonnementView etat={etatAbonnement} nomEtablissement={settings.institutionName} peutDeclarer={peutDeclarerPaiement} />
+          )}
+
+          {currentView === 'abonnements' && platformOwner && <AbonnementsPlateformeView filtreDemande={filtreAbonnementsDemande} />}
+
           {currentView === 'bulletin' && !selectedCandidate && (
             <div className="p-4 md:p-10 text-[14px] text-[#444651] space-y-3">
               <p>
@@ -1049,6 +1181,7 @@ export default function App() {
               examTypeLong={usingApi ? activeExamTypeLong : undefined}
               sessionInter={sessionInter}
               centreExamen={activeCentreExamen}
+              transfertCentre={sessionTransferee ? activeTransfertCentre : undefined}
             />
           )}
 
@@ -1074,6 +1207,8 @@ export default function App() {
               sessionInter={sessionInter}
               centreExamen={activeCentreExamen}
               examType={usingApi ? activeExamType : undefined}
+              onOpenTransferts={peutVoirTransferts && sessionInter ? () => openTransferts('envois') : undefined}
+              originesCount={originesCount}
               onRenumberAlphabetically={handleRenumberAlphabetically}
               onAssignMissingTableNumbers={handleAssignMissingTableNumbers}
               onBatchAddCandidates={handleBatchAddCandidates}
@@ -1095,7 +1230,28 @@ export default function App() {
           )}
 
           {currentView === 'plateforme' && (
-            <PlateformeView ongletDemande={ongletPlateformeDemande} onOngletChange={setOngletPlateformeCourant} />
+            <PlateformeView
+              ongletDemande={ongletPlateformeDemande}
+              onOngletChange={setOngletPlateformeCourant}
+              onOuvrirAbonnements={platformOwner ? ouvrirAbonnementsFiltres : undefined}
+            />
+          )}
+
+          {currentView === 'transferts' && peutVoirTransferts && (
+            <TransfertsView
+              sessionId={activeSessionId}
+              sessionName={selectedSession}
+              sessionInter={sessionInter}
+              centreExamen={activeCentreExamen}
+              ongletInitial={ongletTransferts}
+              aUnLogo={Boolean(settings.logoUrl && settings.logoUrl.trim() !== '')}
+              onRecusChanged={() => {
+                rafraichirTransfertsEnAttente();
+                reloadWorkspace();
+              }}
+              onOpenSession={openArchivedSession}
+              onOpenProfil={() => setCurrentView('profil')}
+            />
           )}
 
           {currentView === 'profil' && !sessionPlateformeSeule && (
@@ -1139,7 +1295,7 @@ export default function App() {
               allStats={allStats}
               onUpdateGrade={handleUpdateGrade}
               onUpdateAppreciation={handleUpdateAppreciation}
-              peutAnnoter={!usingApi || can('NOTES', 'CREER') || can('NOTES', 'MODIFIER')}
+              peutAnnoter={!sessionTransferee && (!usingApi || can('NOTES', 'CREER') || can('NOTES', 'MODIFIER'))}
               usingApi={usingApi}
               onSelectCandidate={(c) => setSelectedCandidateId(c.id)}
               onNavigateToBulletin={(c) => {
@@ -1147,7 +1303,8 @@ export default function App() {
                 setCurrentView('bulletin');
               }}
               onAddNewCandidate={handleAddNewCandidate}
-              juryLocked={juryLocked}
+              juryLocked={juryLocked || sessionTransferee}
+              transfertCentre={sessionTransferee ? activeTransfertCentre : undefined}
             />
           )}
 
@@ -1169,6 +1326,8 @@ export default function App() {
               centreExamen={activeCentreExamen}
               juryLocked={juryLocked}
               onToggleJuryLock={handleToggleJuryLock}
+              onOpenTransferts={peutVoirTransferts && sessionInter ? () => openTransferts('envois') : undefined}
+              transfertCentre={sessionTransferee ? activeTransfertCentre : undefined}
             />
           )}
 
@@ -1201,6 +1360,11 @@ export default function App() {
         platformOnly={sessionPlateformeSeule}
         platformOwner={platformOwner}
       />
+
+      {/* Conditions mises à jour : ré-acceptation bloquante pour OWNER / ADMIN, information pour les autres (jamais pour la plateforme) */}
+      {usingApi && !sessionPlateformeSeule && !isPlatformAccount(getSession()) && (
+        <ReacceptationConditions key={getSession()?.etablissementId ?? 'etab'} role={accountRole} />
+      )}
 
       {/* Signature Modal */}
       {isSignatureModalOpen && selectedCandidate && (

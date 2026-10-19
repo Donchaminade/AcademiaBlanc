@@ -45,7 +45,7 @@ describe('entreeActive', () => {
   });
 
   it('met « Plus » en évidence pour les vues accessibles depuis le tiroir', () => {
-    for (const vue of ['records', 'settings', 'admin', 'profil', 'plateforme'] as const) {
+    for (const vue of ['records', 'settings', 'admin', 'profil', 'abonnement', 'plateforme', 'abonnements'] as const) {
       assert.equal(entreeActive(vue), 'plus', vue);
     }
   });
@@ -63,7 +63,7 @@ describe('entreeActive', () => {
 
 describe('vuesDuTiroir', () => {
   it('liste les vues sans entrée directe', () => {
-    assert.deepEqual(vuesDuTiroir(), ['records', 'settings', 'admin', 'profil', 'plateforme']);
+    assert.deepEqual(vuesDuTiroir(), ['records', 'settings', 'admin', 'profil', 'abonnement', 'plateforme', 'abonnements']);
   });
 });
 

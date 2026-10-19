@@ -217,8 +217,8 @@ class OwnerDroitsCompletsTest {
     return json.readTree(mvc.perform(post("/api/auth/signup")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"nom\":\"" + nom + "\",\"ville\":\"Lome\",\"email\":\"" + email
-                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Fondateur Test\"}"))
-        .andExpect(status().isOk())
+                + "\",\"motDePasse\":\"secret1\",\"nomResponsable\":\"Fondateur Test\",\"acceptationConditions\":true}"))
+        .andExpect(status().isCreated())
         .andReturn().getResponse().getContentAsString());
   }
 
