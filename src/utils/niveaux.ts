@@ -37,6 +37,14 @@ export const cycleDeNiveau = (niveau: string): Cycle =>
 
 export const estCollege = (niveau?: string | null): boolean => !!niveau && cycleDeNiveau(niveau) === 'COLLEGE';
 
+export const ORDRE_NIVEAUX = [...NIVEAUX.COLLEGE, ...NIVEAUX.LYCEE].map((n) => n.code);
+
+/** Position d’un niveau de la 6e à la Tle ; les niveaux inconnus passent en fin de liste. */
+export const rangNiveau = (niveau: string): number => {
+  const index = ORDRE_NIVEAUX.indexOf(niveauCanonique(niveau));
+  return index === -1 ? ORDRE_NIVEAUX.length : index;
+};
+
 /** Nom de classe proposé : « 3e », « Tle D », « 1ère G2 » — jamais de série au collège. */
 export const nomClasseSuggere = (niveau: string, serie: string): string =>
   serie && !estCollege(niveau) ? `${niveau} ${serie}` : niveau;

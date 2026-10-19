@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
 import { academicYearCaption, establishmentCaption, getBulletinHeaderInfo, ministrySigle } from '../utils/bulletinHeader';
 import { appreciationFromAverage, computeSubjectRank, formatSubjectRank } from '../utils/bulletinMetrics';
+import { coefDuCandidat } from '../utils/coefficients';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
 import { BulletinSignatureZone } from './BulletinSignatureZone';
@@ -373,7 +374,8 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
               <tbody className="divide-y-0 text-[#131b2e]">
                 {subjectsFor(selectedCandidate, subjects).map((subj, idx) => {
                   const gradeData = selectedCandidate.grades[subj.id];
-                  const scoreTotal = gradeData ? (gradeData.score * subj.coef).toFixed(2) : '—';
+                  const coef = coefDuCandidat(selectedCandidate, subj);
+                  const scoreTotal = gradeData ? (gradeData.score * coef).toFixed(2) : '—';
                   const isEven = idx % 2 === 0;
                   const subjectRankValue = computeSubjectRank(selectedCandidate.id, subj.id, candidates);
                   const subjectRank = subjectRankValue === null ? '—' : formatSubjectRank(subjectRankValue);
@@ -391,7 +393,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                         {subj.teacher}
                       </td>
                       <td className="py-1.5 px-2 font-mono text-[13px] text-center font-bold">
-                        {subj.coef}
+                        {coef}
                       </td>
                       <td className="py-1.5 px-2 font-mono text-[13px] text-right font-bold text-[#00236f]">
                         {gradeData ? gradeData.score.toFixed(2) : '—'}

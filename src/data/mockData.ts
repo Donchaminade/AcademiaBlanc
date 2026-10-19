@@ -1,5 +1,6 @@
 import { Subject, Candidate, CandidateComputedStats, MentionType, DecisionType, AppSettings } from '../types';
 import { subjectsFor } from '../utils/programme';
+import { coefDuCandidat } from '../utils/coefficients';
 
 export const DEFAULT_LOGO_URL =
   'https://lh3.googleusercontent.com/aida/AEtjO1UnLI6S9Hytui1A9d9UWXgFWkKNEQdHwWj-qv_pleqr6xChZjkQ_hVxD-aM7PabrfqOZDf9ugA6kc-rj7K5JTE5ElZ45ND0qIxztcta4O1_E_zARPdjnpxy_kv9bSHry0uk2wuFTcTfLZJhexrfQSF4HSuwKMiTsGgWQcvQfaqHxwznS1BwZ4da2_J3lUo_qIv5wq5JFlIKiUFVPFBC4eNorr5QR-ucmlOfuUJELObfQgYtwboTkHFNt04';
@@ -268,11 +269,14 @@ export function computeCandidateStats(
   let totalCoef = 0;
   let totalPoints = 0;
 
-  // Seules les matières du programme de la classe du candidat comptent (toutes si aucun programme).
+  // Même règle que l’API : seules les matières du programme de la classe du candidat comptent
+  // (toutes si aucun programme) ; total = Σ(note × coef), moyenne = total / Σ coef, avec le
+  // coefficient de la classe de l’élève quand il existe (sinon le coefficient commun de la matière).
   subjectsFor(candidate, subjects).forEach(subject => {
-    totalCoef += subject.coef;
+    const coef = coefDuCandidat(candidate, subject);
+    totalCoef += coef;
     const grade = candidate.grades[subject.id]?.score || 0;
-    totalPoints += grade * subject.coef;
+    totalPoints += grade * coef;
   });
 
   const bonus = candidate.juryBonus || 0;
@@ -284,8 +288,9 @@ export function computeCandidateStats(
     let tCoef = 0;
     let tPts = 0;
     subjectsFor(c, subjects).forEach(s => {
-      tCoef += s.coef;
-      tPts += (c.grades[s.id]?.score || 0) * s.coef;
+      const coef = coefDuCandidat(c, s);
+      tCoef += coef;
+      tPts += (c.grades[s.id]?.score || 0) * coef;
     });
     const cBonus = c.juryBonus || 0;
     const avg = tCoef > 0 ? (tPts / tCoef) + cBonus : 0;

@@ -124,6 +124,7 @@ public class DemoDataSeeder implements CommandLineRunner {
     school.setTypeEtablissement("Enseignement général");
     school.setEmail(email);
     school.setNomResponsable(responsable);
+    school.setCreeLe(java.time.Instant.now());
     school = etablissements.save(school);
     Utilisateur user = new Utilisateur();
     user.setEtablissementId(school.getId());

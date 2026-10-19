@@ -1,6 +1,7 @@
 import { apiGet, isForbidden } from './client';
 import { Candidate, Subject } from '../types';
 import { estCollege } from '../utils/niveaux';
+import { coefficientEffectif } from '../utils/coefficients';
 
 /** Une liste refusée (droit VOIR absent) est traitée comme vide : l’écran reste utilisable avec les droits détenus. */
 async function lire<T>(path: string): Promise<T[]> {
@@ -75,15 +76,11 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
       || affectations.find((item) => item.matiereId === matiereId);
     return profs.find((item) => item.id === link?.professeurId)?.nom || '';
   };
-  const coefOf = (matiereId: number, classeId?: number): { value: number; isDefault: boolean } => {
-    const specific = coefficients.find((item) => item.matiereId === matiereId && item.classeId === classeId);
-    const general = coefficients.find((item) => item.matiereId === matiereId && (item.classeId == null));
-    const saved = specific?.valeur ?? general?.valeur;
-    return saved == null ? { value: 1, isDefault: true } : { value: Number(saved), isDefault: false };
-  };
-
+  // Coefficient commun de la matière (« toutes classes », sinon 1) : affiché dans les en-têtes partagés.
+  // Le coefficient propre à la classe de chaque élève est résolu plus bas, candidat par candidat,
+  // comme le fait l’API (BulletinService.coefDe) : il prime sur le coefficient commun.
   const subjects: Subject[] = matieres.map((matiere) => {
-    const coef = coefOf(matiere.id);
+    const coef = coefficientEffectif(coefficients, matiere.id, null);
     // Programme des classes : une ligne (matière, classe) = la matière est au programme de la classe.
     const coefParClasse: Record<string, number> = {};
     coefficients
@@ -93,11 +90,13 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
       id: String(matiere.id),
       name: matiere.nom,
       teacher: teacherName(matiere.id),
-      coef: coef.value,
-      coefDefault: coef.isDefault,
+      coef: coef.valeur,
+      coefDefault: coef.source === 'defaut',
       coefParClasse,
     };
   });
+  const coefsPourClasse = (classeId: number): Record<string, number> =>
+    Object.fromEntries(matieres.map((matiere) => [String(matiere.id), coefficientEffectif(coefficients, matiere.id, classeId).valeur]));
 
   const roster = session
     ? eleves.filter((eleve) => eleve.sessionId == null || eleve.sessionId === session.id)
@@ -127,6 +126,7 @@ export async function loadSchoolWorkspace(preferredSessionId?: number): Promise<
       parentPhone: '',
       parentEmail: '',
       grades,
+      coefs: coefsPourClasse(eleve.classeId),
       generalObservation: '',
     };
   });

@@ -1,5 +1,6 @@
 package tg.academiablanc.api;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Locale;
 import org.springframework.http.HttpStatus;
@@ -63,6 +64,7 @@ public class EtablissementService {
     school.setTelephone(blankToNull(telephone));
     school.setNomResponsable(nomResponsable.trim());
     school.setActif(true);
+    school.setCreeLe(Instant.now());
     school = etablissements.save(school);
 
     Utilisateur owner = new Utilisateur();

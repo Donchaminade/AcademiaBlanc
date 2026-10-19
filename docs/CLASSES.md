@@ -108,7 +108,7 @@ l'API répond 409).
 ## Programme de classe
 
 Le programme d'une classe est l'ensemble des matières qui lui sont affectées, chacune avec son
-coefficient. Il est porté par la table `coefficient` (migration `V12__programme_classe.sql`) :
+coefficient. Il est porté par la table `coefficient` (migration `V13__programme_classe.sql`) :
 
 | Ligne `coefficient`                         | Sens |
 |---------------------------------------------|------|

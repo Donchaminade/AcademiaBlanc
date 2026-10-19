@@ -43,6 +43,11 @@ export interface Candidate {
   parentPhone: string;
   parentEmail: string;
   grades: Record<string, CandidateGrade>;
+  /**
+   * Coefficient effectif par matière pour la classe de l’élève (le coefficient saisi pour sa classe
+   * prime sur le coefficient « toutes classes »). Absent hors API : `Subject.coef` s’applique.
+   */
+  coefs?: Record<string, number>;
   generalObservation: string;
   isDeliberated?: boolean;
   juryBonus?: number; // Repêchage points
@@ -64,7 +69,7 @@ export interface CandidateComputedStats {
   differenceToPromo: number;
 }
 
-export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth' | 'plateforme';
+export type ViewMode = 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings' | 'admin' | 'auth' | 'plateforme' | 'profil';
 
 export type AdminSection =
   | 'annees'

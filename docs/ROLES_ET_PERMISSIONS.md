@@ -40,7 +40,7 @@ Une permission s’écrit `RESSOURCE:ACTION` (par exemple `MATIERES:SUPPRIMER`).
 | `ELEVES` | idem (`CREER` couvre l’import) | `/api/eleves`, `/api/eleves/import` |
 | `NOTES` | idem | `/api/notes` |
 | `BULLETINS` | Voir, Créer (générer), Imprimer | `/api/bulletins`, `/api/bulletins/generer` |
-| `PARAMETRES` | Voir, Modifier | écran Paramètres, charte graphique `/api/etablissement/charte` (lecture aussi ouverte avec `BULLETINS:VOIR`) |
+| `PARAMETRES` | Voir, Modifier | écran Paramètres, charte graphique `/api/etablissement/charte` (lecture aussi ouverte avec `BULLETINS:VOIR`), fiche de l’établissement `PUT /api/etablissement` (lecture `GET /api/etablissement` et `GET /api/etablissement/statistiques` ouverte à tout utilisateur de l’établissement) |
 | `UTILISATEURS` | Voir, Détails, Créer, Modifier, Supprimer | `/api/utilisateurs` |
 
 Plateforme :
