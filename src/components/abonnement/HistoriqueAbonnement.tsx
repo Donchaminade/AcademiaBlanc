@@ -55,7 +55,6 @@ export const HistoriqueAbonnement: React.FC<HistoriqueAbonnementProps> = ({
             <th className="px-3 py-2.5 font-semibold">Période</th>
             {avecActeur && <th className="px-3 py-2.5 font-semibold">Opérateur</th>}
             <th className="px-3 py-2.5 font-semibold">Note</th>
-            {onTraiter && <th className="px-3 py-2.5 font-semibold text-right">Action</th>}
           </tr>
         </thead>
         <tbody>
@@ -77,6 +76,17 @@ export const HistoriqueAbonnement: React.FC<HistoriqueAbonnementProps> = ({
                     </span>
                   )}
                   {ev.operateurMobile && <p className="text-[11px] text-[#444651] mt-0.5">{ev.operateurMobile}</p>}
+                  {onTraiter && aVerifier && (
+                    <button
+                      type="button"
+                      onClick={() => onTraiter(ev)}
+                      className="mt-1.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#00236f] text-white text-[12px] font-bold hover:bg-[#1e3a8a] transition-colors"
+                      data-testid={`traiter-declaration-${ev.id}`}
+                    >
+                      <span className="material-symbols-outlined text-base" aria-hidden="true">verified</span>
+                      Activer
+                    </button>
+                  )}
                 </td>
                 <td className="px-3 py-2.5">{ev.forfait ? FORFAIT_LABELS[ev.forfait] : '—'}</td>
                 <td className="px-3 py-2.5 text-right font-mono whitespace-nowrap">{ev.montant != null && ev.montant > 0 ? formatFcfa(ev.montant) : '—'}</td>
@@ -86,21 +96,6 @@ export const HistoriqueAbonnement: React.FC<HistoriqueAbonnementProps> = ({
                 </td>
                 {avecActeur && <td className="px-3 py-2.5 text-[#444651] break-all">{ev.acteur || '—'}</td>}
                 <td className="px-3 py-2.5 text-[#444651] max-w-[260px]">{ev.note || '—'}</td>
-                {onTraiter && (
-                  <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                    {aVerifier && (
-                      <button
-                        type="button"
-                        onClick={() => onTraiter(ev)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#00236f] text-white text-[12px] font-bold hover:bg-[#1e3a8a] transition-colors"
-                        data-testid={`traiter-declaration-${ev.id}`}
-                      >
-                        <span className="material-symbols-outlined text-base" aria-hidden="true">verified</span>
-                        Activer
-                      </button>
-                    )}
-                  </td>
-                )}
               </tr>
             );
           })}

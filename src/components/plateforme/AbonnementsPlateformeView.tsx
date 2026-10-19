@@ -32,6 +32,7 @@ type Onglet = 'etablissements' | 'paiements';
 const field = 'w-full bg-[#f2f3ff] text-[13px] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]';
 const primary = 'inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-[#00236f] text-white text-[12px] font-bold hover:bg-[#1e3a8a] transition-colors shadow-xs disabled:opacity-50';
 const ghost = 'inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#e2e7ff] transition-colors disabled:opacity-50';
+const action = 'inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-[#00236f] text-white text-[12px] font-bold hover:bg-[#1e3a8a] transition-colors disabled:opacity-50';
 
 const Field: React.FC<{ label: string; className?: string; children: React.ReactNode }> = ({ label, className = '', children }) => (
   <label className={`flex flex-col gap-1 min-w-0 ${className}`}>
@@ -650,7 +651,7 @@ export const AbonnementsPlateformeView: React.FC = () => {
                         {canModifier && (
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap justify-end gap-1.5">
-                              <button type="button" disabled={occupe} onClick={() => setActivation({ etablissement: item })} className={`${ghost} bg-[#00236f] text-white hover:bg-[#1e3a8a]`} data-testid={`activer-${item.id}`}>
+                              <button type="button" disabled={occupe} onClick={() => setActivation({ etablissement: item })} className={action} data-testid={`activer-${item.id}`}>
                                 <span className="material-symbols-outlined text-base">verified</span>
                                 {item.statut === 'ACTIF' ? 'Prolonger' : 'Activer'}
                               </button>
