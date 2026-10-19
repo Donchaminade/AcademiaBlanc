@@ -3,6 +3,7 @@ import { apiDelete, apiGet, apiSend, isPlatformAccount } from '../api/client';
 import { usePermissions } from '../api/permissions';
 import { confirmAction, showError, toastSuccess } from '../utils/alerts';
 import { UtilisateursSection } from './UtilisateursSection';
+import { PrereglagesNationauxPanel } from './plateforme/PrereglagesNationauxPanel';
 
 /** Champs de contact et effectifs absents sans ETABLISSEMENTS:DETAILS. */
 interface EtablissementSurveillance {
@@ -24,7 +25,7 @@ interface EtablissementSurveillance {
   notes?: number;
 }
 
-type Onglet = 'etablissements' | 'gestionnaires';
+type Onglet = 'etablissements' | 'gestionnaires' | 'prereglages';
 
 const format = (value: number | undefined) => (value == null ? '—' : new Intl.NumberFormat('fr-FR').format(value));
 const field = 'w-full bg-[#f2f3ff] text-[13px] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]';
@@ -49,6 +50,7 @@ export const PlateformeView: React.FC = () => {
   const canModifier = can('ETABLISSEMENTS', 'MODIFIER');
   const canSupprimer = can('ETABLISSEMENTS', 'SUPPRIMER');
   const canGestionnaires = can('GESTIONNAIRES', 'VOIR');
+  const canPrereglages = can('PREREGLAGES', 'VOIR');
 
   const [onglet, setOnglet] = useState<Onglet>('etablissements');
   const [etablissements, setEtablissements] = useState<EtablissementSurveillance[]>([]);
@@ -152,6 +154,7 @@ export const PlateformeView: React.FC = () => {
   const onglets: { key: Onglet; label: string; icon: string; visible: boolean }[] = [
     { key: 'etablissements', label: 'Établissements', icon: 'domain', visible: canVoir },
     { key: 'gestionnaires', label: 'Gestionnaires', icon: 'manage_accounts', visible: canGestionnaires },
+    { key: 'prereglages', label: 'Pays & ministères', icon: 'public', visible: canPrereglages },
   ];
   const ongletsVisibles = onglets.filter((o) => o.visible);
   const ongletCourant: Onglet | null = ongletsVisibles.some((o) => o.key === onglet) ? onglet : (ongletsVisibles[0]?.key ?? null);
@@ -198,6 +201,8 @@ export const PlateformeView: React.FC = () => {
       )}
 
       {ongletCourant === 'gestionnaires' && <UtilisateursSection mode="plateforme" />}
+
+      {ongletCourant === 'prereglages' && <PrereglagesNationauxPanel />}
 
       {ongletCourant === 'etablissements' && (
         <>

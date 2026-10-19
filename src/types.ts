@@ -84,6 +84,14 @@ export interface AppSettings {
   countryName: string;
   motto: string;
   ministryName: string;
+  /** Sigle officiel du ministère (MEPST, MENA…) ; vide = déduit du nom par `ministrySigle()`. */
+  ministrySigle?: string;
+  /** Libellé de l'autorité régionale (direction régionale…) ; vide = ligne absente du bulletin. */
+  regionalAuthority?: string;
+  /** Mention de pied de page issue du préréglage national ; réservée, non imprimée pour l'instant. */
+  footerNote?: string;
+  /** Préréglage national appliqué en dernier (identifiant de la plateforme) ; null = en-tête saisi à la main. */
+  prereglageNationalId?: number | null;
   academicYear: string;
   sessionName: string;
   examType: string;

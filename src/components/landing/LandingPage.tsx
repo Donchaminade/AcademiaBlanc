@@ -2,6 +2,8 @@ import React, { Suspense, lazy, useLayoutEffect, useRef, useState } from 'react'
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ROUTE_PATHS } from '../../utils/router';
+import { usePrereglageDefaut } from '../../api/prereglages';
+import { bandeauNational } from '../../utils/prereglages';
 
 // Three.js n’est chargé que lorsque la vitrine s’affiche : l’application connectée n’en dépend pas.
 const HeroScene = lazy(() => import('./HeroScene'));
@@ -98,6 +100,9 @@ const btnGhost =
   'inline-flex items-center justify-center gap-2 rounded-lg border border-[#c5c5d3] bg-white px-5 py-3 text-[14px] font-bold text-[#00236f] transition-colors hover:border-[#0051d5] hover:bg-[#f2f3ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0051d5]';
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscription }) => {
+  // Bandeau national : préréglage par défaut de la plateforme (repli local si l'API est injoignable).
+  const prereglageDefaut = usePrereglageDefaut();
+  const bandeau = bandeauNational(prereglageDefaut);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const heroRef = useRef<HTMLElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -216,7 +221,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
             </span>
             <span className="min-w-0">
               <span className="block truncate text-[16px] font-bold leading-tight tracking-tight text-[#00236f]">AcademiaBlanc</span>
-              <span className="block text-[11px] font-medium leading-tight text-[#444651]">Examens blancs • MEPST</span>
+              <span className="block text-[11px] font-medium leading-tight text-[#444651]">Examens blancs • {prereglageDefaut.sigleMinistere}</span>
             </span>
           </a>
 
@@ -312,7 +317,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                 className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90"
               >
                 <span className="material-symbols-outlined text-sm text-[#fc922b]">flag</span>
-                République Togolaise • MEPST
+                {bandeau}
               </span>
               <h1
                 id="titre-accueil"
@@ -557,7 +562,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
           </nav>
         </div>
         <div className="border-t border-[#eaedff] bg-[#faf8ff] px-4 py-4 text-center text-[11px] text-[#444651] sm:px-6">
-          AcademiaBlanc • République Togolaise • MEPST • © {new Date().getFullYear()}
+          AcademiaBlanc • {bandeau} • © {new Date().getFullYear()}
         </div>
       </footer>
     </div>

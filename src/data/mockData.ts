@@ -1,5 +1,12 @@
 import { Subject, Candidate, CandidateComputedStats, MentionType, DecisionType, AppSettings } from '../types';
 import { coefDuCandidat } from '../utils/coefficients';
+import { PREREGLAGES_DEMONSTRATION } from './prereglagesDemo';
+
+/** Libellés d'en-tête d'un préréglage de démonstration (hors connexion uniquement). */
+const enTeteDemo = (code: string) => {
+  const p = PREREGLAGES_DEMONSTRATION.find((item) => item.code === code) ?? PREREGLAGES_DEMONSTRATION[0];
+  return { countryName: p.republique, motto: p.devise, ministryName: p.ministere, ministrySigle: p.sigleMinistere };
+};
 
 export const DEFAULT_LOGO_URL =
   'https://lh3.googleusercontent.com/aida/AEtjO1UnLI6S9Hytui1A9d9UWXgFWkKNEQdHwWj-qv_pleqr6xChZjkQ_hVxD-aM7PabrfqOZDf9ugA6kc-rj7K5JTE5ElZ45ND0qIxztcta4O1_E_zARPdjnpxy_kv9bSHry0uk2wuFTcTfLZJhexrfQSF4HSuwKMiTsGgWQcvQfaqHxwznS1BwZ4da2_J3lUo_qIv5wq5JFlIKiUFVPFBC4eNorr5QR-ucmlOfuUJELObfQgYtwboTkHFNt04';
@@ -8,9 +15,7 @@ export const TOGO_SETTINGS: AppSettings = {
   logoUrl: DEFAULT_LOGO_URL,
   sealUrl: DEFAULT_LOGO_URL,
   institutionName: 'AcademiaBlanc',
-  countryName: 'RÉPUBLIQUE TOGOLAISE',
-  motto: 'Travail – Liberté – Patrie',
-  ministryName: 'MINISTÈRE DES ENSEIGNEMENTS PRIMAIRE, SECONDAIRE ET TECHNIQUE',
+  ...enTeteDemo('TG'),
   academicYear: 'ANNÉE ACADÉMIQUE 2024-2025',
   sessionName: 'SESSION NATIONALE JUIN 2025',
   examType: 'BACCALAURÉAT DEUXIÈME PARTIE (BAC II BLANC)',
@@ -26,9 +31,7 @@ export const CI_SETTINGS: AppSettings = {
   logoUrl: DEFAULT_LOGO_URL,
   sealUrl: DEFAULT_LOGO_URL,
   institutionName: 'AcademiaBlanc',
-  countryName: "RÉPUBLIQUE DE CÔTE D'IVOIRE",
-  motto: 'Union – Discipline – Travail',
-  ministryName: "MINISTÈRE DE L'ÉDUCATION NATIONALE ET DE L'ALPHABÉTISATION",
+  ...enTeteDemo('CI'),
   academicYear: 'ANNÉE ACADÉMIQUE 2024-2025',
   sessionName: 'SESSION NATIONALE MAI 2025',
   examType: 'BACCALAURÉAT II (BLANC)',

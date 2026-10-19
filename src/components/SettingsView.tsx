@@ -1,6 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { AppSettings, Candidate, CandidateComputedStats, AdminSection } from '../types';
-import { DEFAULT_SETTINGS, TOGO_SETTINGS, CI_SETTINGS } from '../data/mockData';
+import { DEFAULT_SETTINGS, TOGO_SETTINGS } from '../data/mockData';
+import { PREREGLAGES_DEMONSTRATION } from '../data/prereglagesDemo';
+import { appliquerPrereglageNational, loadPrereglagesNationaux } from '../api/prereglages';
+import {
+  PrereglageNational,
+  appliquerEnTeteAuxSettings,
+  appliquerPrereglageAuxSettings,
+  drapeau,
+  prereglageCourant,
+} from '../utils/prereglages';
 import { ArchivedSessionsSection } from './ArchivedSessionsSection';
 import { AdminParametres } from './AdminParametres';
 import { CharteAssetUpload } from './CharteAssetUpload';
@@ -10,7 +19,8 @@ import { confirmAction } from '../utils/alerts';
 
 interface SettingsViewProps {
   settings: AppSettings;
-  onUpdateSettings: (newSettings: AppSettings) => void;
+  /** `enTeteDejaEnregistre` : l'API a déjà copié l'en-tête (application d'un préréglage), inutile de le renvoyer. */
+  onUpdateSettings: (newSettings: AppSettings, options?: { enTeteDejaEnregistre?: boolean }) => void;
   onNavigate: (view: 'dashboard' | 'students' | 'grading' | 'bulletin' | 'records' | 'settings') => void;
   /** Ouvre la page « Profil de l’établissement » (fiche officielle, charte, compte). */
   onOpenProfil?: () => void;
@@ -50,19 +60,58 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const sealFileInputRef = useRef<HTMLInputElement>(null);
 
-  const applyPreset = (preset: AppSettings, label: string) => {
-    // Un préréglage national ne touche pas aux cachet / signatures déjà téléversés.
-    const next: AppSettings = {
-      ...preset,
-      sceauUrl: formData.sceauUrl,
-      signatureProviseurUrl: formData.signatureProviseurUrl,
-      signatureTitulaireUrl: formData.signatureTitulaireUrl,
+  // Préréglages nationaux : référentiel de la plateforme en session API, liste de démonstration hors connexion.
+  const [prereglages, setPrereglages] = useState<PrereglageNational[]>(usingApi ? [] : PREREGLAGES_DEMONSTRATION);
+  const [prereglagesEtat, setPrereglagesEtat] = useState<'chargement' | 'pret' | 'erreur'>(usingApi ? 'chargement' : 'pret');
+  const [prereglageEnCours, setPrereglageEnCours] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!usingApi) {
+      setPrereglages(PREREGLAGES_DEMONSTRATION);
+      setPrereglagesEtat('pret');
+      return;
+    }
+    let actif = true;
+    setPrereglagesEtat('chargement');
+    loadPrereglagesNationaux()
+      .then((liste) => {
+        if (!actif) return;
+        setPrereglages(liste);
+        setPrereglagesEtat('pret');
+      })
+      .catch(() => {
+        if (!actif) return;
+        setPrereglages([]);
+        setPrereglagesEtat('erreur');
+      });
+    return () => {
+      actif = false;
     };
-    setFormData(next);
-    onUpdateSettings(next);
-    setToastMessage(`Préréglage officiel pour ${label} appliqué avec succès !`);
-    setShowSavedToast(true);
-    setTimeout(() => setShowSavedToast(false), 3000);
+  }, [usingApi]);
+
+  const prereglageActif = prereglageCourant(formData, prereglages);
+
+  /** Applique un préréglage : copie ses libellés dans l'en-tête ; cachet, signatures et logos sont conservés. */
+  const applyPreset = async (preset: PrereglageNational) => {
+    setPrereglageEnCours(preset.id);
+    try {
+      let next: AppSettings;
+      if (usingApi) {
+        const profil = await appliquerPrereglageNational(preset.id);
+        next = appliquerEnTeteAuxSettings(formData, profil.enTete);
+      } else {
+        next = appliquerPrereglageAuxSettings(formData, preset);
+      }
+      setFormData(next);
+      onUpdateSettings(next, { enTeteDejaEnregistre: usingApi });
+      setToastMessage(`Préréglage officiel « ${preset.nomPays} » appliqué : en-tête du bulletin mis à jour.`);
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 3000);
+    } catch (err) {
+      showError(err instanceof Error && err.message ? err.message : 'Préréglage non appliqué.');
+    } finally {
+      setPrereglageEnCours(null);
+    }
   };
 
   const handleFileChange = (
@@ -381,7 +430,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   const updated = { ...formData, sealUrl: TOGO_SETTINGS.sealUrl };
                   setFormData(updated);
                   onUpdateSettings(updated);
-                  setToastMessage("Sceau officiel de la République Togolaise réactivé.");
+                  setToastMessage("Sceau officiel par défaut réactivé.");
                   setShowSavedToast(true);
                   setTimeout(() => setShowSavedToast(false), 3000);
                 }}
@@ -487,52 +536,70 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </p>
             </div>
 
-            {/* Quick Country Preset Selectors */}
-            <div className="bg-[#f2f3ff] p-3 rounded border border-[#eaedff] space-y-2">
-              <span className="text-[11px] font-bold text-[#00236f] uppercase tracking-wide block">
-                Préréglages Nationaux en 1 Clic :
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => applyPreset(TOGO_SETTINGS, 'le TOGO')}
-                  className={`p-2.5 rounded text-left border transition-all flex items-center gap-2.5 ${
-                    formData.countryName.includes('TOGO')
-                      ? 'bg-white border-[#0051d5] shadow-xs ring-2 ring-[#0051d5]/40'
-                      : 'bg-white/60 border-[#eaedff] hover:bg-white'
-                  }`}
-                >
-                  <span className="text-2xl">🇹🇬</span>
-                  <div>
-                    <span className="text-[12px] font-bold text-[#00236f] block">
-                      Togo (MEPST)
-                    </span>
-                    <span className="text-[10px] text-[#444651] block leading-tight">
-                      Travail – Liberté – Patrie
-                    </span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => applyPreset(CI_SETTINGS, "la CÔTE D'IVOIRE")}
-                  className={`p-2.5 rounded text-left border transition-all flex items-center gap-2.5 ${
-                    formData.countryName.includes('IVOIRE')
-                      ? 'bg-white border-[#0051d5] shadow-xs ring-2 ring-[#0051d5]/40'
-                      : 'bg-white/60 border-[#eaedff] hover:bg-white'
-                  }`}
-                >
-                  <span className="text-2xl">🇨🇮</span>
-                  <div>
-                    <span className="text-[12px] font-bold text-[#00236f] block">
-                      Côte d'Ivoire (MENA)
-                    </span>
-                    <span className="text-[10px] text-[#444651] block leading-tight">
-                      Union – Discipline – Travail
-                    </span>
-                  </div>
-                </button>
+            {/* Préréglages nationaux : référentiel géré par la plateforme (API) ou liste de démonstration */}
+            <div className="bg-[#f2f3ff] p-3 rounded border border-[#eaedff] space-y-2" data-testid="prereglages-nationaux">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] font-bold text-[#00236f] uppercase tracking-wide block">
+                  Préréglages Nationaux en 1 Clic :
+                </span>
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                  usingApi ? 'bg-[#dcfce7] text-[#166534]' : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {usingApi ? 'Référentiel de la plateforme' : 'Démonstration'}
+                </span>
               </div>
+              {prereglagesEtat === 'chargement' && (
+                <p className="text-[11px] text-[#444651]">Chargement des préréglages de la plateforme…</p>
+              )}
+              {prereglagesEtat === 'erreur' && (
+                <p className="text-[11px] text-[#ba1a1a]">
+                  Préréglages indisponibles pour le moment : saisissez l'en-tête ci-dessous ou réessayez plus tard.
+                </p>
+              )}
+              {prereglagesEtat === 'pret' && prereglages.length === 0 && (
+                <p className="text-[11px] text-[#444651]">
+                  Aucun préréglage national n'est proposé par la plateforme : saisissez l'en-tête ci-dessous.
+                </p>
+              )}
+              {prereglages.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {prereglages.map((preset) => {
+                    const selected = prereglageActif?.id === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        disabled={prereglageEnCours !== null}
+                        onClick={() => void applyPreset(preset)}
+                        aria-pressed={selected}
+                        className={`p-2.5 rounded text-left border transition-all flex items-center gap-2.5 disabled:opacity-60 ${
+                          selected
+                            ? 'bg-white border-[#0051d5] shadow-xs ring-2 ring-[#0051d5]/40'
+                            : 'bg-white/60 border-[#eaedff] hover:bg-white'
+                        }`}
+                      >
+                        <span className="text-2xl" aria-hidden="true">{drapeau(preset.code) || preset.code}</span>
+                        <div className="min-w-0">
+                          <span className="text-[12px] font-bold text-[#00236f] block truncate">
+                            {preset.nomPays} ({preset.sigleMinistere})
+                          </span>
+                          <span className="text-[10px] text-[#444651] block leading-tight truncate">
+                            {preset.devise}
+                          </span>
+                        </div>
+                        {prereglageEnCours === preset.id && (
+                          <span className="material-symbols-outlined text-base text-[#0051d5] animate-spin ml-auto">progress_activity</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {!usingApi && (
+                <p className="text-[10px] text-[#444651] leading-snug">
+                  Hors connexion, cette liste est une démonstration. Connecté, elle vient du référentiel « Pays &amp; ministères » tenu par la plateforme.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[12px]">
@@ -621,16 +688,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 />
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="block font-bold text-[#444651] uppercase text-[11px] mb-1">
-                  Ministère de Tutelle
-                </label>
-                <input
-                  type="text"
-                  value={formData.ministryName}
-                  onChange={(e) => setFormData({ ...formData, ministryName: e.target.value })}
-                  className="w-full bg-[#f2f3ff] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
-                />
+              <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-4">
+                <div>
+                  <label className="block font-bold text-[#444651] uppercase text-[11px] mb-1">
+                    Ministère de Tutelle
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.ministryName}
+                    onChange={(e) => setFormData({ ...formData, ministryName: e.target.value })}
+                    className="w-full bg-[#f2f3ff] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#444651] uppercase text-[11px] mb-1">
+                    Sigle
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={20}
+                    placeholder="MEPST"
+                    value={formData.ministrySigle ?? ''}
+                    onChange={(e) => setFormData({ ...formData, ministrySigle: e.target.value.toUpperCase() })}
+                    className="w-full bg-[#f2f3ff] py-2 px-3 rounded border border-[#eaedff] outline-none focus:bg-white focus:border-[#0051d5]"
+                  />
+                </div>
               </div>
 
 

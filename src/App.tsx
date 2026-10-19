@@ -18,7 +18,10 @@ import { SearchModal } from './components/SearchModal';
 import { INITIAL_SUBJECTS, computeCandidateStats, autoAssignTableNumbers } from './data/mockData';
 import { apiDelete, apiSend, clearToken, getSession, getToken, isForbidden, isPlatformAccount, isPlatformOnlyAccount, refreshSession, roleLabel, setSession } from './api/client';
 import type { AuthSession } from './api/client';
+import { loadProfil } from './api/etablissement';
 import type { ProfilEtablissement } from './api/etablissement';
+import { saveEnTete } from './api/prereglages';
+import { appliquerEnTeteAuxSettings, enTeteChanged, enTeteDepuisSettings } from './utils/prereglages';
 import { usePermissions } from './api/permissions';
 import { confirmAction, showError } from './utils/alerts';
 import { loadSchoolWorkspace, ExamOption } from './api/workspace';
@@ -135,7 +138,7 @@ export default function App() {
   };
 
   // Sync isolated data on changes
-  const handleUpdateSettings = (newSettings: AppSettings) => {
+  const handleUpdateSettings = (newSettings: AppSettings, options?: { enTeteDejaEnregistre?: boolean }) => {
     setSettings(newSettings);
     saveSchoolData(currentSchoolId, newSettings, candidates);
     setSchools(getRegisteredSchools());
@@ -143,6 +146,12 @@ export default function App() {
     if (getToken() && charteChanged(settings, newSettings)) {
       void saveCharte(newSettings).catch((err: unknown) =>
         signalerErreur(err, 'Cachet / signatures non enregistrés sur le serveur.'));
+    }
+    // L'en-tête officiel (république, devise, ministère) est porté par l'établissement sur l'API ;
+    // l'application d'un préréglage l'a déjà enregistré côté serveur.
+    if (getToken() && !options?.enTeteDejaEnregistre && enTeteChanged(settings, newSettings)) {
+      void saveEnTete(enTeteDepuisSettings(newSettings)).catch((err: unknown) =>
+        signalerErreur(err, 'En-tête officiel non enregistré sur le serveur.'));
     }
   };
 
@@ -152,10 +161,11 @@ export default function App() {
   };
 
   const applyWorkspace = async (sessionId?: number) => {
-    const [workspace, charte] = await Promise.all([
+    const [workspace, charte, profil] = await Promise.all([
       loadSchoolWorkspace(sessionId),
-      // Une charte indisponible (ancienne API) ne doit pas bloquer le chargement de l'espace.
+      // Une charte ou une fiche indisponible (ancienne API) ne doit pas bloquer le chargement de l'espace.
       loadCharte().catch(() => null),
+      loadProfil().catch(() => null),
     ]);
     const session = getSession();
     setUsingApi(true);
@@ -176,7 +186,9 @@ export default function App() {
         sessionName: workspace.sessionName || prev.sessionName,
         examType: workspace.examType || prev.examType,
       };
-      return charte ? applyCharte(next, charte) : next;
+      // République, devise et ministère viennent de l'établissement (préréglage national appliqué, puis ajusté).
+      const avecEnTete = appliquerEnTeteAuxSettings(next, profil?.enTete);
+      return charte ? applyCharte(avecEnTete, charte) : avecEnTete;
     });
     // Les libellés viennent exclusivement de l'API : vide tant qu'aucune session / aucun centre n'existe.
     setSelectedSession(workspace.sessionName);
