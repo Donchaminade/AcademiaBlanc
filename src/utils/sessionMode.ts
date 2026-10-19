@@ -4,7 +4,7 @@ import { codeSerie } from './bulletinEntete';
 import { estCollege, niveauCanonique } from './niveaux';
 
 /**
- * Mode d'une session d'examen blanc (`session_examen.mode`, V21).
+ * Mode d'une session d'examen blanc (`session_examen.mode`, V22).
  * - `INTERNE` : les candidats sont les élèves de l'établissement ; relevés avec logo, cachet et pied de page.
  * - `INTER_ETABLISSEMENTS` : plusieurs établissements organisent l'examen ensemble ; l'établissement qui a
  *   créé la session est le centre d'examen, les candidats gardent un établissement d'origine, les relevés
