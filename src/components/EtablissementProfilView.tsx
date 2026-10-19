@@ -10,16 +10,18 @@ import {
   loadMonCompte,
   loadProfil,
   loadStatistiques,
+  regenererCodeTransfert,
   saveProfil,
   versFormulaire,
   versModification,
 } from '../api/etablissement';
+import { masquerCode } from '../api/transferts';
 import { usePermissions } from '../api/permissions';
 import { loadAcceptations } from '../api/acceptations';
 import type { AcceptationConditions } from '../api/acceptations';
 import { phraseAcceptation } from '../legal/versions';
 import { peutAccepterConditions } from './legal/ReacceptationConditions';
-import { showError, toastSuccess } from '../utils/alerts';
+import { confirmAction, showError, showInfo, toastSuccess } from '../utils/alerts';
 import { enTeteDepuisSettings } from '../utils/prereglages';
 import { LIBELLE_TITRE_AUTOMATIQUE, TITRES_CHEF_PROPOSES, titreChefEtablissement } from '../utils/titreChef';
 import { CharteImagesPanel, ImageCharte } from './CharteImagesPanel';
@@ -260,7 +262,9 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
     e.preventDefault();
     setEnregistrement(true);
     try {
-      const fiche = await saveProfil(versModification(form));
+      const enregistree = await saveProfil(versModification(form));
+      // Les écritures de la fiche ne renvoient pas le code de transfert (réservé à la lecture par le chef) : on le garde.
+      const fiche: ProfilEtablissement = { ...enregistree, codeTransfert: enregistree.codeTransfert ?? profil?.codeTransfert ?? null };
       const titre = titreSaisi();
       if (titre !== (settings.jurySignerTitle ?? '').trim()) {
         const ok = await onUpdateSettings({ ...settings, jurySignerTitle: titre });
@@ -275,6 +279,44 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
       await showError('Enregistrement impossible', messageErreur(err, 'Une erreur inattendue est survenue.'));
     } finally {
       setEnregistrement(false);
+    }
+  };
+
+  // Code de transfert : masqué par défaut, copie dans le presse-papiers, régénération confirmée.
+  const [codeVisible, setCodeVisible] = useState(false);
+  const [regeneration, setRegeneration] = useState(false);
+
+  const copierCode = async () => {
+    const code = profil?.codeTransfert;
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      toastSuccess('Code de transfert copié.');
+    } catch {
+      setCodeVisible(true);
+      await showInfo('Copie impossible', `Copiez le code affiché : ${code}`);
+    }
+  };
+
+  const regenererCode = async () => {
+    if (!profil?.codeTransfert) return;
+    const confirme = await confirmAction({
+      title: 'Régénérer le code de transfert ?',
+      text: 'L’ancien code devient immédiatement invalide : un centre d’examen qui le détient ne pourra plus vous envoyer de données. Communiquez le nouveau code aux centres concernés.',
+      confirmText: 'Régénérer',
+      icon: 'warning',
+    });
+    if (!confirme) return;
+    setRegeneration(true);
+    try {
+      const fiche = await regenererCodeTransfert();
+      setProfil((actuel) => (actuel ? { ...actuel, ...fiche, codeTransfert: fiche.codeTransfert ?? null } : fiche));
+      setCodeVisible(true);
+      toastSuccess('Nouveau code de transfert généré.');
+    } catch (err) {
+      await showError('Régénération impossible', messageErreur(err, 'Une erreur inattendue est survenue.'));
+    } finally {
+      setRegeneration(false);
     }
   };
 
@@ -553,6 +595,50 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
         </div>
 
         <div className="xl:col-span-5 space-y-6">
+          {/* Code de transfert : visible uniquement du chef d'établissement (le serveur ne le renvoie qu'à lui) */}
+          {usingApi && profil.codeTransfert && (
+            <Carte
+              titre="Code de transfert"
+              icon="key"
+              actions={(
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#fff3e0] text-[#8a4b00]">
+                  Chef d’établissement
+                </span>
+              )}
+            >
+              <p className="text-[11px] text-[#444651] leading-snug">
+                Communiquez ce code au centre d’examen qui accueille vos élèves pour un examen blanc inter-établissements :
+                il lui permet de vous envoyer leurs notes et leur classement. Le code change automatiquement après chaque
+                transfert accepté ; vous pouvez aussi le régénérer à tout moment.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <code
+                  className="font-mono text-[20px] tracking-[0.2em] font-bold text-[#00236f] bg-[#f2f3ff] border border-[#eaedff] rounded px-3 py-1.5 select-all"
+                  data-testid="code-transfert"
+                  aria-label={codeVisible ? `Code de transfert ${profil.codeTransfert}` : 'Code de transfert masqué'}
+                >
+                  {codeVisible ? profil.codeTransfert : masquerCode(profil.codeTransfert)}
+                </code>
+                <button type="button" onClick={() => setCodeVisible((v) => !v)} className={ghost} data-testid="code-transfert-afficher">
+                  <span className="material-symbols-outlined text-base">{codeVisible ? 'visibility_off' : 'visibility'}</span>
+                  <span>{codeVisible ? 'Masquer' : 'Afficher'}</span>
+                </button>
+                <button type="button" onClick={() => void copierCode()} className={ghost}>
+                  <span className="material-symbols-outlined text-base">content_copy</span>
+                  <span>Copier</span>
+                </button>
+                <button type="button" onClick={() => void regenererCode()} disabled={regeneration} className={danger} data-testid="code-transfert-regenerer">
+                  <span className="material-symbols-outlined text-base">autorenew</span>
+                  <span>{regeneration ? 'Régénération…' : 'Régénérer'}</span>
+                </button>
+              </div>
+              <p className="text-[10.5px] text-[#757682] leading-snug">
+                Ne partagez ce code qu’avec un centre d’examen de confiance : un transfert reçu doit toujours être accepté
+                explicitement dans « Transferts » avant toute création de données.
+              </p>
+            </Carte>
+          )}
+
           {/* Mon compte */}
           <Carte titre="Mon compte" icon="account_circle">
             {usingApi ? (

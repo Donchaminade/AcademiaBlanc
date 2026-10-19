@@ -56,6 +56,10 @@ interface RecordsViewProps {
   sessionInter?: boolean;
   /** Nom du centre d'examen (établissement hôte) en session inter-établissements. */
   centreExamen?: string;
+  /** Session inter-établissements, droit TRANSFERTS : envoyer les résultats aux établissements d'origine. */
+  onOpenTransferts?: () => void;
+  /** Session issue d'un transfert : centre d'examen émetteur (bandeau d'information). */
+  transfertCentre?: string;
 }
 
 export const RecordsView: React.FC<RecordsViewProps> = ({
@@ -71,6 +75,8 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   onToggleJuryLock,
   sessionInter = false,
   centreExamen = '',
+  onOpenTransferts,
+  transfertCentre,
 }) => {
   const [filterDecision, setFilterDecision] = useState<FiltreDecision>('all');
 
@@ -150,6 +156,19 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
   return (
     <>
     <div className="registre-ui p-4 md:p-8 max-w-[1440px] mx-auto space-y-4 md:space-y-6">
+      {transfertCentre && (
+        <div
+          className="bg-[#fff3e0] border border-[#ffcc80] rounded px-4 py-2.5 text-[12px] text-[#8a4b00] flex items-center gap-2 no-print"
+          role="status"
+          data-testid="bandeau-session-transfert"
+        >
+          <span className="material-symbols-outlined text-base">move_to_inbox</span>
+          <span>
+            <strong>Session issue d’un transfert — centre : {transfertCentre}.</strong>{' '}
+            Rang et extrêmes de l’examen commun ; les notes du centre ne se modifient pas ici.
+          </span>
+        </div>
+      )}
       {/* Official Header */}
       <div className="bg-white rounded p-4 md:p-6 shadow-sm border border-[#eaedff] flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
@@ -178,6 +197,19 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
             <span className="material-symbols-outlined text-base">download</span>
             <span>Exporter en CSV</span>
           </button>
+
+          {sessionInter && onOpenTransferts && (
+            <button
+              type="button"
+              onClick={onOpenTransferts}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#fff3e0] text-[#8a4b00] border border-[#ffcc80] text-[12px] font-semibold hover:bg-[#ffe6c2] transition-colors"
+              title="Envoyer les notes et le classement aux établissements d'origine (code de transfert du destinataire)"
+              data-testid="bouton-transferts-pv"
+            >
+              <span className="material-symbols-outlined text-base">swap_horiz</span>
+              <span>Transferts aux établissements</span>
+            </button>
+          )}
 
           <button
             type="button"

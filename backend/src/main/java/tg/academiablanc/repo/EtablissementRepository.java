@@ -8,6 +8,9 @@ import tg.academiablanc.domain.Etablissement;
 public interface EtablissementRepository extends JpaRepository<Etablissement, Long> {
   Optional<Etablissement> findByEmailIgnoreCase(String email);
   boolean existsByCode(String code);
+  Optional<Etablissement> findByCodeTransfert(String codeTransfert);
+  boolean existsByCodeTransfert(String codeTransfert);
+  List<Etablissement> findByCodeTransfertIsNull();
 
   List<Etablissement> findAllByOrderByNomAsc();
 

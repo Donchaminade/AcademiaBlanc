@@ -649,7 +649,9 @@ public class SchoolController {
   @Transactional
   public void supprimerNote(@PathVariable Long id) {
     droits.exiger(Ressource.NOTES, Action.SUPPRIMER);
-    notes.delete(lire(notes, id));
+    Note note = lire(notes, id);
+    verifierSessionModifiable(note.getSessionId());
+    notes.delete(note);
     flush(notes);
   }
 
@@ -690,6 +692,9 @@ public class SchoolController {
     if (session.getId() != null && SessionStatut.estArchivee(session.getStatut()) && mode != ModeSession.ouDefaut(session.getMode())) {
       throw new ResponseStatusException(HttpStatus.CONFLICT,
           "Le mode (interne / inter-établissements) d'une session archivée ne se modifie plus : rouvrez-la d'abord.");
+    }
+    if (session.estIssueDunTransfert() && mode != ModeSession.INTERNE) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "Une session issue d'un transfert reste interne.");
     }
     session.setMode(mode);
     session.setAnneeScolaireId(request.anneeScolaireId());
@@ -763,6 +768,16 @@ public class SchoolController {
     Tenant.same(session.getEtablissementId());
   }
 
+  /** Les notes d'une session issue d'un transfert proviennent de l'examen commun : elles ne se saisissent ni ne se modifient. */
+  private void verifierSessionModifiable(Long id) {
+    SessionExamen session = sessions.findById(id).orElseThrow(SchoolController::absent);
+    Tenant.same(session.getEtablissementId());
+    if (session.estIssueDunTransfert()) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT,
+          "Session issue d'un transfert : les notes proviennent de l'examen commun et ne se modifient pas.");
+    }
+  }
+
   /**
    * Le nombre de sessions n'est pas limité (plusieurs BEPC blancs dans la même année), mais chacune
    * porte un intitulé distinct : c'est par lui qu'on la choisit dans la barre latérale et sur le bulletin.
@@ -823,7 +838,7 @@ public class SchoolController {
     Tenant.same(eleve.getEtablissementId());
     Matiere matiere = matieres.findById(request.matiereId()).orElseThrow(SchoolController::absent);
     Tenant.same(matiere.getEtablissementId());
-    verifierSession(request.sessionId());
+    verifierSessionModifiable(request.sessionId());
     // Une classe dotée d'un programme n'accepte de notes que dans ses matières.
     if (programmes.horsProgramme(eleve.getEtablissementId(), eleve.getClasseId(), matiere.getId())) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST,

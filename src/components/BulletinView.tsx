@@ -4,10 +4,10 @@ import { composerEnteteBulletin } from '../utils/bulletinEntete';
 import { academicYearCaption, establishmentCaption, ministryMark } from '../utils/bulletinHeader';
 import {
   camaradesDeClasse,
-  computeSubjectRank,
-  extremesDeMatiere,
+  extremesMatiereAffiches,
   formatMinMax,
   formatSubjectRank,
+  rangMatiereAffiche,
 } from '../utils/bulletinMetrics';
 import { appreciationAffichee } from '../utils/appreciation';
 import { coefDuCandidat } from '../utils/coefficients';
@@ -43,6 +43,11 @@ interface BulletinViewProps {
   sessionInter?: boolean;
   /** Nom du centre d'examen (établissement hôte) en session inter-établissements. */
   centreExamen?: string;
+  /**
+   * Session issue d'un transfert : nom du centre d'examen émetteur. Le relevé garde la charte de
+   * l'établissement, mais le rang et les extrêmes sont ceux de l'examen commun (bandeau à l'écran).
+   */
+  transfertCentre?: string;
 }
 
 /** Largeur minimale de la feuille A4 virtuelle à l'écran (`min-w-[800px]`). */
@@ -64,8 +69,11 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   examTypeLong,
   sessionInter = false,
   centreExamen = '',
+  transfertCentre = '',
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  // Session issue d'un transfert : rang, effectif et extrêmes figés de l'examen commun du centre.
+  const examenCommun = Boolean(selectedCandidate.examenCommun);
   // Écrans étroits : la feuille (800 px) est réduite pour tenir dans la largeur disponible ; sa hauteur
   // réelle est mesurée pour que le conteneur n'occupe que la place de la feuille réduite.
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -97,7 +105,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   const yearCaption = academicYearCaption(settings.academicYear);
   // Inter-établissements : aucun sceau ni filigrane de l'établissement hôte sur le relevé.
   const afficherSceau = !sessionInter && Boolean(settings.sealUrl && settings.sealUrl.trim() !== '');
-  const porteeLibelle = sessionInter ? 'du groupe' : 'de la classe';
+  const porteeLibelle = examenCommun ? 'à l’examen commun' : sessionInter ? 'du groupe' : 'de la classe';
   // Chef d'établissement : « Le Directeur » pour une classe de collège, « Le Proviseur » au lycée, sauf titre saisi dans le profil.
   const titreChef = titreChefDepuisSettings(settings, [selectedCandidate]);
 
@@ -298,6 +306,20 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
         </div>
       </div>
 
+      {transfertCentre && (
+        <div
+          className="no-print bg-[#fff3e0] border-b border-[#ffcc80] px-4 py-2 text-[12px] text-[#8a4b00] flex items-center gap-2"
+          role="status"
+          data-testid="bandeau-session-transfert"
+        >
+          <span className="material-symbols-outlined text-base">move_to_inbox</span>
+          <span>
+            <strong>Session issue d’un transfert — centre : {transfertCentre}.</strong>{' '}
+            Le rang, l’effectif et les extrêmes sont ceux de l’examen commun ; les notes ne se modifient pas ici.
+          </span>
+        </div>
+      )}
+
       {/* Sheet Canvas Wrapper (A4 Center View) */}
       <div
         ref={canvasRef}
@@ -462,7 +484,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   <th className="py-2 px-2 font-semibold text-center">Coef</th>
                   <th className="py-2 px-2 font-semibold text-right">Total Coef</th>
                   <th className="py-2 px-2 font-semibold text-center">Rang</th>
-                  <th className="py-2 px-2 font-semibold text-center">{sessionInter ? 'Min / Max groupe' : 'Min / Max classe'}</th>
+                  <th className="py-2 px-2 font-semibold text-center">{examenCommun ? 'Min / Max examen' : sessionInter ? 'Min / Max groupe' : 'Min / Max classe'}</th>
                   <th className="py-2 px-3 font-semibold text-left">Appréciation du professeur</th>
                 </tr>
               </thead>
@@ -472,9 +494,9 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   const coef = coefDuCandidat(selectedCandidate, subj);
                   const scoreTotal = gradeData ? (gradeData.score * coef).toFixed(2) : '—';
                   const isEven = idx % 2 === 0;
-                  const subjectRankValue = computeSubjectRank(selectedCandidate.id, subj.id, cohorteRangMatiere);
+                  const subjectRankValue = rangMatiereAffiche(selectedCandidate, subj.id, cohorteRangMatiere);
                   const subjectRank = subjectRankValue === null ? '—' : formatSubjectRank(subjectRankValue);
-                  const minMaxClasse = formatMinMax(extremesDeMatiere(subj.id, camarades));
+                  const minMaxClasse = formatMinMax(extremesMatiereAffiches(selectedCandidate, subj.id, camarades));
                   const professorAppreciation = appreciationAffichee(gradeData);
 
                   return (
@@ -594,13 +616,13 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
                   {computedStats.average.toFixed(2)}
                 </span>
                 <span className="font-mono text-[11px] text-[#444651] whitespace-nowrap">
-                  / 20 • {sessionInter ? 'groupe' : 'classe'} {fmtMoyenne(computedStats.classAverage)}
+                  / 20 • {examenCommun ? 'examen' : sessionInter ? 'groupe' : 'classe'} {fmtMoyenne(computedStats.classAverage)}
                 </span>
               </div>
 
-              <div className="bulletin-metric bg-white rounded-xs px-2 py-1.5 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]">
+              <div className="bulletin-metric bg-white rounded-xs px-2 py-1.5 text-center shadow-xs flex flex-col justify-center border border-[#eaedff]" data-testid="bulletin-rang">
                 <span className="text-[11px] text-[#444651] uppercase font-semibold">
-                  Rang de Promotion
+                  {examenCommun ? 'Rang à l’examen commun' : 'Rang de Promotion'}
                 </span>
                 <span className="font-sans text-[22px] text-[#0051d5] font-bold my-0 leading-none">
                   {computedStats.rank === 1 ? (

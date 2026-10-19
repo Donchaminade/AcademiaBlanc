@@ -27,6 +27,12 @@ public enum Ressource {
   PARAMETRES(false, EnumSet.of(Action.VOIR, Action.MODIFIER)),
   /** Comptes des utilisateurs de l’établissement et leurs droits. */
   UTILISATEURS(false, Action.CRUD),
+  /**
+   * Transferts d'examen blanc entre établissements : VOIR = consulter les envois et les paquets reçus,
+   * ENVOYER = envoyer un paquet depuis une session inter-établissements (centre), TRAITER = accepter ou refuser
+   * un paquet reçu. Accordés d'office à OWNER et ADMIN ; jamais au préréglage secrétariat / enseignant.
+   */
+  TRANSFERTS(false, EnumSet.of(Action.VOIR, Action.ENVOYER, Action.TRAITER)),
   /** Plateforme : établissements inscrits. SUPPRIMER désactive, MODIFIER réactive. */
   ETABLISSEMENTS(true, Action.CRUD),
   /** Plateforme : gestionnaires (sous-administrateurs) du logiciel. */
