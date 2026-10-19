@@ -17,6 +17,7 @@ import tg.academiablanc.repo.EtablissementRepository;
 import tg.academiablanc.repo.ProfesseurRepository;
 import tg.academiablanc.repo.SessionExamenRepository;
 import tg.academiablanc.repo.UtilisateurRepository;
+import tg.academiablanc.security.PermissionService;
 
 /**
  * Profil de l'établissement porté par le jeton : fiche d'identité modifiable et effectifs réels.
@@ -33,6 +34,7 @@ public class ProfilEtablissementService {
   private final ProfesseurRepository professeurs;
   private final SessionExamenRepository sessions;
   private final PrereglageNationalService prereglages;
+  private final CodeTransfertService codesTransfert;
 
   public ProfilEtablissementService(
       EtablissementRepository etablissements,
@@ -41,8 +43,10 @@ public class ProfilEtablissementService {
       EleveRepository eleves,
       ProfesseurRepository professeurs,
       SessionExamenRepository sessions,
-      PrereglageNationalService prereglages
+      PrereglageNationalService prereglages,
+      CodeTransfertService codesTransfert
   ) {
+    this.codesTransfert = codesTransfert;
     this.etablissements = etablissements;
     this.utilisateurs = utilisateurs;
     this.classes = classes;
@@ -71,14 +75,23 @@ public class ProfilEtablissementService {
       String logoUrl,
       /** Dernière modification du logo, du cachet ou des signatures ; null si aucune image n'a été enregistrée. */
       Instant charteModifieeLe,
-      EnTete enTete
+      EnTete enTete,
+      /**
+       * Code de transfert personnel de l'établissement (« K7F3-9QZT »), renvoyé au seul chef d'établissement
+       * (OWNER / ADMIN) ; null pour tout autre rôle — le champ n'est alors jamais calculé.
+       */
+      String codeTransfert
   ) {
     static Profil of(Etablissement school) {
+      return of(school, null);
+    }
+
+    static Profil of(Etablissement school, String codeTransfert) {
       return new Profil(
           school.getId(), school.getNom(), school.getCode(), school.getTypeEtablissement(), school.getVille(),
           school.getRegion(), school.getAdresse(), school.getTelephone(), school.getEmail(), school.getNomResponsable(),
           school.getDevise(), school.isActif(), school.getCreeLe(), school.getLogoUrl(), school.getCharteModifieeLe(),
-          EnTete.of(school));
+          EnTete.of(school), codeTransfert);
     }
   }
 
@@ -128,9 +141,23 @@ public class ProfilEtablissementService {
       long archives
   ) {}
 
-  @Transactional(readOnly = true)
+  @Transactional
   public Profil profil(Utilisateur courant) {
-    return Profil.of(school(courant));
+    Etablissement school = school(courant);
+    return Profil.of(school, PermissionService.estChefEtablissement(courant) ? codesTransfert.codeDe(school) : null);
+  }
+
+  /**
+   * {@code POST /api/etablissement/code-transfert/regenerer} : nouveau code personnel, l'ancien devenant aussitôt
+   * invalide pour tout envoi futur. Réservé au chef d'établissement (403 sinon).
+   */
+  @Transactional
+  public Profil regenererCodeTransfert(Utilisateur courant) {
+    if (!PermissionService.estChefEtablissement(courant)) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Seul le chef d’établissement gère le code de transfert.");
+    }
+    Etablissement school = school(courant);
+    return Profil.of(school, codesTransfert.regenerer(school));
   }
 
   @Transactional(readOnly = true)

@@ -25,19 +25,22 @@ public class EtablissementService {
   private final AnneeScolaireRepository annees;
   private final PasswordEncoder passwordEncoder;
   private final PrereglageNationalRepository prereglages;
+  private final CodeTransfertService codesTransfert;
 
   public EtablissementService(
       EtablissementRepository etablissements,
       UtilisateurRepository utilisateurs,
       AnneeScolaireRepository annees,
       PasswordEncoder passwordEncoder,
-      PrereglageNationalRepository prereglages
+      PrereglageNationalRepository prereglages,
+      CodeTransfertService codesTransfert
   ) {
     this.etablissements = etablissements;
     this.utilisateurs = utilisateurs;
     this.annees = annees;
     this.passwordEncoder = passwordEncoder;
     this.prereglages = prereglages;
+    this.codesTransfert = codesTransfert;
   }
 
   public record Creation(Etablissement etablissement, Utilisateur owner) {}
@@ -69,6 +72,8 @@ public class EtablissementService {
     school.setNomResponsable(nomResponsable.trim());
     school.setActif(true);
     school.setCreeLe(Instant.now());
+    // Code de transfert personnel, dès la création : l'établissement peut recevoir des paquets d'examen blanc.
+    school.setCodeTransfert(codesTransfert.nouveauCode());
     // Un nouvel établissement part de l'en-tête du préréglage national par défaut (sinon du premier actif).
     prereglages.findByParDefautTrue().stream().filter(p -> p.isActif()).findFirst()
         .or(() -> prereglages.findByActifTrueOrderByOrdreAscNomPaysAsc().stream().findFirst())
