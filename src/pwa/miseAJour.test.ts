@@ -65,6 +65,9 @@ describe('mise à jour du service worker', () => {
     assert.equal(doitAppliquerSansDemander(DELAI_APPLICATION_SILENCIEUSE_MS - 1), true);
     assert.equal(doitAppliquerSansDemander(DELAI_APPLICATION_SILENCIEUSE_MS), false);
     assert.equal(doitAppliquerSansDemander(45 * 60 * 1000), false);
+    assert.equal(doitAppliquerSansDemander(45 * 60 * 1000, '/admin'), true);
+    assert.equal(doitAppliquerSansDemander(45 * 60 * 1000, '/connexion/'), true);
+    assert.equal(doitAppliquerSansDemander(45 * 60 * 1000, '/'), false);
   });
 
   it('vérifie toutes les heures, et au retour sur l’onglet au plus toutes les cinq minutes', async () => {

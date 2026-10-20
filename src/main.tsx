@@ -30,7 +30,7 @@ const activerVersionEnAttente = registerSW({
   immediate: true,
   onNeedReload: () => rechargerUneFois(),
   onNeedRefresh() {
-    if (doitAppliquerSansDemander(performance.now() - chargeA)) {
+    if (doitAppliquerSansDemander(performance.now() - chargeA, window.location.pathname)) {
       void appliquer();
       return;
     }
