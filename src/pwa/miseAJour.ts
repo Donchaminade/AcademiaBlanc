@@ -16,7 +16,21 @@ export const DELAI_APPLICATION_SILENCIEUSE_MS = 3_000;
 /** Deux vérifications déclenchées par un retour sur l'onglet sont espacées d'au moins ce délai. */
 export const ESPACEMENT_RETOUR_ONGLET_MS = 5 * 60 * 1000;
 
-export function doitAppliquerSansDemander(msDepuisChargement: number): boolean {
+/**
+ * Pages d'entrée (connexion établissement, inscription, connexion d'administration) : aucune session
+ * ouverte, aucune saisie importante à perdre. Une nouvelle version y est appliquée sans bandeau, quel que
+ * soit le moment : sur téléphone, le téléchargement du nouveau build dépasse souvent les 3 s du chargement
+ * et l'ancien écran restait affiché tant que le bandeau n'était pas validé.
+ */
+export const CHEMINS_APPLICATION_SILENCIEUSE = ['/connexion', '/inscription', '/admin'] as const;
+
+export function estPageEntree(chemin: string): boolean {
+  const normalise = chemin.replace(/\/+$/, '') || '/';
+  return (CHEMINS_APPLICATION_SILENCIEUSE as readonly string[]).includes(normalise);
+}
+
+export function doitAppliquerSansDemander(msDepuisChargement: number, chemin = ''): boolean {
+  if (chemin && estPageEntree(chemin)) return true;
   return msDepuisChargement >= 0 && msDepuisChargement < DELAI_APPLICATION_SILENCIEUSE_MS;
 }
 

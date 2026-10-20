@@ -43,6 +43,7 @@ const ACCENT = '#316bf3';
 const ACCENT_FONCE = '#0051d5';
 const VERT = '#22c55e';
 const ROUGE = '#ef4444';
+/** Encre et texte secondaire de la charte (contraste AA sur blanc). */
 
 type Phase = 'repos' | 'chargement' | 'succes' | 'erreur';
 
@@ -171,7 +172,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
         event.preventDefault();
         onBack();
       }}
-      className="inline-flex items-center gap-1 text-[12px] text-white/40 underline-offset-2 hover:text-white/80 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white rounded"
+      className="inline-flex items-center gap-1 text-[12px] text-[#444651] underline-offset-2 hover:text-[#0051d5] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#316bf3] rounded"
     >
       <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span>
       <span>Retour au site</span>
@@ -179,19 +180,22 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
   );
 
   const champ =
-    'w-full rounded-lg border bg-white/[0.03] px-3.5 py-2.5 text-[14px] text-white outline-none transition-colors placeholder:text-white/25 disabled:opacity-70';
-  const libelle = 'block text-[12px] font-medium text-white/60 mb-1.5';
+    'w-full rounded-lg border bg-white px-3.5 py-2.5 text-[14px] text-[#131b2e] outline-none transition-colors placeholder:text-[#8a8f9e] disabled:opacity-70';
+  const libelle = 'block text-[12px] font-medium text-[#444651] mb-1.5';
 
   return (
-    <div className="min-h-dvh bg-black text-white antialiased flex flex-col font-sans">
-      <main className="flex flex-1 items-center justify-center px-4 py-8">
+    <div className="relative min-h-dvh overflow-hidden bg-gradient-to-b from-white via-[#f5f7ff] to-[#e8eeff] text-[#131b2e] antialiased flex flex-col font-sans">
+      {/* Bulles floues de la charte en arrière-plan. */}
+      <div aria-hidden="true" className="pointer-events-none absolute -left-24 -top-24 h-80 w-80 rounded-full blur-3xl" style={{ background: ACCENT, opacity: 0.18 }} />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-20 bottom-0 h-96 w-96 rounded-full blur-3xl" style={{ background: ACCENT_FONCE, opacity: 0.14 }} />
+      <main className="relative flex flex-1 items-center justify-center px-4 py-8">
         <section
           aria-labelledby="admin-connexion-titre"
-          className="relative w-full max-w-[880px] overflow-hidden rounded-[20px] border border-white/[0.07] bg-[#0b0d14] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]"
+          className="relative w-full max-w-[880px] overflow-hidden rounded-[20px] border border-[#dce1ff] bg-white shadow-[0_30px_80px_-24px_rgba(0,81,213,0.28)]"
         >
           {/* Filet lumineux supérieur à la couleur de la charte. */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${ACCENT}, transparent)` }} />
-          <div aria-hidden="true" className="pointer-events-none absolute inset-x-10 -top-10 h-20 rounded-full blur-3xl" style={{ background: ACCENT, opacity: 0.12 }} />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-10 -top-10 h-20 rounded-full blur-3xl" style={{ background: ACCENT, opacity: 0.08 }} />
 
           <div className="flex flex-col-reverse md:grid md:grid-cols-[1.15fr_1fr]">
             {/* Colonne gauche : formulaire puis vue de succès. */}
@@ -204,7 +208,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
                     transition={{ duration: 0.3 }}
                   >
                     <h2 id="admin-connexion-titre" className="text-[26px] font-bold tracking-tight">Bon retour</h2>
-                    <p className="mt-1 text-[13px] text-white/45">
+                    <p className="mt-1 text-[13px] text-[#444651]">
                       Connectez-vous pour administrer la plateforme AcademiaBlanc.
                     </p>
 
@@ -228,7 +232,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             disabled={chargement}
-                            className={`${champ} pr-10 ${emailValide ? '' : 'border-white/10 focus:border-white/25'}`}
+                            className={`${champ} pr-10 ${emailValide ? '' : 'border-[#c5c6d2] focus:border-[#316bf3]'}`}
                             style={emailValide ? { borderColor: ACCENT, boxShadow: `0 0 0 3px ${ACCENT}22` } : undefined}
                           />
                           <AnimatePresence>
@@ -259,14 +263,14 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
                             value={motDePasse}
                             onChange={(e) => setMotDePasse(e.target.value)}
                             disabled={chargement}
-                            className={`${champ} pr-11 border-white/10 focus:border-white/25`}
+                            className={`${champ} pr-11 border-[#c5c6d2] focus:border-[#316bf3]`}
                           />
                           <button
                             type="button"
                             onClick={() => setVoirMdp((v) => !v)}
                             aria-label={voirMdp ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                             aria-pressed={voirMdp}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded text-white/40 hover:text-white/80"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded text-[#5c6070] hover:text-[#0051d5]"
                           >
                             <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{voirMdp ? 'visibility_off' : 'visibility'}</span>
                           </button>
@@ -290,7 +294,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
-                            className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-[13px] text-red-300"
+                            className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-700"
                           >
                             <span className="material-symbols-outlined text-base mt-px" aria-hidden="true">error</span>
                             <span>{erreur}</span>
@@ -302,7 +306,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
                         type="submit"
                         disabled={chargement || phase === 'succes'}
                         aria-busy={chargement}
-                        className="relative mt-2 h-11 w-full overflow-hidden rounded-lg text-[14px] font-semibold text-white shadow-[0_8px_24px_-8px_rgba(49,107,243,0.7)] transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed"
+                        className="relative mt-2 h-11 w-full overflow-hidden rounded-lg text-[14px] font-semibold text-white shadow-[0_8px_24px_-8px_rgba(49,107,243,0.7)] transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#316bf3] disabled:cursor-not-allowed"
                         style={{ background: `linear-gradient(90deg, ${ACCENT_FONCE}, ${ACCENT})` }}
                       >
                         <AnimatePresence mode="wait" initial={false}>
@@ -327,7 +331,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
                       </button>
 
                       {chargement && serveurLent && (
-                        <p role="status" className="text-center text-[12px] text-white/45">
+                        <p role="status" className="text-center text-[12px] text-[#444651]">
                           Le serveur se réveille, jusqu’à une minute…
                         </p>
                       )}
@@ -348,13 +352,13 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
                         <Coche className="h-8 w-8" />
                       </span>,
                       <h2 key="t" className="mt-5 text-[26px] font-bold tracking-tight" role="status">Bon retour !</h2>,
-                      <p key="s" className="mt-1 text-[13px] text-white/50">Connexion réussie.</p>,
+                      <p key="s" className="mt-1 text-[13px] text-[#444651]">Connexion réussie.</p>,
                       <button
                         key="b"
                         type="button"
                         autoFocus
                         onClick={() => sessionOuverte && onConnecte(sessionOuverte)}
-                        className="mt-7 h-11 rounded-lg px-8 text-[14px] font-semibold text-white hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                        className="mt-7 h-11 rounded-lg px-8 text-[14px] font-semibold text-white hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#316bf3]"
                         style={{ background: `linear-gradient(90deg, ${ACCENT_FONCE}, ${ACCENT})` }}
                       >
                         Continuer →
@@ -373,10 +377,10 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
             </div>
 
             {/* Colonne droite : radar et étapes (au-dessus, compact, sur mobile). */}
-            <div className="relative flex flex-row items-center gap-6 border-b border-white/[0.06] px-6 py-5 md:flex-col md:justify-center md:gap-10 md:border-b-0 md:border-l md:py-10" aria-hidden="true">
+            <div className="relative flex flex-row items-center gap-6 border-b border-[#dce1ff] bg-gradient-to-br from-[#eef2ff] via-[#e3eaff] to-[#d4e0ff] px-6 py-5 md:flex-col md:justify-center md:gap-10 md:border-b-0 md:border-l md:py-10" aria-hidden="true">
               <div className="relative flex h-20 w-20 shrink-0 items-center justify-center md:h-36 md:w-36">
                 {[1, 0.72, 0.44].map((s) => (
-                  <span key={s} className="absolute rounded-full border border-white/[0.06]" style={{ inset: `${((1 - s) / 2) * 100}%` }} />
+                  <span key={s} className="absolute rounded-full border border-[#316bf3]/20" style={{ inset: `${((1 - s) / 2) * 100}%` }} />
                 ))}
                 {phase === 'chargement' && !reduit &&
                   [0, 0.6, 1.2].map((d) => (
@@ -394,7 +398,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
                   animate={{ background: couleurHalo, opacity: mdpSaisi || phase !== 'repos' ? 0.45 : 0 }}
                   transition={{ duration: 0.4 }}
                 />
-                <span className="relative flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-[#0b0d14] md:h-16 md:w-16" style={{ borderColor: mdpSaisi || phase !== 'repos' ? `${couleurHalo}88` : undefined }}>
+                <span className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#c9d6ff] bg-white shadow-[0_8px_24px_-10px_rgba(0,81,213,0.45)] md:h-16 md:w-16" style={{ borderColor: mdpSaisi || phase !== 'repos' ? `${couleurHalo}88` : undefined }}>
                   <AnimatePresence mode="wait">
                     {phase === 'succes' && formulaireParti ? (
                       <motion.span key="ok" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 420, damping: 16 }} style={{ color: VERT }}>
@@ -422,7 +426,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
                   const coche = i < etapesCochees;
                   return (
                     <li key={etape} className="flex items-center gap-3 text-[12px] md:text-[13px]">
-                      <span className="relative flex h-[18px] w-[18px] items-center justify-center rounded-full border transition-colors" style={{ borderColor: coche ? ACCENT : 'rgba(255,255,255,0.18)' }}>
+                      <span className="relative flex h-[18px] w-[18px] items-center justify-center rounded-full border transition-colors" style={{ borderColor: coche ? ACCENT : 'rgba(0,81,213,0.35)' }}>
                         <AnimatePresence>
                           {coche && (
                             <motion.span key="c" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} style={{ color: ACCENT }}>
@@ -431,7 +435,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
                           )}
                         </AnimatePresence>
                       </span>
-                      <span className={`transition-colors duration-300 ${coche ? 'text-white font-medium' : 'text-white/35'}`}>{etape}</span>
+                      <span className={`transition-colors duration-300 ${coche ? 'text-[#0b1d4f] font-medium' : 'text-[#4a5170]'}`}>{etape}</span>
                     </li>
                   );
                 })}
@@ -441,7 +445,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
         </section>
       </main>
 
-      <footer className="px-4 py-3 text-center text-[11px] text-white/30 space-y-1">
+      <footer className="px-4 py-3 text-center relative text-[11px] text-[#5c6070] space-y-1">
         <p>AcademiaBlanc • Accès d’administration de la plateforme</p>
         <LiensLegaux nouvelOnglet />
       </footer>
