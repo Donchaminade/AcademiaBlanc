@@ -437,7 +437,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               >
                 <WordsRise text="La gestion scolaire et les examens blancs," delay={0.25} />
                 <br className="hidden sm:block" />
-                <span className="text-[#a9bcff]"> <WordsRise text="du candidat au procès-verbal." delay={0.65} className="landing-gradient-text" /></span>
+                <span className="text-[#a9bcff]"> <WordsRise text="du candidat au procès-verbal." delay={0.65} wordClassName="landing-gradient-text" /></span>
               </StaggerItem>
               <StaggerItem as="p" variant="rise" className="mt-5 max-w-2xl text-[16px] leading-relaxed text-white/90 sm:text-[18px]">
                 Établissements, classes du collège au lycée, matières et programmes. Candidats importés en masse,
