@@ -7,9 +7,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { animate, motion, useInView, useReducedMotion, useScroll, useSpring, useTransform, type MotionValue } from 'motion/react';
 
 /** Mots d'un texte qui montent l'un après l'autre (niveau mot, jamais lettre). */
-export const WordsRise: React.FC<{ text: string; className?: string; delay?: number; stagger?: number }> = ({ text, className, delay = 0, stagger = 0.06 }) => {
+export const WordsRise: React.FC<{ text: string; className?: string; wordClassName?: string; delay?: number; stagger?: number }> = ({ text, className, wordClassName = '', delay = 0, stagger = 0.06 }) => {
   const reduce = useReducedMotion();
-  if (reduce) return <span className={className}>{text}</span>;
+  if (reduce) return <span className={`${className ?? ''} ${wordClassName}`}>{text}</span>;
   const words = text.split(' ').filter(Boolean);
   return (
     <span className={className}>
@@ -17,7 +17,7 @@ export const WordsRise: React.FC<{ text: string; className?: string; delay?: num
         <React.Fragment key={`${w}-${i}`}>
           <span className="inline-block overflow-hidden pb-[0.08em] align-bottom">
             <motion.span
-              className="inline-block will-change-transform"
+              className={`inline-block will-change-transform ${wordClassName}`}
               initial={{ y: '105%', opacity: 0 }}
               animate={{ y: '0%', opacity: 1 }}
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: delay + i * stagger }}
