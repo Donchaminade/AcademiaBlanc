@@ -1,3 +1,4 @@
+import { PageReveal } from './components/motion/Reveal';
 import React, { Suspense, lazy, useState, useMemo, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { MobileHeader } from './components/MobileHeader';
@@ -1121,6 +1122,8 @@ export default function App() {
 
         {/* View Routing */}
         <main className="relative bg-[#faf8ff] flex-1 min-w-0">
+          {/* Apparition légère à chaque changement de vue ; jamais sur les vues imprimables (relevé, PV). */}
+          <PageRevealVue key={currentView} actif={currentView !== 'bulletin' && currentView !== 'records'}>
           {currentView === 'abonnement' && (
             <AbonnementView etat={etatAbonnement} nomEtablissement={settings.institutionName} peutDeclarer={peutDeclarerPaiement} />
           )}
@@ -1363,6 +1366,7 @@ export default function App() {
               charteModifieeLe={charteModifieeLe}
             />
           )}
+          </PageRevealVue>
         </main>
       </div>
 
@@ -1441,4 +1445,9 @@ export default function App() {
       )}
     </div>
   );
+}
+
+/** Enveloppe d'apparition de vue : désactivée (aucun wrapper animé) pour les vues imprimables. */
+function PageRevealVue({ actif, children }: { actif: boolean; children: React.ReactNode }) {
+  return actif ? <PageReveal>{children}</PageReveal> : <>{children}</>;
 }

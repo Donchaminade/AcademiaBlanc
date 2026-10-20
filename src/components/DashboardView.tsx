@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Stagger, StaggerItem } from './motion/Reveal';
 import { Candidate, Subject, CandidateComputedStats, AdminSection, MentionType } from '../types';
 import { ADMIN_STEPS } from './AdminParametres';
 import { DEMO_EXAM_LABEL } from '../utils/bulletinHeader';
@@ -233,9 +234,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       )}
 
       {/* Primary KPI Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <Stagger onLoad className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1 */}
-        <div className="bg-white p-5 rounded border border-[#eaedff] shadow-xs flex flex-col justify-between">
+        <StaggerItem className="bg-white p-5 rounded border border-[#eaedff] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] uppercase font-bold text-[#444651]">Effectif Évalué</span>
             <span className="material-symbols-outlined text-[#0051d5]">group</span>
@@ -254,10 +255,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span>Garçons: {summary.boys}</span>
             <span>Filles: {summary.girls}</span>
           </div>
-        </div>
+        </StaggerItem>
 
         {/* KPI 2 */}
-        <div className="bg-white p-5 rounded border border-[#eaedff] shadow-xs flex flex-col justify-between">
+        <StaggerItem className="bg-white p-5 rounded border border-[#eaedff] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] uppercase font-bold text-[#444651]">Taux de Réussite</span>
             <span className="material-symbols-outlined text-[#0051d5]">check_circle</span>
@@ -276,10 +277,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-emerald-700">Admis: {summary.admitted}</span>
             <span className="text-[#ba1a1a]">Ajournés: {summary.ajournes}</span>
           </div>
-        </div>
+        </StaggerItem>
 
         {/* KPI 3 */}
-        <div className="bg-white p-5 rounded border border-[#eaedff] shadow-xs flex flex-col justify-between">
+        <StaggerItem className="bg-white p-5 rounded border border-[#eaedff] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] uppercase font-bold text-[#444651]">Moyenne Promotion</span>
             <span className="material-symbols-outlined text-[#0051d5]">insights</span>
@@ -296,10 +297,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span>Médiane: {fmt(summary.median)}</span>
             <span>Écart type: {fmt(summary.stdDev)}</span>
           </div>
-        </div>
+        </StaggerItem>
 
         {/* KPI 4 */}
-        <div className="bg-white p-5 rounded border border-[#eaedff] shadow-xs flex flex-col justify-between">
+        <StaggerItem className="bg-white p-5 rounded border border-[#eaedff] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] uppercase font-bold text-[#444651]">Major de Promotion</span>
             <span className="material-symbols-outlined text-[#0051d5]">military_tech</span>
@@ -318,8 +319,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               ? `Mention ${summary.major.stats.mention ? MENTION_LABELS[summary.major.stats.mention] : '—'}${summary.major.candidate.tableNumber ? ` • Table N° ${summary.major.candidate.tableNumber}` : ''}`
               : 'En attente de notes'}
           </div>
-        </div>
-      </div>
+        </StaggerItem>
+      </Stagger>
 
       {/* Mentions Breakdown & Subject Benchmark Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">

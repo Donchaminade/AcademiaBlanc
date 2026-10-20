@@ -1431,3 +1431,11 @@
     display: block !important;
   }
 }
+
+/* Animations d'interface : jamais à l'impression (états finaux forcés). */
+@media print {
+  [data-motion] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
