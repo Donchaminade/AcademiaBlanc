@@ -297,8 +297,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
       <ScrollProgress />
       {/* Barre de navigation fixe et translucide */}
       <motion.header
-        initial={reduceMotion ? false : { opacity: 0, y: -40 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -40 }}
+        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
         className={`fixed inset-x-0 top-0 z-40 border-b border-white/10 text-white transition-[background-color,box-shadow,backdrop-filter] duration-300 ${scrolled ? 'bg-[#00133f]/85 shadow-lg backdrop-blur-xl supports-[backdrop-filter]:bg-[#00133f]/75' : 'bg-[#00133f]/70 backdrop-blur-md supports-[backdrop-filter]:bg-[#00133f]/60'}`}>
         <nav aria-label="Navigation principale" className={`mx-auto flex max-w-6xl origin-top items-center justify-between gap-4 px-4 transition-[height] duration-300 sm:px-6 ${scrolled ? 'h-14' : 'h-16'}`}>
@@ -385,8 +385,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
           <picture className="absolute inset-0" aria-hidden="true">
             <source media="(max-width: 767px)" srcSet={heroPhotoSmall} />
             <motion.img
-              initial={reduceMotion ? false : { opacity: 0, scale: 1.06 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.06 }}
+              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
               transition={{ duration: 1.2, ease: 'easeOut', delay: 0.5 }}
               src={heroPhotoLarge}
               srcSet={`${heroPhotoSmall} 960w, ${heroPhotoLarge} 1920w`}
