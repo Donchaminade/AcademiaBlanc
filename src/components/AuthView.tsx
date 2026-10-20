@@ -395,7 +395,14 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [focus, setFocus] = useState<'email' | 'motdepasse' | null>(null);
   const secousse = useAnimationControls();
   const minuterieSucces = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (minuterieSucces.current) clearTimeout(minuterieSucces.current); }, []);
+  /** Suite encore due (entrée dans l’application). Lancée au démontage si le délai visuel est interrompu. */
+  const suiteSucces = useRef<(() => void) | null>(null);
+  useEffect(() => () => {
+    if (minuterieSucces.current) clearTimeout(minuterieSucces.current);
+    const suite = suiteSucces.current;
+    suiteSucces.current = null;
+    suite?.();
+  }, []);
 
   const secouer = useCallback(() => {
     if (reduit) return;
@@ -405,7 +412,12 @@ export const AuthView: React.FC<AuthViewProps> = ({
   /** Affiche l’état « Succès ✓ » puis exécute la suite (entrée dans l’application). */
   const apresSucces = (suite: () => void) => {
     setSucces(true);
-    minuterieSucces.current = setTimeout(suite, reduit ? 150 : DELAI_SUCCES_MS);
+    suiteSucces.current = suite;
+    minuterieSucces.current = setTimeout(() => {
+      const enAttente = suiteSucces.current;
+      suiteSucces.current = null;
+      enAttente?.();
+    }, reduit ? 150 : DELAI_SUCCES_MS);
   };
 
   const [etapeInscription, setEtapeInscription] = useState<EtapeInscription>('infos');
@@ -583,7 +595,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const lienMode = (texte: string, lien: string, cible: AuthMode) => (
     <p className="text-center text-[13px] text-[#5b5e70]">
       {texte}{' '}
-      <button type="button" onClick={() => changerMode(cible)} className="font-bold text-[#0051d5] hover:underline">
+      <button type="button" onClick={() => changerMode(cible)} disabled={succes} className="font-bold text-[#0051d5] hover:underline disabled:opacity-60">
         {lien}
       </button>
     </p>
@@ -792,13 +804,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
             </span>
             <div className="flex items-center gap-1">
               {onBack && (
-                <button type="button" onClick={onBack}
-                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-semibold text-[#00236f] hover:bg-[#f2f3ff]">
+                <button type="button" onClick={onBack} disabled={succes}
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-semibold text-[#00236f] hover:bg-[#f2f3ff] disabled:opacity-60">
                   <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>Retour au site
                 </button>
               )}
               {onClose && !hideCloseButton && (
-                <button type="button" onClick={onClose} className="rounded-lg px-2 py-1.5 text-[13px] font-semibold text-[#444651] hover:bg-[#f2f3ff]">Fermer</button>
+                <button type="button" onClick={onClose} disabled={succes} className="rounded-lg px-2 py-1.5 text-[13px] font-semibold text-[#444651] hover:bg-[#f2f3ff] disabled:opacity-60">Fermer</button>
               )}
             </div>
           </div>
