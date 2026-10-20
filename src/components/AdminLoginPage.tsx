@@ -86,6 +86,12 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
   const [formulaireParti, setFormulaireParti] = useState(false);
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
   const minuteursAnim = useRef<ReturnType<typeof setTimeout>[]>([]);
+  /** Session déjà écrite dans `sessionStorage` ; sert aussi au démontage (clôture stable). */
+  const sessionPersistee = useRef<AuthSession | null>(null);
+  /** `onConnecte` a déjà lancé l’application : ne pas le refaire au démontage. */
+  const entreeFaite = useRef(false);
+  const onConnecteRef = useRef(onConnecte);
+  onConnecteRef.current = onConnecte;
   const reduit = !!useReducedMotion();
 
   useEffect(() => {
@@ -102,10 +108,29 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
     };
   }, []);
 
-  useEffect(() => () => {
-    if (minuteur.current) clearTimeout(minuteur.current);
-    minuteursAnim.current.forEach(clearTimeout);
+  useEffect(() => {
+    // Même geste que « Continuer » : le jeton est déjà en sessionStorage, l’application doit s’ouvrir.
+    const ouvrirSiSession = () => {
+      const session = sessionPersistee.current;
+      if (!session || entreeFaite.current) return;
+      entreeFaite.current = true;
+      onConnecteRef.current(session);
+    };
+    // Précédent / Suivant : avant le rendu qui montrerait la vitrine déconnectée.
+    window.addEventListener('popstate', ouvrirSiSession);
+    return () => {
+      if (minuteur.current) clearTimeout(minuteur.current);
+      minuteursAnim.current.forEach(clearTimeout);
+      window.removeEventListener('popstate', ouvrirSiSession);
+      ouvrirSiSession();
+    };
   }, []);
+
+  const ouvrirSession = (session: AuthSession) => {
+    if (entreeFaite.current) return;
+    entreeFaite.current = true;
+    onConnecteRef.current(session);
+  };
 
   const plus = (fn: () => void, ms: number) => {
     minuteursAnim.current.push(setTimeout(fn, reduit ? 0 : ms));
@@ -148,6 +173,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
         return;
       }
       setSession(session);
+      sessionPersistee.current = session;
       setSessionOuverte(session);
       setPhase('succes');
       plus(() => setFormulaireParti(true), 900);
@@ -169,6 +195,11 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
       onClick={(event) => {
         if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
+        const session = sessionPersistee.current;
+        if (session) {
+          ouvrirSession(session);
+          return;
+        }
         onBack();
       }}
       className="inline-flex items-center gap-1 text-[12px] text-white/40 underline-offset-2 hover:text-white/80 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white rounded"
@@ -353,7 +384,9 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onBack, onConnec
                         key="b"
                         type="button"
                         autoFocus
-                        onClick={() => sessionOuverte && onConnecte(sessionOuverte)}
+                        onClick={() => {
+                          if (sessionOuverte) ouvrirSession(sessionOuverte);
+                        }}
                         className="mt-7 h-11 rounded-lg px-8 text-[14px] font-semibold text-white hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                         style={{ background: `linear-gradient(90deg, ${ACCENT_FONCE}, ${ACCENT})` }}
                       >
