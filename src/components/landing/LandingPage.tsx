@@ -11,6 +11,8 @@ import heroPhotoLarge from '../../assets/landing/hero-classe-1920.jpg';
 import heroPhotoSmall from '../../assets/landing/hero-classe-960.jpg';
 import { motion, useReducedMotion } from 'motion/react';
 import { GradientOrbs, Pop, Reveal, Stagger, StaggerItem } from '../motion/Reveal';
+import { AccentBar, CountUp, Float, ScrollProgress, WordsRise, useParallax, useSectionProgress, useSpotlight } from '../motion/LandingFx';
+import { useMotionValueEvent, useScroll, useTransform } from 'motion/react';
 
 interface LandingPageProps {
   onConnexion: () => void;
@@ -163,6 +165,7 @@ const RouteLink: React.FC<{
   <a
     href={href}
     data-magnetic={magnetic ? '' : undefined}
+    data-shimmer={magnetic ? '' : undefined}
     className={className}
     onClick={(event) => {
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -175,9 +178,9 @@ const RouteLink: React.FC<{
 );
 
 const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fc922b]';
-const btnPrimary = `inline-flex items-center justify-center gap-2 rounded-lg bg-[#0051d5] px-5 py-3 text-[14px] font-bold text-white shadow-md transition-colors hover:bg-[#003cb3] ${focusRing}`;
+const btnPrimary = `relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-lg bg-[#0051d5] px-5 py-3 text-[14px] font-bold text-white shadow-md transition-colors hover:bg-[#003cb3] ${focusRing}`;
 const btnLight = `inline-flex items-center justify-center gap-2 rounded-lg border border-white/35 bg-white/10 px-5 py-3 text-[14px] font-bold text-white backdrop-blur-sm transition-colors hover:bg-white/20 ${focusRing}`;
-const btnOnDark = `inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-[14px] font-bold text-[#00236f] shadow-md transition-colors hover:bg-[#dce1ff] ${focusRing}`;
+const btnOnDark = `relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-[14px] font-bold text-[#00236f] shadow-md transition-colors hover:bg-[#dce1ff] ${focusRing}`;
 const btnGhost =
   'inline-flex items-center justify-center gap-2 rounded-lg border border-[#c5c5d3] bg-white px-5 py-3 text-[14px] font-bold text-[#00236f] transition-colors hover:border-[#0051d5] hover:bg-[#f2f3ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0051d5]';
 const lienTexte = 'rounded-sm font-semibold text-[#131b2e] transition-colors hover:text-[#0051d5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0051d5]';
@@ -194,6 +197,7 @@ const SectionHeading: React.FC<{ id: string; surtitre: string; titre: string; ch
     <h2 id={id} className="mt-2 text-[28px] font-extrabold leading-tight tracking-tight text-[#00236f] sm:text-[36px]">
       {titre}
     </h2>
+    <AccentBar />
     <p className="mt-4 text-[15px] leading-relaxed text-[#444651] sm:text-[16px]">{children}</p>
   </Reveal>
 );
@@ -212,6 +216,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const reduceMotion = useReducedMotion();
+  useSpotlight(rootRef);
+  const heroParallax = useParallax(120);
+  const heroTextParallax = useParallax(-40);
+  const { scrollY } = useScroll();
+  const [scrolled, setScrolled] = useState(false);
+  useMotionValueEvent(scrollY, 'change', (v) => setScrolled(v > 40));
+  const etapesRef = useRef<HTMLDivElement | null>(null);
+  const etapesProgress = useSectionProgress(etapesRef);
+  const [etapeAtteinte, setEtapeAtteinte] = useState(reduceMotion ? 4 : 0);
+  useMotionValueEvent(etapesProgress, 'change', (v) => setEtapeAtteinte((prev) => Math.max(prev, Math.min(4, Math.floor(v * 4 + 0.35)))));
+  const etapesLine = useTransform(etapesProgress, [0, 1], [0, 1]);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -227,7 +242,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
       gsap.utils.toArray<HTMLElement>('[data-magnetic]').forEach((button) => {
         const icon = button.querySelector<HTMLElement>('.material-symbols-outlined');
         const enter = () => {
-          gsap.to(button, { scale: 1.04, y: -1, duration: 0.25, ease: 'power2.out', overwrite: 'auto' });
+          gsap.to(button, { scale: 1.03, y: -2, duration: 0.25, ease: 'power2.out', overwrite: 'auto' });
           if (icon) gsap.to(icon, { x: 3, duration: 0.25, ease: 'power2.out', overwrite: 'auto' });
         };
         const leave = () => {
@@ -235,7 +250,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
           if (icon) gsap.to(icon, { x: 0, duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
         };
         const press = () => gsap.to(button, { scale: 0.97, duration: 0.1, ease: 'power1.out', overwrite: 'auto' });
-        const release = () => gsap.to(button, { scale: 1.04, duration: 0.2, ease: 'power2.out', overwrite: 'auto' });
+        const release = () => gsap.to(button, { scale: 1.03, duration: 0.2, ease: 'power2.out', overwrite: 'auto' });
         button.addEventListener('pointerenter', enter);
         button.addEventListener('pointerleave', leave);
         button.addEventListener('pointerdown', press);
@@ -271,7 +286,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
   const contactExterne = whatsapp !== null;
 
   return (
-    <div ref={rootRef} className="min-h-dvh overflow-x-clip bg-[#faf8ff] text-[#131b2e] antialiased">
+    <div ref={rootRef} className="landing-root min-h-dvh overflow-x-clip bg-[#faf8ff] text-[#131b2e] antialiased">
       <a
         href="#accueil"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-[13px] focus:font-bold focus:text-[#00236f] focus:shadow-lg"
@@ -279,13 +294,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
         Aller au contenu
       </a>
 
+      <ScrollProgress />
       {/* Barre de navigation fixe et translucide */}
       <motion.header
         initial={reduceMotion ? false : { opacity: 0, y: -40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#00133f]/70 text-white backdrop-blur-md supports-[backdrop-filter]:bg-[#00133f]/60">
-        <nav aria-label="Navigation principale" className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+        className={`fixed inset-x-0 top-0 z-40 border-b border-white/10 text-white transition-[background-color,box-shadow,backdrop-filter] duration-300 ${scrolled ? 'bg-[#00133f]/85 shadow-lg backdrop-blur-xl supports-[backdrop-filter]:bg-[#00133f]/75' : 'bg-[#00133f]/70 backdrop-blur-md supports-[backdrop-filter]:bg-[#00133f]/60'}`}>
+        <nav aria-label="Navigation principale" className={`mx-auto flex max-w-6xl origin-top items-center justify-between gap-4 px-4 transition-[height] duration-300 sm:px-6 ${scrolled ? 'h-14' : 'h-16'}`}>
           <a href="#accueil" className={`flex min-w-0 shrink-0 items-center gap-2.5 rounded-lg ${focusRing}`} onClick={closeMenu}>
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#00236f]">
               <span className="material-symbols-outlined text-xl">account_balance</span>
@@ -365,7 +381,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
           aria-labelledby="titre-accueil"
           className="relative isolate flex min-h-[92svh] overflow-hidden bg-[#00133f] text-white"
         >
-          <picture className="absolute inset-0 -z-20" aria-hidden="true">
+          <motion.div className="absolute inset-x-0 -top-[8%] -z-20 h-[116%] will-change-transform" style={reduceMotion ? undefined : { y: heroParallax }} aria-hidden="true">
+          <picture className="absolute inset-0" aria-hidden="true">
             <source media="(max-width: 767px)" srcSet={heroPhotoSmall} />
             <motion.img
               initial={reduceMotion ? false : { opacity: 0, scale: 1.06 }}
@@ -383,6 +400,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               className="h-full w-full object-cover object-[60%_30%] md:object-[68%_30%]"
             />
           </picture>
+          </motion.div>
           {/* Dégradés de lisibilité (contraste AA du texte blanc) : voile uniforme sur mobile où le texte couvre
               toute la largeur ; sur écran large, plus dense à gauche sous le texte, photo visible à droite. */}
           <div
@@ -395,15 +413,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
           />
 
           <GradientOrbs className="-z-10" />
+          <div className="landing-grid pointer-events-none absolute inset-0 -z-10 opacity-60 [background-image:radial-gradient(rgba(169,188,255,0.18)_1px,transparent_1px)]" aria-hidden="true" />
 
-          <div className="mx-auto flex w-full max-w-6xl flex-col justify-center px-4 pb-16 pt-28 sm:px-6 lg:pb-24 lg:pt-36">
+          <motion.div style={reduceMotion ? undefined : { y: heroTextParallax }} className="mx-auto flex w-full max-w-6xl flex-col justify-center px-4 pb-16 pt-28 sm:px-6 lg:pb-24 lg:pt-36">
             <Stagger onLoad stagger={0.1} delay={0.1} className="max-w-3xl">
               <StaggerItem
                 as="span"
                 variant="pop"
                 className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90"
               >
-                <span className="material-symbols-outlined text-sm text-[#fc922b]">flag</span>
+                <motion.span
+                  className="material-symbols-outlined text-sm text-[#fc922b]"
+                  animate={reduceMotion ? undefined : { rotate: [0, -12, 8, 0] }}
+                  transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 2.5, ease: 'easeInOut' }}
+                >flag</motion.span>
                 <span className="truncate">{bandeau}</span>
               </StaggerItem>
               <StaggerItem
@@ -412,9 +435,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                 id="titre-accueil"
                 className="mt-5 text-[34px] font-extrabold leading-[1.08] tracking-tight sm:text-[46px] lg:text-[58px]"
               >
-                La gestion scolaire et les examens blancs,
+                <WordsRise text="La gestion scolaire et les examens blancs," delay={0.25} />
                 <br className="hidden sm:block" />
-                <span className="text-[#a9bcff]"> du candidat au procès-verbal.</span>
+                <span className="text-[#a9bcff]"> <WordsRise text="du candidat au procès-verbal." delay={0.65} className="landing-gradient-text" /></span>
               </StaggerItem>
               <StaggerItem as="p" variant="rise" className="mt-5 max-w-2xl text-[16px] leading-relaxed text-white/90 sm:text-[18px]">
                 Établissements, classes du collège au lycée, matières et programmes. Candidats importés en masse,
@@ -440,19 +463,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               <StaggerItem variant="rise">
                 <dl className="mt-10 grid max-w-2xl grid-cols-3 gap-4 border-t border-white/20 pt-6">
                   {reperes.map((item, index) => (
-                    <Pop key={item.label} delay={0.6 + index * 0.1} className="flex flex-col">
-                      <dt className="order-2 text-[11px] font-medium leading-snug text-white/80 sm:text-[12px]">{item.label}</dt>
-                      <dd className="font-mono text-[22px] font-bold text-white sm:text-[26px]">{item.value}</dd>
+                    <Pop key={item.label} delay={0.6 + index * 0.1}>
+                      <Float amp={5} duration={4 + index * 0.6} delay={index * 0.5} className="flex flex-col">
+                        <dt className="order-2 text-[11px] font-medium leading-snug text-white/80 sm:text-[12px]">{item.label}</dt>
+                        <dd className="font-mono text-[22px] font-bold text-white sm:text-[26px]"><CountUp value={item.value} /></dd>
+                      </Float>
                     </Pop>
                   ))}
                 </dl>
               </StaggerItem>
             </Stagger>
-          </div>
+          </motion.div>
         </section>
 
         {/* Fonctionnalités */}
-        <section id="fonctionnalites" aria-labelledby="titre-fonctionnalites" className="scroll-mt-16 py-20 sm:py-24">
+        <section id="fonctionnalites" aria-labelledby="titre-fonctionnalites" className="relative isolate overflow-hidden scroll-mt-16 py-20 sm:py-24">
+          <GradientOrbs className="-z-10 opacity-25" />
+          <div className="landing-grid pointer-events-none absolute inset-0 -z-10 opacity-50" aria-hidden="true" />
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <SectionHeading id="titre-fonctionnalites" surtitre="Fonctionnalités" titre="Tout l’examen blanc, de la préparation aux résultats.">
               Une plateforme conçue pour le système éducatif francophone : collège, lycée, séries, coefficients,
@@ -464,6 +491,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                 item.featured ? (
                   <StaggerItem as="li"
                     key={item.title}
+                    data-spot="" data-lift=""
                     className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#00236f] via-[#1e3a8a] to-[#0051d5] p-6 text-white shadow-lg sm:col-span-2 lg:col-span-3 lg:grid lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-10 lg:p-8"
                   >
                     <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#316bf3]/40 blur-3xl" aria-hidden="true" />
@@ -474,7 +502,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                         Plusieurs établissements, une session
                       </span>
                       <div className="mt-4 flex items-start gap-3">
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
+                        <span className="landing-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
                           <span className="material-symbols-outlined text-2xl">{item.icon}</span>
                         </span>
                         <h3 className="text-[20px] font-extrabold leading-tight tracking-tight sm:text-[24px]">{item.title}</h3>
@@ -493,9 +521,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                 ) : (
                   <StaggerItem as="li"
                     key={item.title}
+                    data-spot="" data-lift=""
                     className="rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)]"
                   >
-                    <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#eaedff] text-[#0051d5]">
+                    <span className="landing-icon flex h-11 w-11 items-center justify-center rounded-lg bg-[#eaedff] text-[#0051d5]">
                       <span className="material-symbols-outlined text-2xl">{item.icon}</span>
                     </span>
                     <h3 className="mt-4 text-[17px] font-bold leading-snug text-[#00236f]">{item.title}</h3>
@@ -508,7 +537,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
         </section>
 
         {/* Documents imprimés */}
-        <section id="documents" aria-labelledby="titre-documents" className="scroll-mt-16 bg-white py-20 sm:py-24">
+        <section id="documents" aria-labelledby="titre-documents" className="relative isolate overflow-hidden scroll-mt-16 bg-white py-20 sm:py-24">
+          <GradientOrbs className="-z-10 opacity-25" />
+          <div className="landing-grid pointer-events-none absolute inset-0 -z-10 opacity-50" aria-hidden="true" />
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <SectionHeading id="titre-documents" surtitre="Documents imprimés" titre="Des documents prêts à imprimer, au format A4.">
               Relevé de notes, liste des candidats, feuille d’émargement et procès-verbal reprennent la charte de
@@ -518,7 +549,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
 
             <Stagger as="ul" className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {/* Relevé de notes */}
-              <StaggerItem as="li" className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5">
+              <StaggerItem as="li" data-spot="" data-lift="" className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5">
                 <div
                   className="min-w-0 rounded-lg border border-[#eaedff] bg-white p-4 text-[#131b2e] shadow-sm"
                   role="img"
@@ -583,7 +614,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               </StaggerItem>
 
               {/* Liste des candidats */}
-              <StaggerItem as="li" className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5">
+              <StaggerItem as="li" data-spot="" data-lift="" className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5">
                 <div
                   className="min-w-0 rounded-lg border border-[#eaedff] bg-white p-4 text-[#131b2e] shadow-sm"
                   role="img"
@@ -629,7 +660,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               </StaggerItem>
 
               {/* Procès-verbal */}
-              <StaggerItem as="li" className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5 md:col-span-2 lg:col-span-1">
+              <StaggerItem as="li" data-spot="" data-lift="" className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5 md:col-span-2 lg:col-span-1">
                 <div
                   className="min-w-0 rounded-lg border border-[#eaedff] bg-white p-4 text-[#131b2e] shadow-sm"
                   role="img"
@@ -685,31 +716,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
         </section>
 
         {/* Comment ça marche */}
-        <section id="comment-ca-marche" aria-labelledby="titre-etapes" className="scroll-mt-16 py-20 sm:py-24">
+        <section id="comment-ca-marche" aria-labelledby="titre-etapes" className="relative isolate overflow-hidden scroll-mt-16 py-20 sm:py-24">
+          <GradientOrbs className="-z-10 opacity-25" />
+          <div className="landing-grid pointer-events-none absolute inset-0 -z-10 opacity-50" aria-hidden="true" />
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <SectionHeading id="titre-etapes" surtitre="Comment ça marche" titre="Quatre étapes. De l’établissement au procès-verbal.">
               Pas de configuration compliquée. Vous avancez dans l’ordre, à votre rythme, et vous retrouvez vos
               sessions passées dans les archives.
             </SectionHeading>
 
-            <div className="relative mt-12">
+            <div ref={etapesRef} className="relative mt-12">
               <motion.div
-                initial={reduceMotion ? false : { scaleX: 0 }}
-                whileInView={{ scaleX: 1 }}
-                viewport={{ once: true, amount: 0.2 }}
-                transition={{ duration: 1.2, ease: 'easeOut' }}
-                style={{ transformOrigin: 'left center' }}
+                style={{ transformOrigin: 'left center', scaleX: reduceMotion ? 1 : etapesLine }}
                 className="absolute left-0 right-0 top-7 hidden h-px bg-gradient-to-r from-[#0051d5] via-[#90a8ff] to-[#fc922b] lg:block"
                 aria-hidden="true"
               />
               <Stagger as="ol" className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {ETAPES.map((etape, index) => (
-                  <StaggerItem as="li" key={etape.title} className="relative rounded-xl border border-[#eaedff] bg-white p-6">
+                  <StaggerItem as="li" key={etape.title} data-spot="" data-lift="" className="relative rounded-xl border border-[#eaedff] bg-white p-6">
                     <div className="flex items-center gap-3">
-                      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#00236f] text-white shadow-md">
+                      <span className="landing-icon flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#00236f] text-white shadow-md">
                         <span className="material-symbols-outlined text-2xl">{etape.icon}</span>
                       </span>
-                      <span className="font-mono text-[28px] font-bold text-[#dce1ff]">0{index + 1}</span>
+                      <motion.span
+                        className="inline-block font-mono text-[28px] font-bold text-[#dce1ff]"
+                        initial={false}
+                        animate={reduceMotion ? undefined : etapeAtteinte > index ? { scale: [1, 1.35, 1], opacity: 1 } : { scale: 0.85, opacity: 0.5 }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                      >0{index + 1}</motion.span>
                     </div>
                     <h3 className="mt-5 text-[17px] font-bold leading-snug text-[#00236f]">{etape.title}</h3>
                     <p className="mt-2 text-[14px] leading-relaxed text-[#444651]">{etape.text}</p>
@@ -721,7 +755,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
         </section>
 
         {/* Tarifs */}
-        <section id="tarifs" aria-labelledby="titre-tarifs" className="scroll-mt-16 bg-white py-20 sm:py-24">
+        <section id="tarifs" aria-labelledby="titre-tarifs" className="relative isolate overflow-hidden scroll-mt-16 bg-white py-20 sm:py-24">
+          <GradientOrbs className="-z-10 opacity-25" />
+          <div className="landing-grid pointer-events-none absolute inset-0 -z-10 opacity-50" aria-hidden="true" />
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <SectionHeading id="titre-tarifs" surtitre="Tarifs" titre={`${offre.dureeEssaiJours} jours d’essai gratuit, puis un abonnement au choix.`}>
               Un seul abonnement par établissement, toutes les fonctionnalités incluses. L’essai démarre à la création
@@ -730,13 +766,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
 
             <Stagger as="ul" className="mt-12 grid gap-6 lg:grid-cols-2">
               {/* Mensuel */}
-              <StaggerItem as="li" className="flex flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-6 sm:p-8">
+              <StaggerItem as="li" data-spot="" data-lift="" className="flex flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-6 sm:p-8">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-[20px] font-extrabold tracking-tight text-[#00236f]">Mensuel</h3>
                     <p className="mt-1 text-[13px] text-[#444651]">Facturé chaque mois, résiliable à tout moment.</p>
                   </div>
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#eaedff] text-[#0051d5]">
+                  <span className="landing-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#eaedff] text-[#0051d5]">
                     <span className="material-symbols-outlined text-2xl">calendar_month</span>
                   </span>
                 </div>
@@ -773,8 +809,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               </StaggerItem>
 
               {/* Annuel (recommandé) */}
-              <StaggerItem as="li"
-                className="relative flex flex-col overflow-hidden rounded-xl bg-gradient-to-br from-[#00236f] via-[#1e3a8a] to-[#0051d5] p-6 text-white shadow-lg sm:p-8"
+              <StaggerItem as="li" className="landing-glow relative flex">
+              <div
+                data-spot="" data-lift=""
+                className="relative flex w-full flex-col overflow-hidden rounded-xl bg-gradient-to-br from-[#00236f] via-[#1e3a8a] to-[#0051d5] p-6 text-white shadow-lg sm:p-8"
               >
                 <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#316bf3]/40 blur-3xl" aria-hidden="true" />
                 <div className="relative flex items-start justify-between gap-3">
@@ -786,7 +824,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                     <h3 className="mt-3 text-[20px] font-extrabold tracking-tight">Annuel</h3>
                     <p className="mt-1 text-[13px] text-white/85">Un seul paiement pour toute l’année scolaire.</p>
                   </div>
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
+                  <span className="landing-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
                     <span className="material-symbols-outlined text-2xl">event_available</span>
                   </span>
                 </div>
@@ -827,6 +865,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                     </a>
                   )}
                 </div>
+              </div>
               </StaggerItem>
             </Stagger>
 
@@ -857,7 +896,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
         </section>
 
         {/* Contact */}
-        <section id="contact" aria-labelledby="titre-contact" className="scroll-mt-16 py-20 sm:py-24">
+        <section id="contact" aria-labelledby="titre-contact" className="relative isolate overflow-hidden scroll-mt-16 py-20 sm:py-24">
+          <GradientOrbs className="-z-10 opacity-25" />
+          <div className="landing-grid pointer-events-none absolute inset-0 -z-10 opacity-50" aria-hidden="true" />
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <SectionHeading id="titre-contact" surtitre="Contact" titre="Une question avant de commencer ? Parlons‑en.">
               Démonstration, organisation d’un examen blanc inter-établissements, modalités de paiement : l’équipe
@@ -871,9 +912,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                     href={whatsapp}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`flex h-full flex-col rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)] ${focusRing}`}
+                    data-spot="" data-lift="" className={`flex h-full flex-col rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)] ${focusRing}`}
                   >
-                    <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#dcfce7] text-[#166534]">
+                    <span className="landing-icon flex h-11 w-11 items-center justify-center rounded-lg bg-[#dcfce7] text-[#166534]">
                       <span className="material-symbols-outlined text-2xl">chat</span>
                     </span>
                     <h3 className="mt-4 text-[17px] font-bold text-[#00236f]">WhatsApp</h3>
@@ -886,9 +927,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                 <StaggerItem as="li">
                   <a
                     href={appel}
-                    className={`flex h-full flex-col rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)] ${focusRing}`}
+                    data-spot="" data-lift="" className={`flex h-full flex-col rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)] ${focusRing}`}
                   >
-                    <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#eaedff] text-[#0051d5]">
+                    <span className="landing-icon flex h-11 w-11 items-center justify-center rounded-lg bg-[#eaedff] text-[#0051d5]">
                       <span className="material-symbols-outlined text-2xl">call</span>
                     </span>
                     <h3 className="mt-4 text-[17px] font-bold text-[#00236f]">Appel</h3>
@@ -900,9 +941,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               <StaggerItem as="li">
                 <a
                   href={`mailto:${CONTACT_EMAIL}`}
-                  className={`flex h-full flex-col rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)] ${focusRing}`}
+                  data-spot="" data-lift="" className={`flex h-full flex-col rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)] ${focusRing}`}
                 >
-                  <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#eaedff] text-[#0051d5]">
+                  <span className="landing-icon flex h-11 w-11 items-center justify-center rounded-lg bg-[#eaedff] text-[#0051d5]">
                     <span className="material-symbols-outlined text-2xl">mail</span>
                   </span>
                   <h3 className="mt-4 text-[17px] font-bold text-[#00236f]">Courriel</h3>
@@ -918,7 +959,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
         <section aria-labelledby="titre-cta" className="pb-20 sm:pb-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <Reveal
-              className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#00236f] via-[#1e3a8a] to-[#0051d5] px-6 py-12 text-white shadow-xl sm:px-12 sm:py-16"
+              className="landing-cta-move relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#00236f] via-[#1e3a8a] to-[#0051d5] px-6 py-12 text-white shadow-xl sm:px-12 sm:py-16"
             >
               <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-[#316bf3]/40 blur-3xl" aria-hidden="true" />
               <div className="absolute -bottom-12 left-1/3 h-40 w-40 rounded-full bg-[#fc922b]/25 blur-3xl" aria-hidden="true" />
