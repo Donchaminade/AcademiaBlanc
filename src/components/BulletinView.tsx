@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useLayoutEffect } from 'react';
+import { LiquidButton } from './motion/LiquidButton';
 import { Candidate, Subject, CandidateComputedStats, AppSettings } from '../types';
 import { composerEnteteBulletin } from '../utils/bulletinEntete';
 import { academicYearCaption, establishmentCaption, ministryMark } from '../utils/bulletinHeader';
@@ -147,7 +148,7 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
   };
 
   const handlePrint = () => {
-    printDocument(
+    return printDocument(
       'single-bulletin',
       `Bulletin_${selectedCandidate.tableNumber}_${selectedCandidate.fullName}`,
     );
@@ -251,16 +252,17 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
 
           {/* Imprimer le bulletin actuel */}
           {canPrint && (
-            <button
+            <LiquidButton
               type="button"
-              onClick={handlePrint}
               className={`inline-flex items-center gap-1.5 px-3 py-2 rounded bg-[#eaedff] hover:bg-[#dce1ff] text-[#131b2e] text-[12px] transition-colors shadow-xs font-medium ${CLASSE_BOUTON_VERROUILLE}`}
               {...attributsBoutonVerrouille(verrou, 'Imprimer ce bulletin individuel')}
               data-testid="bouton-imprimer-bulletin"
-            >
-              <span className="material-symbols-outlined text-base">print</span>
-              <span>Ce bulletin</span>
-            </button>
+              action={handlePrint}
+              icone="print"
+              libelle="Ce bulletin"
+              libelleChargement="Préparation…"
+              libelleSucces="Prêt"
+            />
           )}
 
           {/* Imprimer TOUS les bulletins en 1 clic */}
@@ -299,16 +301,17 @@ export const BulletinView: React.FC<BulletinViewProps> = ({
 
           {/* Download PDF */}
           {canPrint && (
-            <button
+            <LiquidButton
               type="button"
-              onClick={onDownloadPdf}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded bg-[#00236f] text-white text-[12px] hover:bg-[#1e3a8a] transition-all shadow-md active:scale-95 font-semibold ${CLASSE_BOUTON_VERROUILLE}`}
               {...attributsBoutonVerrouille(verrou, 'Télécharger le bulletin en PDF A4')}
               data-testid="bouton-telecharger-pdf"
-            >
-              <span className="material-symbols-outlined text-base">download</span>
-              <span>Télécharger PDF A4</span>
-            </button>
+              action={onDownloadPdf}
+              icone="download"
+              libelle="Télécharger PDF A4"
+              libelleChargement="Téléchargement…"
+              libelleSucces="Téléchargé"
+            />
           )}
         </div>
       </div>

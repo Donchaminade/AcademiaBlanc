@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LiquidButton } from './motion/LiquidButton';
 import { AppSettings, Candidate, CandidateComputedStats } from '../types';
 import { decisionBucket } from '../utils/bulletinMetrics';
 import { printDocument } from '../utils/printDocument';
@@ -175,16 +176,17 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
         </div>
 
         <div className="toolbar-actions flex items-center gap-2 flex-wrap w-full md:w-auto">
-          <button
+          <LiquidButton
             type="button"
-            onClick={exportCSV}
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#eaedff] text-[#00236f] text-[12px] font-semibold hover:bg-[#dce1ff] transition-colors ${CLASSE_BOUTON_VERROUILLE}`}
             {...attributsBoutonVerrouille(verrou, 'Exporter le procès-verbal en CSV')}
             data-testid="bouton-csv-pv"
-          >
-            <span className="material-symbols-outlined text-base">download</span>
-            <span>Exporter en CSV</span>
-          </button>
+            action={exportCSV}
+            icone="download"
+            libelle="Exporter en CSV"
+            libelleChargement="Téléchargement…"
+            libelleSucces="Téléchargé"
+          />
 
           {sessionInter && onOpenTransferts && (
             <button
@@ -199,16 +201,17 @@ export const RecordsView: React.FC<RecordsViewProps> = ({
             </button>
           )}
 
-          <button
+          <LiquidButton
             type="button"
-            onClick={() => printDocument('registre', `PV_${selectedSession}`)}
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded bg-[#eaedff] text-[#00236f] text-[12px] font-semibold hover:bg-[#dce1ff] transition-colors ${CLASSE_BOUTON_VERROUILLE}`}
             {...attributsBoutonVerrouille(verrou, 'Imprimer le registre / procès-verbal')}
             data-testid="bouton-imprimer-pv"
-          >
-            <span className="material-symbols-outlined text-base">print</span>
-            <span>Imprimer le Registre</span>
-          </button>
+            action={() => printDocument('registre', `PV_${selectedSession}`)}
+            icone="print"
+            libelle="Imprimer le Registre"
+            libelleChargement="Préparation…"
+            libelleSucces="Prêt"
+          />
 
           <button
             type="button"
