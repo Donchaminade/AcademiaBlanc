@@ -1496,3 +1496,10 @@
 @media print {
   .landing-grid, .landing-glow::before { display: none !important; }
 }
+
+/* Barre de défilement discrète des barres latérales, aux couleurs de la charte. */
+.sidebar-scroll { scrollbar-width: thin; scrollbar-color: #c5ceff transparent; }
+.sidebar-scroll::-webkit-scrollbar { width: 6px; }
+.sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: #c5ceff; border-radius: 9999px; }
+.sidebar-scroll::-webkit-scrollbar-thumb:hover { background: #0051d5; }

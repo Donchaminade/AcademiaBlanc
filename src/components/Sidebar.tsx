@@ -134,8 +134,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Bureau : barre fixe à partir de `lg` (masquée en dessous, remplacée par le tiroir et la barre du bas).
   // Tiroir : en flux dans le panneau mobile, défilement interne, pied de panneau au-dessus de la zone sûre iOS.
   const asideClass = drawer
-    ? 'relative h-full w-full bg-[#ffffff] flex flex-col justify-between overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]'
-    : 'hidden lg:flex fixed left-0 top-0 h-full w-80 bg-[#ffffff] z-50 flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-[#eaedff]';
+    ? 'relative h-full max-h-[100vh] supports-[height:100dvh]:max-h-dvh w-full bg-[#ffffff] flex flex-col justify-between overflow-hidden'
+    : 'hidden lg:flex fixed left-0 top-0 h-[100vh] supports-[height:100dvh]:h-dvh w-80 overflow-hidden bg-[#ffffff] z-50 flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] border-r border-[#eaedff]';
 
   const closeButton = drawer && onClose && (
     <button
@@ -263,8 +263,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   if (platformOnly) {
     return (
       <aside className={asideClass}>
-        <div className="flex flex-col">
-          <div className="px-6 pt-6 pb-5 bg-[#f2f3ff] border-b border-[#eaedff]">
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="shrink-0 px-6 pt-6 pb-5 bg-[#f2f3ff] border-b border-[#eaedff]">
             <div className="flex items-center gap-3">
               <LogoEtablissement
                 src={settings.logoUrl}
@@ -284,7 +284,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          <nav className="px-4 py-3 space-y-1" aria-label="Plateforme">
+          <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain sidebar-scroll px-4 py-3 space-y-1" aria-label="Plateforme">
             <p className="px-3.5 pt-1 pb-2 text-[11px] font-semibold text-[#444651] uppercase tracking-wider">
               Plateforme
             </p>
@@ -293,7 +293,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        <div className="p-4 bg-[#f2f3ff] space-y-3 border-t border-[#eaedff]">
+        <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shrink-0 bg-[#f2f3ff] space-y-3 border-t border-[#eaedff]">
           {accountIdentity}
           {logoutButton}
         </div>
@@ -318,9 +318,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside className={asideClass}>
-      <div className="flex flex-col">
+      <div className="flex flex-col flex-1 min-h-0">
         {/* Brand & PWA badge */}
-        <div className="px-6 pt-6 pb-4 bg-[#f2f3ff]">
+        <div className="shrink-0 px-6 pt-6 pb-4 bg-[#f2f3ff]">
           <div className="flex items-center gap-3">
             <LogoEtablissement
               src={settings.logoUrl}
@@ -356,6 +356,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </button>
         </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain sidebar-scroll" data-testid="sidebar-defilement">
 
         {/* Exam Session & Center Selectors */}
         <div className="px-6 py-4 space-y-3 bg-[#faf8ff] border-b border-[#eaedff]">
@@ -635,10 +637,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           )}
         </nav>
+        </div>
       </div>
 
       {/* Footer & Sync Status */}
-      <div className="p-4 bg-[#f2f3ff] space-y-3 border-t border-[#eaedff]">
+      <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shrink-0 bg-[#f2f3ff] space-y-3 border-t border-[#eaedff]">
         {/* Hors connexion : bandeau discret « Mode démonstration » ; connecté : rappel de la source des données */}
         <div
           className={`p-3 rounded shadow-[0_1px_8px_rgba(0,0,0,0.04)] space-y-1.5 border ${usingApi ? 'bg-white border-[#eaedff]' : 'bg-amber-50 border-amber-200'}`}
