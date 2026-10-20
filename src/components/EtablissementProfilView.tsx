@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { LiquidButton } from './motion/LiquidButton';
 import { AppSettings, SchoolAccount } from '../types';
 import { getSession, roleLabel } from '../api/client';
 import type { MeResponse } from '../api/client';
@@ -193,6 +194,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
   const [titreChoix, setTitreChoix] = useState('');
   const [titreLibre, setTitreLibre] = useState('');
   const [enregistrement, setEnregistrement] = useState(false);
+  const [echecEnregistrement, setEchecEnregistrement] = useState(false);
 
   const [mdpOuvert, setMdpOuvert] = useState(false);
   const [mdp, setMdp] = useState({ ancien: '', nouveau: '', confirmation: '' });
@@ -260,6 +262,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
 
   const enregistrer = async (e: React.FormEvent) => {
     e.preventDefault();
+    setEchecEnregistrement(false);
     setEnregistrement(true);
     try {
       const enregistree = await saveProfil(versModification(form));
@@ -268,7 +271,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
       const titre = titreSaisi();
       if (titre !== (settings.jurySignerTitle ?? '').trim()) {
         const ok = await onUpdateSettings({ ...settings, jurySignerTitle: titre });
-        if (ok === false) return;
+        if (ok === false) { setEchecEnregistrement(true); return; }
       }
       setProfil(fiche);
       setEdition(false);
@@ -276,6 +279,7 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
       onProfilChanged?.(fiche);
       toastSuccess('Informations de l’établissement enregistrées.');
     } catch (err) {
+      setEchecEnregistrement(true);
       await showError('Enregistrement impossible', messageErreur(err, 'Une erreur inattendue est survenue.'));
     } finally {
       setEnregistrement(false);
@@ -523,10 +527,9 @@ export const EtablissementProfilView: React.FC<EtablissementProfilViewProps> = (
                   <button type="button" onClick={annulerEdition} disabled={enregistrement} className={ghost}>
                     Annuler
                   </button>
-                  <button type="submit" disabled={enregistrement} className={primary}>
-                    <span className="material-symbols-outlined text-base">save</span>
-                    <span>{enregistrement ? 'Enregistrement…' : 'Enregistrer'}</span>
-                  </button>
+                  <LiquidButton type="submit" disabled={enregistrement} className={primary}
+                    enCours={enregistrement} echec={echecEnregistrement} icone="save"
+                    libelle="Enregistrer" libelleChargement="Enregistrement…" libelleSucces="Enregistré" />
                 </div>
               </form>
             ) : (

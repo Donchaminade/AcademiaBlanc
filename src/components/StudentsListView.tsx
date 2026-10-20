@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LiquidButton } from './motion/LiquidButton';
 import { Candidate, Subject, AppSettings } from '../types';
 import { printDocument } from '../utils/printDocument';
 import { subjectsFor } from '../utils/programme';
@@ -111,6 +112,7 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [echecEdit, setEchecEdit] = useState(false);
 
   // New Student Form State
   const [newStudent, setNewStudent] = useState({
@@ -241,10 +243,15 @@ export const StudentsListView: React.FC<StudentsListViewProps> = ({
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCandidate || savingEdit) return;
+    setEchecEdit(false);
     setSavingEdit(true);
     try {
       const ok = await onUpdateCandidate(editingCandidate);
       if (ok !== false) setEditingCandidate(null);
+      else setEchecEdit(true);
+    } catch (err) {
+      setEchecEdit(true);
+      throw err;
     } finally {
       setSavingEdit(false);
     }
@@ -553,41 +560,44 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
             </button>
           )}
 
-          <button
+          <LiquidButton
             type="button"
-            onClick={() => printDocument('emargement', `Emargement_${selectedSession}`)}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#eaedff] transition-colors ${CLASSE_BOUTON_VERROUILLE}`}
             {...attributsBoutonVerrouille(verrou, "Imprimer la feuille d'émargement des candidats inscrits")}
             data-testid="bouton-emargement"
-          >
-            <span className="material-symbols-outlined text-base">print</span>
-            <span className="truncate"><span className="hidden sm:inline">Feuille d'</span>Émargement</span>
-          </button>
+            action={() => printDocument('emargement', `Emargement_${selectedSession}`)}
+            icone="print"
+            libelle={<span className="truncate"><span className="hidden sm:inline">Feuille d'</span>Émargement</span>}
+            libelleChargement="Préparation…"
+            libelleSucces="Prêt"
+          />
 
-          <button
+          <LiquidButton
             type="button"
-            onClick={() => printDocument('candidats', `Liste_candidats_${selectedSession}`)}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded text-[12px] font-semibold transition-colors ${sessionInter ? 'bg-[#fff3e0] text-[#8a4b00] border border-[#ffcc80] hover:bg-[#ffe6c2]' : 'bg-[#f2f3ff] text-[#444651] hover:bg-[#eaedff]'} ${CLASSE_BOUTON_VERROUILLE}`}
             {...attributsBoutonVerrouille(verrou, sessionInter
               ? "Liste A4 des candidats du centre d'examen, par classe puis par nom, avec établissement d'origine et colonne d'émargement"
               : 'Liste A4 des candidats par classe puis par nom, avec colonne d’émargement')}
             data-testid="bouton-liste-candidats"
-          >
-            <span className="material-symbols-outlined text-base">list_alt</span>
-            <span>Liste des candidats</span>
-          </button>
+            action={() => printDocument('candidats', `Liste_candidats_${selectedSession}`)}
+            icone="list_alt"
+            libelle="Liste des candidats"
+            libelleChargement="Préparation…"
+            libelleSucces="Prêt"
+          />
 
-          <button
+          <LiquidButton
             type="button"
-            onClick={exporterListeCsv}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#f2f3ff] text-[#444651] text-[12px] font-semibold hover:bg-[#eaedff] transition-colors ${CLASSE_BOUTON_VERROUILLE}`}
             {...attributsBoutonVerrouille(verrou, 'Exporter la liste des candidats (CSV, séparateur « ; »)')}
             disabled={verrou.verrouille || candidates.length === 0}
             data-testid="bouton-csv-candidats"
-          >
-            <span className="material-symbols-outlined text-base">download</span>
-            <span>CSV</span>
-          </button>
+            action={exporterListeCsv}
+            icone="download"
+            libelle="CSV"
+            libelleChargement="Téléchargement…"
+            libelleSucces="Téléchargé"
+          />
 
           <button
             type="button"
@@ -1048,13 +1058,16 @@ MENSAH Ayélé Pierrette, F, 14/08/2006, Lycée Scientifique de Lomé, +228 90 8
               >
                 Annuler
               </button>
-              <button
+              <LiquidButton
                 type="submit"
                 disabled={savingEdit}
-                className="px-5 py-2 rounded text-[12px] bg-[#0051d5] text-white font-bold hover:bg-[#003ea8] shadow-xs disabled:opacity-60 disabled:cursor-wait"
-              >
-                {savingEdit ? 'Enregistrement…' : 'Enregistrer les Modifications'}
-              </button>
+                enCours={savingEdit}
+                echec={echecEdit}
+                className="px-5 py-2 rounded text-[12px] bg-[#0051d5] text-white font-bold hover:bg-[#003ea8] shadow-xs disabled:cursor-wait"
+                libelle="Enregistrer les Modifications"
+                libelleChargement="Enregistrement…"
+                libelleSucces="Enregistré"
+              />
             </div>
           </form>
         </div>

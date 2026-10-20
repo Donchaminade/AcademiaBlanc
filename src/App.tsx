@@ -839,8 +839,8 @@ export default function App() {
   };
 
   const handleDownloadPdf = () => {
-    if (!selectedCandidate) return;
-    printDocument(
+    if (!selectedCandidate) return false;
+    return printDocument(
       'single-bulletin',
       `Bulletin_${selectedCandidate.tableNumber}_${selectedCandidate.fullName}`,
     );
