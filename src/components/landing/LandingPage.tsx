@@ -11,7 +11,7 @@ import heroPhotoLarge from '../../assets/landing/hero-classe-1920.jpg';
 import heroPhotoSmall from '../../assets/landing/hero-classe-960.jpg';
 import { motion, useReducedMotion } from 'motion/react';
 import { GradientOrbs, Pop, Reveal, Stagger, StaggerItem } from '../motion/Reveal';
-import { AccentBar, CountUp, Float, ScrollProgress, WordsRise, useParallax, useSectionProgress, useSpotlight } from '../motion/LandingFx';
+import { AccentBar, CountUp, ScrollProgress, WordsRise, useParallax, useSectionProgress, useSpotlight } from '../motion/LandingFx';
 import { useMotionValueEvent, useScroll, useTransform } from 'motion/react';
 
 interface LandingPageProps {
@@ -461,13 +461,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                 </a>
               </StaggerItem>
               <StaggerItem variant="rise">
-                <dl className="mt-10 grid max-w-2xl grid-cols-3 gap-4 border-t border-white/20 pt-6">
+                <dl className="landing-stats mt-10 grid max-w-2xl grid-cols-3 gap-4 border-t border-white/20 pt-6">
                   {reperes.map((item, index) => (
-                    <Pop key={item.label} delay={0.6 + index * 0.1}>
-                      <Float amp={5} duration={4 + index * 0.6} delay={index * 0.5} className="flex flex-col">
-                        <dt className="order-2 text-[11px] font-medium leading-snug text-white/80 sm:text-[12px]">{item.label}</dt>
-                        <dd className="font-mono text-[22px] font-bold text-white sm:text-[26px]"><CountUp value={item.value} /></dd>
-                      </Float>
+                    <Pop key={item.label} delay={0.6 + index * 0.1} className="flex flex-col">
+                      <dt className="order-2 text-[11px] font-medium leading-snug text-white/80 sm:text-[12px]">{item.label}</dt>
+                      <dd className="font-mono text-[22px] font-bold text-white sm:text-[26px]"><CountUp value={item.value} /></dd>
                     </Pop>
                   ))}
                 </dl>

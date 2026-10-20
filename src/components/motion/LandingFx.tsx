@@ -12,17 +12,19 @@ export const WordsRise: React.FC<{ text: string; className?: string; delay?: num
   if (reduce) return <span className={className}>{text}</span>;
   const words = text.split(' ').filter(Boolean);
   return (
-    <span className={className}>
+    <span>
       {words.map((w, i) => (
         <React.Fragment key={`${w}-${i}`}>
-          <span className="inline-block overflow-hidden pb-[0.08em] align-bottom">
+          {/* 0,25 em : les descendantes d'Inter (~0,2 em) dépassent le line-height 1,08 et étaient rognées. */}
+          <span className="inline-block overflow-hidden pb-[0.25em] align-bottom">
             <motion.span
-              className="inline-block will-change-transform"
-              initial={{ y: '105%', opacity: 0 }}
+              className="inline-block"
+              initial={{ y: '140%', opacity: 0 }}
               animate={{ y: '0%', opacity: 1 }}
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: delay + i * stagger }}
             >
-              {w}
+              {/* background-clip: text ne peint pas à travers un calque transformé : le dégradé est sur le glyphe. */}
+              {className ? <span className={`inline-block ${className}`}>{w}</span> : w}
             </motion.span>
           </span>
           {i < words.length - 1 ? ' ' : ''}

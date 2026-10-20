@@ -1477,9 +1477,14 @@
     animation: landing-gradient 7s ease-in-out infinite;
   }
   @keyframes landing-gradient { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-  .landing-grid { animation: landing-grid-in 1.6s ease-out both, landing-grid-drift 24s linear infinite; }
-  @keyframes landing-grid-in { from { opacity: 0; } to { opacity: 1; } }
+  /* Fondu via filter, pour ne pas écraser opacity-50 / opacity-60 (fill forwards les figerait à 1). */
+  .landing-grid { animation: landing-grid-in 1.6s ease-out backwards, landing-grid-drift 24s linear infinite; }
+  @keyframes landing-grid-in { from { filter: opacity(0); } to { filter: opacity(1); } }
   @keyframes landing-grid-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(22px, 22px, 0); } }
+  .landing-stats > div { animation: landing-stat-float 4s ease-in-out infinite; }
+  .landing-stats > div:nth-child(2) { animation-duration: 4.6s; animation-delay: 0.5s; }
+  .landing-stats > div:nth-child(3) { animation-duration: 5.2s; animation-delay: 1s; }
+  @keyframes landing-stat-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -5px; } }
   .landing-glow { position: relative; }
   .landing-glow::before {
     content: ''; position: absolute; inset: -10px; border-radius: 1.25rem; z-index: -1; pointer-events: none;
