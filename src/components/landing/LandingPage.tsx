@@ -1,6 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ROUTE_PATHS } from '../../utils/router';
 import { usePrereglageDefaut } from '../../api/prereglages';
 import { bandeauNational } from '../../utils/prereglages';
@@ -10,8 +9,8 @@ import { useOffrePublique } from './useOffrePublique';
 // Photo : Santi Vedrí (Unsplash, https://unsplash.com/photos/O5EMzfdxedg), licence Unsplash — voir CREDITS.md.
 import heroPhotoLarge from '../../assets/landing/hero-classe-1920.jpg';
 import heroPhotoSmall from '../../assets/landing/hero-classe-960.jpg';
-
-gsap.registerPlugin(ScrollTrigger);
+import { motion, useReducedMotion } from 'motion/react';
+import { GradientOrbs, Pop, Reveal, Stagger, StaggerItem } from '../motion/Reveal';
 
 interface LandingPageProps {
   onConnexion: () => void;
@@ -190,13 +189,13 @@ const SheetTag: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 /** En-tête de section : surtitre, titre h2 et chapeau. */
 const SectionHeading: React.FC<{ id: string; surtitre: string; titre: string; children: React.ReactNode }> = ({ id, surtitre, titre, children }) => (
-  <div data-reveal className="max-w-2xl">
+  <Reveal className="max-w-2xl">
     <span className="text-[11px] font-bold uppercase tracking-widest text-[#0051d5]">{surtitre}</span>
     <h2 id={id} className="mt-2 text-[28px] font-extrabold leading-tight tracking-tight text-[#00236f] sm:text-[36px]">
       {titre}
     </h2>
     <p className="mt-4 text-[15px] leading-relaxed text-[#444651] sm:text-[16px]">{children}</p>
-  </div>
+  </Reveal>
 );
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscription }) => {
@@ -212,6 +211,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -222,49 +222,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
     // Sans préférence « moins d’animations » : entrée du hero au chargement, révélation des sections au
     // défilement, cascade des cartes et micro-interactions. Sinon, rien n’est appliqué : tout reste visible.
     mm.add('(prefers-reduced-motion: no-preference)', () => {
-      const intro = gsap.timeline({ defaults: { ease: 'power3.out' } });
-      intro
-        .from('[data-hero-photo]', { scale: 1.06, duration: 1.6, ease: 'power2.out' }, 0)
-        .from('[data-hero]', { y: 28, autoAlpha: 0, duration: 0.8, stagger: 0.12 }, 0.15);
-
-      gsap.utils.toArray<HTMLElement>('[data-reveal]').forEach((element) => {
-        gsap.from(element, {
-          y: 36,
-          autoAlpha: 0,
-          duration: 0.8,
-          ease: 'power2.out',
-          scrollTrigger: { trigger: element, start: 'top 85%', once: true },
-        });
-      });
-
-      // Grilles de cartes : apparition en cascade, déclenchée par le conteneur.
-      gsap.utils.toArray<HTMLElement>('[data-cards]').forEach((grid) => {
-        gsap.from(grid.querySelectorAll('[data-card]'), {
-          y: 32,
-          autoAlpha: 0,
-          duration: 0.7,
-          stagger: 0.08,
-          ease: 'power2.out',
-          scrollTrigger: { trigger: grid, start: 'top 82%', once: true },
-        });
-      });
-
-      gsap.from('[data-step]', {
-        y: 40,
-        autoAlpha: 0,
-        duration: 0.7,
-        stagger: 0.14,
-        ease: 'power2.out',
-        scrollTrigger: { trigger: '[data-steps]', start: 'top 78%', once: true },
-      });
-      gsap.from('[data-step-line]', {
-        scaleX: 0,
-        transformOrigin: 'left center',
-        duration: 1.2,
-        ease: 'power2.inOut',
-        scrollTrigger: { trigger: '[data-steps]', start: 'top 78%', once: true },
-      });
-
+      // Entrées et révélations : composants motion (../motion/Reveal). GSAP ne gère plus que les micro-interactions.
       const cleanups: (() => void)[] = [];
       gsap.utils.toArray<HTMLElement>('[data-magnetic]').forEach((button) => {
         const icon = button.querySelector<HTMLElement>('.material-symbols-outlined');
@@ -295,14 +253,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
       return () => cleanups.forEach((fn) => fn());
     });
 
-    // Polices et image chargées après le premier rendu : les positions de déclenchement sont recalculées.
-    const refresh = () => ScrollTrigger.refresh();
-    document.fonts?.ready.then(refresh).catch(() => undefined);
-    window.addEventListener('load', refresh);
-
     return () => {
-      window.removeEventListener('load', refresh);
-      // Supprime tous les tweens et ScrollTriggers créés dans ce contexte.
+      // Supprime tous les tweens créés dans ce contexte.
       mm.revert();
     };
   }, []);
@@ -328,7 +280,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
       </a>
 
       {/* Barre de navigation fixe et translucide */}
-      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#00133f]/70 text-white backdrop-blur-md supports-[backdrop-filter]:bg-[#00133f]/60">
+      <motion.header
+        initial={reduceMotion ? false : { opacity: 0, y: -40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#00133f]/70 text-white backdrop-blur-md supports-[backdrop-filter]:bg-[#00133f]/60">
         <nav aria-label="Navigation principale" className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <a href="#accueil" className={`flex min-w-0 shrink-0 items-center gap-2.5 rounded-lg ${focusRing}`} onClick={closeMenu}>
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#00236f]">
@@ -400,7 +356,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
             </div>
           </div>
         )}
-      </header>
+      </motion.header>
 
       <main>
         {/* Accueil : photo pleine largeur, dégradé sombre, texte blanc */}
@@ -411,8 +367,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
         >
           <picture className="absolute inset-0 -z-20" aria-hidden="true">
             <source media="(max-width: 767px)" srcSet={heroPhotoSmall} />
-            <img
-              data-hero-photo
+            <motion.img
+              initial={reduceMotion ? false : { opacity: 0, scale: 1.06 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.2, ease: 'easeOut', delay: 0.5 }}
               src={heroPhotoLarge}
               srcSet={`${heroPhotoSmall} 960w, ${heroPhotoLarge} 1920w`}
               sizes="100vw"
@@ -436,30 +394,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
             aria-hidden="true"
           />
 
+          <GradientOrbs className="-z-10" />
+
           <div className="mx-auto flex w-full max-w-6xl flex-col justify-center px-4 pb-16 pt-28 sm:px-6 lg:pb-24 lg:pt-36">
-            <div className="max-w-3xl">
-              <span
-                data-hero
+            <Stagger onLoad stagger={0.1} delay={0.1} className="max-w-3xl">
+              <StaggerItem
+                as="span"
+                variant="pop"
                 className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/90"
               >
                 <span className="material-symbols-outlined text-sm text-[#fc922b]">flag</span>
                 <span className="truncate">{bandeau}</span>
-              </span>
-              <h1
+              </StaggerItem>
+              <StaggerItem
+                as="h1"
+                variant="rise"
                 id="titre-accueil"
-                data-hero
                 className="mt-5 text-[34px] font-extrabold leading-[1.08] tracking-tight sm:text-[46px] lg:text-[58px]"
               >
                 La gestion scolaire et les examens blancs,
                 <br className="hidden sm:block" />
                 <span className="text-[#a9bcff]"> du candidat au procès-verbal.</span>
-              </h1>
-              <p data-hero className="mt-5 max-w-2xl text-[16px] leading-relaxed text-white/90 sm:text-[18px]">
+              </StaggerItem>
+              <StaggerItem as="p" variant="rise" className="mt-5 max-w-2xl text-[16px] leading-relaxed text-white/90 sm:text-[18px]">
                 Établissements, classes du collège au lycée, matières et programmes. Candidats importés en masse,
                 notes saisies en matrice, moyennes et rangs calculés. Relevés A4, liste des candidats et
                 procès-verbal prêts à imprimer, seul ou avec d’autres établissements.
-              </p>
-              <div data-hero className="mt-8 flex flex-col gap-3 sm:flex-row">
+              </StaggerItem>
+              <StaggerItem variant="rise" className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <RouteLink href={ROUTE_PATHS.inscription} onNavigate={onInscription} className={btnPrimary} magnetic>
                   <span className="material-symbols-outlined text-lg">domain_add</span>
                   <span>Créer le compte de mon établissement</span>
@@ -474,16 +436,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                   <span className="material-symbols-outlined text-lg">{contactExterne ? 'chat' : 'mail'}</span>
                   <span>Nous contacter</span>
                 </a>
-              </div>
-              <dl data-hero className="mt-10 grid max-w-2xl grid-cols-3 gap-4 border-t border-white/20 pt-6">
-                {reperes.map((item) => (
-                  <div key={item.label} className="flex flex-col">
-                    <dt className="order-2 text-[11px] font-medium leading-snug text-white/80 sm:text-[12px]">{item.label}</dt>
-                    <dd className="font-mono text-[22px] font-bold text-white sm:text-[26px]">{item.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
+              </StaggerItem>
+              <StaggerItem variant="rise">
+                <dl className="mt-10 grid max-w-2xl grid-cols-3 gap-4 border-t border-white/20 pt-6">
+                  {reperes.map((item, index) => (
+                    <Pop key={item.label} delay={0.6 + index * 0.1} className="flex flex-col">
+                      <dt className="order-2 text-[11px] font-medium leading-snug text-white/80 sm:text-[12px]">{item.label}</dt>
+                      <dd className="font-mono text-[22px] font-bold text-white sm:text-[26px]">{item.value}</dd>
+                    </Pop>
+                  ))}
+                </dl>
+              </StaggerItem>
+            </Stagger>
           </div>
         </section>
 
@@ -495,12 +459,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               mentions et décisions tels que vos jurys les pratiquent.
             </SectionHeading>
 
-            <ul data-cards className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Stagger as="ul" className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {FONCTIONNALITES.map((item) =>
                 item.featured ? (
-                  <li
+                  <StaggerItem as="li"
                     key={item.title}
-                    data-card
                     className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#00236f] via-[#1e3a8a] to-[#0051d5] p-6 text-white shadow-lg sm:col-span-2 lg:col-span-3 lg:grid lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-10 lg:p-8"
                   >
                     <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#316bf3]/40 blur-3xl" aria-hidden="true" />
@@ -526,11 +489,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                         </li>
                       ))}
                     </ul>
-                  </li>
+                  </StaggerItem>
                 ) : (
-                  <li
+                  <StaggerItem as="li"
                     key={item.title}
-                    data-card
                     className="rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)]"
                   >
                     <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#eaedff] text-[#0051d5]">
@@ -538,10 +500,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                     </span>
                     <h3 className="mt-4 text-[17px] font-bold leading-snug text-[#00236f]">{item.title}</h3>
                     <p className="mt-2 text-[14px] leading-relaxed text-[#444651]">{item.text}</p>
-                  </li>
+                  </StaggerItem>
                 ),
               )}
-            </ul>
+            </Stagger>
           </div>
         </section>
 
@@ -554,9 +516,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               inter-établissements, les relevés sont neutres, sans logo.
             </SectionHeading>
 
-            <ul data-cards className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Stagger as="ul" className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {/* Relevé de notes */}
-              <li data-card className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5">
+              <StaggerItem as="li" className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5">
                 <div
                   className="min-w-0 rounded-lg border border-[#eaedff] bg-white p-4 text-[#131b2e] shadow-sm"
                   role="img"
@@ -618,10 +580,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                   Une page par candidat : notes et coefficients, moyenne pondérée, rang, mention, décision, moyennes
                   extrêmes de la classe et visa des parents. Impression groupée de la classe ou PDF.
                 </p>
-              </li>
+              </StaggerItem>
 
               {/* Liste des candidats */}
-              <li data-card className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5">
+              <StaggerItem as="li" className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5">
                 <div
                   className="min-w-0 rounded-lg border border-[#eaedff] bg-white p-4 text-[#131b2e] shadow-sm"
                   role="img"
@@ -664,10 +626,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                   Numéros de table et matricules attribués automatiquement, feuille d’émargement par salle pour le jour
                   de l’épreuve. En inter-établissements, l’établissement d’origine de chaque candidat est indiqué.
                 </p>
-              </li>
+              </StaggerItem>
 
               {/* Procès-verbal */}
-              <li data-card className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5 md:col-span-2 lg:col-span-1">
+              <StaggerItem as="li" className="flex min-w-0 flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5 md:col-span-2 lg:col-span-1">
                 <div
                   className="min-w-0 rounded-lg border border-[#eaedff] bg-white p-4 text-[#131b2e] shadow-sm"
                   role="img"
@@ -717,8 +679,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                   La liste complète des candidats avec rang, moyenne, mention et décision : admis à partir de 10,
                   ajourné sinon. Filtres, export CSV, impression et verrouillage une fois le jury terminé.
                 </p>
-              </li>
-            </ul>
+              </StaggerItem>
+            </Stagger>
           </div>
         </section>
 
@@ -730,15 +692,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               sessions passées dans les archives.
             </SectionHeading>
 
-            <div data-steps className="relative mt-12">
-              <div
-                data-step-line
+            <div className="relative mt-12">
+              <motion.div
+                initial={reduceMotion ? false : { scaleX: 0 }}
+                whileInView={{ scaleX: 1 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 1.2, ease: 'easeOut' }}
+                style={{ transformOrigin: 'left center' }}
                 className="absolute left-0 right-0 top-7 hidden h-px bg-gradient-to-r from-[#0051d5] via-[#90a8ff] to-[#fc922b] lg:block"
                 aria-hidden="true"
               />
-              <ol className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              <Stagger as="ol" className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {ETAPES.map((etape, index) => (
-                  <li key={etape.title} data-step className="relative rounded-xl border border-[#eaedff] bg-white p-6">
+                  <StaggerItem as="li" key={etape.title} className="relative rounded-xl border border-[#eaedff] bg-white p-6">
                     <div className="flex items-center gap-3">
                       <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#00236f] text-white shadow-md">
                         <span className="material-symbols-outlined text-2xl">{etape.icon}</span>
@@ -747,9 +713,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                     </div>
                     <h3 className="mt-5 text-[17px] font-bold leading-snug text-[#00236f]">{etape.title}</h3>
                     <p className="mt-2 text-[14px] leading-relaxed text-[#444651]">{etape.text}</p>
-                  </li>
+                  </StaggerItem>
                 ))}
-              </ol>
+              </Stagger>
             </div>
           </div>
         </section>
@@ -762,9 +728,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               du compte, sans paiement ni engagement.
             </SectionHeading>
 
-            <ul data-cards className="mt-12 grid gap-6 lg:grid-cols-2">
+            <Stagger as="ul" className="mt-12 grid gap-6 lg:grid-cols-2">
               {/* Mensuel */}
-              <li data-card className="flex flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-6 sm:p-8">
+              <StaggerItem as="li" className="flex flex-col rounded-xl border border-[#eaedff] bg-[#faf8ff] p-6 sm:p-8">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-[20px] font-extrabold tracking-tight text-[#00236f]">Mensuel</h3>
@@ -804,11 +770,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                     </a>
                   )}
                 </div>
-              </li>
+              </StaggerItem>
 
               {/* Annuel (recommandé) */}
-              <li
-                data-card
+              <StaggerItem as="li"
                 className="relative flex flex-col overflow-hidden rounded-xl bg-gradient-to-br from-[#00236f] via-[#1e3a8a] to-[#0051d5] p-6 text-white shadow-lg sm:p-8"
               >
                 <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#316bf3]/40 blur-3xl" aria-hidden="true" />
@@ -862,10 +827,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                     </a>
                   )}
                 </div>
-              </li>
-            </ul>
+              </StaggerItem>
+            </Stagger>
 
-            <div data-reveal className="mt-8 grid gap-4 rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5 text-[14px] leading-relaxed text-[#444651] sm:grid-cols-3 sm:p-6">
+            <Reveal className="mt-8 grid gap-4 rounded-xl border border-[#eaedff] bg-[#faf8ff] p-5 text-[14px] leading-relaxed text-[#444651] sm:grid-cols-3 sm:p-6">
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined mt-0.5 shrink-0 text-xl text-[#0051d5]">hourglass_top</span>
                 <p>
@@ -887,7 +852,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                   AcademiaBlanc active l’abonnement de l’établissement.
                 </p>
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
 
@@ -899,9 +864,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
               AcademiaBlanc vous répond en français, aux heures ouvrées.
             </SectionHeading>
 
-            <ul data-cards className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Stagger as="ul" className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {whatsapp && (
-                <li data-card>
+                <StaggerItem as="li">
                   <a
                     href={whatsapp}
                     target="_blank"
@@ -915,10 +880,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                     <p className="mt-1 break-words font-mono text-[15px] font-bold text-[#131b2e]">{offre.telWhatsapp}</p>
                     <p className="mt-2 text-[14px] leading-relaxed text-[#444651]">Écrivez-nous, nous répondons rapidement.</p>
                   </a>
-                </li>
+                </StaggerItem>
               )}
               {appel && (
-                <li data-card>
+                <StaggerItem as="li">
                   <a
                     href={appel}
                     className={`flex h-full flex-col rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)] ${focusRing}`}
@@ -930,9 +895,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                     <p className="mt-1 break-words font-mono text-[15px] font-bold text-[#131b2e]">{offre.telAppel}</p>
                     <p className="mt-2 text-[14px] leading-relaxed text-[#444651]">Du lundi au vendredi, aux heures ouvrées.</p>
                   </a>
-                </li>
+                </StaggerItem>
               )}
-              <li data-card>
+              <StaggerItem as="li">
                 <a
                   href={`mailto:${CONTACT_EMAIL}`}
                   className={`flex h-full flex-col rounded-xl border border-[#eaedff] bg-white p-6 shadow-[0_1px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_6px_24px_rgba(0,35,111,0.08)] ${focusRing}`}
@@ -944,16 +909,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                   <p className="mt-1 break-all font-mono text-[15px] font-bold text-[#131b2e]">{CONTACT_EMAIL}</p>
                   <p className="mt-2 text-[14px] leading-relaxed text-[#444651]">Pour une demande détaillée ou un devis destiné à votre direction.</p>
                 </a>
-              </li>
-            </ul>
+              </StaggerItem>
+            </Stagger>
           </div>
         </section>
 
         {/* Appel à l’action final */}
         <section aria-labelledby="titre-cta" className="pb-20 sm:pb-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div
-              data-reveal
+            <Reveal
               className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#00236f] via-[#1e3a8a] to-[#0051d5] px-6 py-12 text-white shadow-xl sm:px-12 sm:py-16"
             >
               <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-[#316bf3]/40 blur-3xl" aria-hidden="true" />
@@ -979,7 +943,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onConnexion, onInscrip
                   </RouteLink>
                 </div>
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
       </main>
