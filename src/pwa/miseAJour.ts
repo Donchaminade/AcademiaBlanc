@@ -29,9 +29,12 @@ export function estPageEntree(chemin: string): boolean {
   return (CHEMINS_APPLICATION_SILENCIEUSE as readonly string[]).includes(normalise);
 }
 
-export function doitAppliquerSansDemander(msDepuisChargement: number, chemin = ''): boolean {
-  if (chemin && estPageEntree(chemin)) return true;
-  return msDepuisChargement >= 0 && msDepuisChargement < DELAI_APPLICATION_SILENCIEUSE_MS;
+/**
+ * Toute nouvelle version est appliquée automatiquement sur toutes les pages, landing comprise : sinon un
+ * ancien service worker continuait à servir l'ancienne landing jusqu'à validation du bandeau.
+ */
+export function doitAppliquerSansDemander(_msDepuisChargement: number, _chemin = ''): boolean {
+  return true;
 }
 
 export interface VerificateurMiseAJour {

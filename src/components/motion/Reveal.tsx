@@ -1,7 +1,7 @@
 /**
  * Animations par défaut d'AcademiaBlanc : révélations douces au défilement, cascades de cartes,
  * petits « pops » pour badges et chiffres, orbes de fond en dérive lente.
- * Respecte « prefers-reduced-motion » : tout s'affiche immédiatement, sans mouvement.
+ * Respecte « prefers-reduced-motion » : seuls les fondus doux (opacité) sont conservés, sans déplacement ni zoom.
  * À ne jamais utiliser sur les vues d'impression, les lignes de tableau ou les champs de saisie.
  */
 import React from 'react';
@@ -50,15 +50,14 @@ function plain(as: Tag | undefined, props: BaseProps) {
 /** Révélation au défilement : opacité 0→1, y 40→0, 0,5 s, easeOut, une seule fois (20 % visible). */
 export const Reveal: React.FC<BaseProps & { delay?: number; y?: number; onLoad?: boolean }> = ({ delay = 0, y = 40, onLoad, ...props }) => {
   const reduce = useReducedMotion();
-  if (reduce) return plain(props.as, props);
   const Comp = pick(props.as);
   const { as: _as, children, ...rest } = props;
-  const anim = { opacity: 1, y: 0 };
+  const anim = reduce ? { opacity: 1 } : { opacity: 1, y: 0 };
   return (
     <Comp
       {...rest}
       data-motion=""
-      initial={{ opacity: 0, y }}
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y }}
       {...(onLoad ? { animate: anim } : { whileInView: anim, viewport: VIEWPORT })}
       transition={{ duration: 0.5, ease: EASE, delay }}
     >
@@ -80,7 +79,6 @@ export const Stagger: React.FC<BaseProps & { stagger?: number; delay?: number; o
   ...props
 }) => {
   const reduce = useReducedMotion();
-  if (reduce) return plain(props.as, props);
   const Comp = pick(props.as);
   const { as: _as, children, ...rest } = props;
   return (
@@ -105,14 +103,16 @@ const itemVariants: Record<'card' | 'rise' | 'pop', Variants> = {
   pop: { hidden: { opacity: 0, scale: 0.8 }, show: { opacity: 1, scale: 1, transition: { duration: 0.35, ease: EASE } } },
 };
 
+/** Mouvement réduit : fondu seul. */
+const fadeVariants: Variants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.4, ease: EASE } } };
+
 /** Enfant d'un Stagger. */
 export const StaggerItem: React.FC<BaseProps & { variant?: 'card' | 'rise' | 'pop' }> = ({ variant = 'card', ...props }) => {
   const reduce = useReducedMotion();
-  if (reduce) return plain(props.as, props);
   const Comp = pick(props.as);
   const { as: _as, children, ...rest } = props;
   return (
-    <Comp {...rest} data-motion="" variants={itemVariants[variant]}>
+    <Comp {...rest} data-motion="" variants={reduce ? fadeVariants : itemVariants[variant]}>
       {children}
     </Comp>
   );
@@ -121,15 +121,14 @@ export const StaggerItem: React.FC<BaseProps & { variant?: 'card' | 'rise' | 'po
 /** Badge ou chiffre autonome : pop 0.8→1, 0,35 s, à l'entrée dans la vue. */
 export const Pop: React.FC<BaseProps & { delay?: number }> = ({ delay = 0, ...props }) => {
   const reduce = useReducedMotion();
-  if (reduce) return plain(props.as, props);
   const Comp = pick(props.as);
   const { as: _as, children, ...rest } = props;
   return (
     <Comp
       {...rest}
       data-motion=""
-      initial={{ opacity: 0, scale: 0.8 }}
-      whileInView={{ opacity: 1, scale: 1 }}
+      initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.8 }}
+      whileInView={reduce ? { opacity: 1 } : { opacity: 1, scale: 1 }}
       viewport={VIEWPORT}
       transition={{ duration: 0.35, ease: EASE, delay }}
     >
