@@ -1,21 +1,22 @@
 /**
  * Machine à états des boutons « remplissage liquide » (référence @code.xr, reel Dc7xjbKTa7h).
  * repos → chargement → succès | erreur → repos (après DELAI_RETOUR_REPOS_MS).
+ * Un clic depuis succès ou erreur (nouvel essai, mode contrôlé) repart en chargement.
  */
 export type EtatLiquide = 'repos' | 'chargement' | 'succes' | 'erreur';
 export type EvenementLiquide = 'cliquer' | 'resoudre' | 'rejeter' | 'reinitialiser';
 
 /** Retour automatique au repos après succès ou erreur. */
 export const DELAI_RETOUR_REPOS_MS = 2_500;
-/** Laisse le temps d'afficher l'état de chargement avant une action synchrone (impression, CSV). */
-export const DELAI_AVANT_ACTION_MS = 350;
 /** Durée minimale de chargement pour que le remplissage soit perceptible. */
 export const DUREE_MIN_CHARGEMENT_MS = 700;
 
 export function transition(etat: EtatLiquide, evenement: EvenementLiquide): EtatLiquide {
   switch (evenement) {
     case 'cliquer':
-      return etat === 'repos' ? 'chargement' : etat;
+      // Le chargement ignore un second clic. Succès et erreur acceptent un nouvel essai
+      // avant la fin du retour au repos (formulaires : `enCours` remonte tout de suite).
+      return etat === 'chargement' ? etat : 'chargement';
     case 'resoudre':
       return etat === 'chargement' ? 'succes' : etat;
     case 'rejeter':

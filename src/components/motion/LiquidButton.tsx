@@ -10,7 +10,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
-  DELAI_AVANT_ACTION_MS,
   DELAI_RETOUR_REPOS_MS,
   DUREE_MIN_CHARGEMENT_MS,
   executerAction,
@@ -69,11 +68,12 @@ export function useLiquide(opts: {
     if (!opts.action || !peutDeclencher(etatRef.current)) return;
     envoyer('cliquer');
     const t0 = performance.now();
-    await attendre(DELAI_AVANT_ACTION_MS);
-    const issue = await executerAction(opts.action);
+    // Impression (`window.print`) et CSV (`a.click`) doivent rester dans le tour du clic :
+    // un délai sort du geste utilisateur (Safari / iOS) et peut viser une modale déjà fermée.
+    const issue = executerAction(opts.action);
     const reste = DUREE_MIN_CHARGEMENT_MS - (performance.now() - t0);
     if (reste > 0) await attendre(reste);
-    envoyer(issue);
+    envoyer(await issue);
   }, [opts.action, envoyer]);
 
   const niveau = niveauRemplissage(etat, opts.progression ?? simulee);

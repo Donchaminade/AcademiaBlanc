@@ -15,14 +15,24 @@ describe('bouton liquide : machine à états', () => {
     assert.equal(e, 'erreur');
     assert.equal(transition(e, 'reinitialiser'), 'repos');
   });
-  it('ignore les clics et événements hors séquence', () => {
+  it('ignore les événements hors séquence', () => {
     assert.equal(transition('chargement', 'cliquer'), 'chargement');
-    assert.equal(transition('succes', 'cliquer'), 'succes');
     assert.equal(transition('repos', 'resoudre'), 'repos');
     assert.equal(transition('repos', 'rejeter'), 'repos');
+    assert.equal(transition('erreur', 'resoudre'), 'erreur');
+    assert.equal(transition('succes', 'rejeter'), 'succes');
     assert.equal(transition('chargement', 'reinitialiser'), 'chargement');
     assert.equal(peutDeclencher('repos'), true);
     assert.equal(peutDeclencher('chargement'), false);
+    assert.equal(peutDeclencher('erreur'), false);
+  });
+  it('relance le chargement depuis succès ou erreur (nouvel essai)', () => {
+    assert.equal(transition('erreur', 'cliquer'), 'chargement');
+    assert.equal(transition(transition('erreur', 'cliquer'), 'resoudre'), 'succes');
+    assert.equal(transition('succes', 'cliquer'), 'chargement');
+    assert.equal(transition(transition('succes', 'cliquer'), 'rejeter'), 'erreur');
+    // Le retour au repos programmé n'efface pas un chargement déjà relancé.
+    assert.equal(transition(transition('erreur', 'cliquer'), 'reinitialiser'), 'chargement');
   });
   it('simule une progression croissante plafonnée à 90 %', () => {
     assert.equal(progressionSimulee(0), 0);
