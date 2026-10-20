@@ -21,7 +21,7 @@ interface LandingPageProps {
 
 /** Adresse de contact affichée quand la plateforme ne publie pas de numéro (surchargeable par VITE_CONTACT_EMAIL). */
 const CONTACT_EMAIL: string =
-  (typeof import.meta.env?.VITE_CONTACT_EMAIL === 'string' && import.meta.env.VITE_CONTACT_EMAIL) || 'contact@academiablanc.app';
+  (typeof import.meta.env?.VITE_CONTACT_EMAIL === 'string' && import.meta.env.VITE_CONTACT_EMAIL) || 'chaminade.d.adjolou@gmail.com';
 
 const MESSAGE_WHATSAPP = 'Bonjour, je souhaite des informations sur AcademiaBlanc pour mon établissement.';
 

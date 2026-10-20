@@ -14,9 +14,9 @@ export const PLATEFORME_CONTACT = {
   /** Adresse postale de l'éditeur. PLACEHOLDER à remplacer. */
   adresse: 'Adresse postale à compléter, Lomé, Togo',
   /** Email de contact général et d'exercice des droits. */
-  email: 'contact@academiablanc.app',
+  email: 'chaminade.d.adjolou@gmail.com',
   /** Email du référent protection des données (par défaut, le contact général). */
-  emailDonnees: 'contact@academiablanc.app',
+  emailDonnees: 'chaminade.d.adjolou@gmail.com',
   /** Ville dont les tribunaux sont compétents à défaut de médiation aboutie. */
   juridiction: 'Lomé (République togolaise)',
   /** Pays du droit applicable. */
