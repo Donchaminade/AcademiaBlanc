@@ -1439,3 +1439,60 @@
     transform: none !important;
   }
 }
+
+/* ── Animations de la page d'accueil (landing) : transform / opacité, désactivées si moins d'animations ── */
+.landing-root [data-spot] { position: relative; isolation: isolate; }
+.landing-root [data-spot]::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0;
+  background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%), rgba(49, 107, 243, 0.14), transparent 60%);
+  transition: opacity 0.3s ease; z-index: 0;
+}
+.landing-grid {
+  background-image: radial-gradient(rgba(0, 81, 213, 0.13) 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.landing-root) { scroll-behavior: smooth; }
+  @media (hover: hover) and (pointer: fine) {
+    .landing-root [data-spot]:hover::after { opacity: 1; }
+  }
+  .landing-root [data-lift] { transition: transform 0.35s cubic-bezier(.22,1,.36,1), box-shadow 0.35s ease; }
+  @media (hover: hover) {
+    .landing-root [data-lift]:hover { transform: translateY(-6px); box-shadow: 0 18px 40px -12px rgba(0, 35, 111, 0.28); }
+    .landing-root [data-lift]:hover .landing-icon { transform: rotate(-8deg) scale(1.12); }
+  }
+  .landing-root .landing-icon { transition: transform 0.4s cubic-bezier(.34,1.56,.64,1); }
+  .landing-root [data-shimmer] { position: relative; overflow: hidden; }
+  .landing-root [data-shimmer]::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 45%; height: 100%; pointer-events: none;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    transform: translateX(-160%) skewX(-18deg); animation: landing-shimmer 3.6s ease-in-out infinite 1.5s;
+  }
+  @keyframes landing-shimmer { 0%, 55% { transform: translateX(-160%) skewX(-18deg); } 100% { transform: translateX(360%) skewX(-18deg); } }
+  .landing-gradient-text {
+    background: linear-gradient(90deg, #a9bcff, #dce1ff, #fcbf7c, #a9bcff); background-size: 300% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: landing-gradient 7s ease-in-out infinite;
+  }
+  @keyframes landing-gradient { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  .landing-grid { animation: landing-grid-in 1.6s ease-out both, landing-grid-drift 24s linear infinite; }
+  @keyframes landing-grid-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes landing-grid-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(22px, 22px, 0); } }
+  .landing-glow { position: relative; }
+  .landing-glow::before {
+    content: ''; position: absolute; inset: -10px; border-radius: 1.25rem; z-index: -1; pointer-events: none;
+    background: radial-gradient(closest-side, rgba(49, 107, 243, 0.55), transparent); filter: blur(18px);
+    animation: landing-pulse 3.2s ease-in-out infinite;
+  }
+  @keyframes landing-pulse { 0%, 100% { opacity: 0.35; transform: scale(0.97); } 50% { opacity: 0.85; transform: scale(1.02); } }
+  .landing-cta-move { background-size: 220% 220%; animation: landing-cta 10s ease-in-out infinite; }
+  @keyframes landing-cta { 0%, 100% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-gradient-text { color: #a9bcff; }
+}
+@media print {
+  .landing-grid, .landing-glow::before { display: none !important; }
+}
